@@ -10,6 +10,10 @@ Haiku is an open-source operating system that specifically targets personal
 computing. Inspired by the BeOS, Haiku is fast, simple to use, easy to learn
 and yet very powerful.
 
+Loa
+
+Loa is a type of spanish poesy, and in this case will be a Distribution with aestethic changes
+
 Goals
 ------------
  * Sensible defaults with minimal configuration required.
