@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2015, Haiku, Inc. All Rights Reserved.
+ * Copyright 2006-2018, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -49,6 +49,8 @@
 #include "Services.h"
 
 extern "C" {
+#	include <freebsd_network/compat/sys/cdefs.h>
+#	include <freebsd_network/compat/sys/ioccom.h>
 #	include <net80211/ieee80211_ioctl.h>
 }
 
@@ -82,8 +84,10 @@ private:
 			AutoconfigLooper*	_LooperForDevice(const char* device);
 			status_t			_ConfigureDevice(const char* path);
 			void				_ConfigureDevices(const char* path,
+									BStringList& devicesAlreadyConfigured,
 									BMessage* suggestedInterface = NULL);
 			void				_ConfigureInterfacesFromSettings(
+									BStringList& devicesSet,
 									BMessage* _missingDevice = NULL);
 			void				_ConfigureIPv6LinkLocal(const char* name);
 
@@ -195,7 +199,8 @@ NetServer::MessageReceived(BMessage* message)
 
 		case BNetworkSettings::kMsgInterfaceSettingsUpdated:
 		{
-			_ConfigureInterfacesFromSettings();
+			BStringList devicesSet;
+			_ConfigureInterfacesFromSettings(devicesSet);
 			break;
 		}
 
@@ -593,30 +598,73 @@ NetServer::_ConfigureInterface(BMessage& message)
 status_t
 NetServer::_ConfigureResolver(BMessage& resolverConfiguration)
 {
-	// TODO: resolv.conf should be parsed, all information should be
-	// maintained and it should be distinguished between user entered
-	// and auto-generated parts of the file, with this method only re-writing
-	// the auto-generated parts of course.
+	// Store resolver settings in resolv.conf file, while maintaining any
+	// user specified settings already present.
 
 	BPath path;
 	if (find_directory(B_SYSTEM_SETTINGS_DIRECTORY, &path) != B_OK
 		|| path.Append("network/resolv.conf") != B_OK)
 		return B_ERROR;
 
-	FILE* file = fopen(path.Path(), "w");
-	if (file != NULL) {
-		const char* nameserver;
-		for (int32 i = 0; resolverConfiguration.FindString("nameserver", i,
-				&nameserver) == B_OK; i++) {
-			fprintf(file, "nameserver %s\n", nameserver);
+	FILE* file = fopen(path.Path(), "r+");
+	// open existing resolv.conf if possible
+	if (file == NULL) {
+		// no existing resolv.conf, create a new one
+		file = fopen(path.Path(), "w");
+		if (file == NULL) {
+			fprintf(stderr, "Could not open resolv.conf: %s\n",
+				strerror(errno));
+			return errno;
+		}
+	} else {
+		// An existing resolv.conf was found, parse it for user settings
+		const char* staticDNS = "# Static DNS Only";
+		size_t sizeStaticDNS = strlen(staticDNS);
+		const char* dynamicDNS = "# Dynamic DNS entries";
+		size_t sizeDynamicDNS = strlen(dynamicDNS);
+		char resolveConfBuffer[80];
+		size_t sizeResolveConfBuffer = sizeof(resolveConfBuffer);
+
+		while (fgets(resolveConfBuffer, sizeResolveConfBuffer, file)) {
+			if (strncmp(resolveConfBuffer, staticDNS, sizeStaticDNS) == 0) {
+				// If DNS is set to static only, don't modify
+				fclose(file);
+				return B_OK;
+			} else if (strncmp(resolveConfBuffer, dynamicDNS, sizeDynamicDNS)
+					== 0) {
+				// Overwrite existing dynamic entries
+				break;
+			}
 		}
 
-		const char* domain;
-		if (resolverConfiguration.FindString("domain", &domain) == B_OK)
-			fprintf(file, "domain %s\n", domain);
-
-		fclose(file);
+		if (feof(file) != 0) {
+			// No static entries found, close and re-open as new file
+			fclose(file);
+			file = fopen(path.Path(), "w");
+			if (file == NULL) {
+				fprintf(stderr, "Could not open resolv.conf: %s\n",
+					strerror(errno));
+				return errno;
+			}
+		}
 	}
+
+	fprintf(file, "# Added automatically by DHCP\n");
+
+	const char* nameserver;
+	for (int32 i = 0; resolverConfiguration.FindString("nameserver", i,
+			&nameserver) == B_OK; i++) {
+		fprintf(file, "nameserver %s\n", nameserver);
+	}
+
+	const char* domain;
+	if (resolverConfiguration.FindString("domain", &domain) == B_OK)
+		fprintf(file, "domain %s\n", domain);
+
+	fprintf(file, "# End of automatic DHCP additions\n");
+
+	fclose(file);
+
 	return B_OK;
 }
 
@@ -663,9 +711,17 @@ NetServer::_ConfigureDevice(const char* device)
 }
 
 
+/*! \brief Traverses the device tree starting from \a startPath, and configures
+		everything that has not yet been configured via settings before.
+
+	\param suggestedInterface Contains the configuration of an interface that
+		does not have any hardware left. It is used to configure the first
+		unconfigured device. This allows to move a Haiku configuration around
+		without losing the network configuration.
+*/
 void
 NetServer::_ConfigureDevices(const char* startPath,
-	BMessage* suggestedInterface)
+	BStringList& devicesAlreadyConfigured, BMessage* suggestedInterface)
 {
 	BDirectory directory(startPath);
 	BEntry entry;
@@ -680,20 +736,22 @@ NetServer::_ConfigureDevices(const char* startPath,
 
 		if (S_ISBLK(stat.st_mode) || S_ISCHR(stat.st_mode)) {
 			if (suggestedInterface != NULL
-				&& suggestedInterface->RemoveName("device") == B_OK
-				&& suggestedInterface->AddString("device", path.Path()) == B_OK
+				&& suggestedInterface->SetString("device", path.Path()) == B_OK
 				&& _ConfigureInterface(*suggestedInterface) == B_OK)
 				suggestedInterface = NULL;
-			else
+			else if (!devicesAlreadyConfigured.HasString(path.Path()))
 				_ConfigureDevice(path.Path());
-		} else if (entry.IsDirectory())
-			_ConfigureDevices(path.Path(), suggestedInterface);
+		} else if (entry.IsDirectory()) {
+			_ConfigureDevices(path.Path(), devicesAlreadyConfigured,
+				suggestedInterface);
+		}
 	}
 }
 
 
 void
-NetServer::_ConfigureInterfacesFromSettings(BMessage* _missingDevice)
+NetServer::_ConfigureInterfacesFromSettings(BStringList& devicesSet,
+	BMessage* _missingDevice)
 {
 	BMessage interface;
 	uint32 cookie = 0;
@@ -722,7 +780,8 @@ NetServer::_ConfigureInterfacesFromSettings(BMessage* _missingDevice)
 			}
 		}
 
-		_ConfigureInterface(interface);
+		if (_ConfigureInterface(interface) == B_OK)
+			devicesSet.Add(device);
 	}
 }
 
@@ -740,12 +799,14 @@ NetServer::_BringUpInterfaces()
 
 	_RemoveInvalidInterfaces();
 
-	// First, we look into the settings, and try to bring everything up from there
+	// First, we look into the settings, and try to bring everything up from
+	// there
 
+	BStringList devicesAlreadyConfigured;
 	BMessage missingDevice;
-	_ConfigureInterfacesFromSettings(&missingDevice);
+	_ConfigureInterfacesFromSettings(devicesAlreadyConfigured, &missingDevice);
 
-	// check configuration
+	// Check configuration
 
 	if (!_TestForInterface("loop")) {
 		// there is no loopback interface, create one
@@ -769,11 +830,9 @@ NetServer::_BringUpInterfaces()
 	// TODO: also check if the networking driver is correctly initialized!
 	//	(and check for other devices to take over its configuration)
 
-	if (!_TestForInterface("/dev/net/")) {
-		// there is no driver configured - see if there is one and try to use it
-		_ConfigureDevices("/dev/net",
-			missingDevice.HasString("device") ? &missingDevice : NULL);
-	}
+	// There is no driver configured - see if there is one and try to use it
+	_ConfigureDevices("/dev/net", devicesAlreadyConfigured,
+		missingDevice.HasString("device") ? &missingDevice : NULL);
 }
 
 
@@ -992,7 +1051,7 @@ NetServer::_JoinNetwork(const BMessage& message, const BNetworkAddress* address,
 		&& device.GetNetwork(name, network) != B_OK) {
 		// We did not find a network - just ignore that, and continue
 		// with some defaults
-		strlcpy(network.name, name, sizeof(network.name));
+		strlcpy(network.name, name != NULL ? name : "", sizeof(network.name));
 		network.address = *address;
 		network.authentication_mode = B_NETWORK_AUTHENTICATION_NONE;
 		network.cipher = 0;

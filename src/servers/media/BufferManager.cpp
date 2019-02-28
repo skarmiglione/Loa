@@ -9,7 +9,7 @@
 
 #include <Autolock.h>
 
-#include "debug.h"
+#include "MediaDebug.h"
 #include "SharedBufferList.h"
 
 
@@ -70,7 +70,8 @@ BufferManager::RegisterBuffer(team_id team, size_t size, int32 flags,
 	size_t offset, area_id area, media_buffer_id* _bufferID)
 {
 	BAutolock lock(fLocker);
-	TRACE("RegisterBuffer team = %ld, area = %ld, offset = %ld, size = %ld\n",
+	TRACE("RegisterBuffer team = %" B_PRId32 ", area = %"
+		B_PRId32 ", offset = %" B_PRIuSIZE ", size = %" B_PRIuSIZE "\n",
 		team, area, offset, size);
 
 	area_id clonedArea = _CloneArea(area);
@@ -98,7 +99,7 @@ BufferManager::RegisterBuffer(team_id team, size_t size, int32 flags,
 		return B_NO_MEMORY;
 	}
 
-	TRACE("RegisterBuffer: done, bufferID = %ld\n", info.id);
+	TRACE("RegisterBuffer: done, bufferID = %" B_PRId32 "\n", info.id);
 
 	*_bufferID = info.id;
 	return B_OK;
@@ -158,7 +159,7 @@ BufferManager::CleanupTeam(team_id team)
 			PRINT(1, "BufferManager::CleanupTeam: removing buffer id %"
 				B_PRId32 " that has no teams\n", entry.key.GetHashCode());
 			_ReleaseClonedArea(entry.value.area);
-			iterator.Remove();
+			fBufferInfoMap.Remove(iterator);
 		}
 	}
 }
@@ -174,7 +175,7 @@ BufferManager::Dump()
 
 	BufferInfoMap::Iterator iterator = fBufferInfoMap.GetIterator();
 	while (iterator.HasNext()) {
-		buffer_info& info = *iterator.NextValue();
+		buffer_info info = iterator.Next().value;
 		printf(" buffer-id %" B_PRId32 ", area-id %" B_PRId32 ", offset %ld, "
 			"size %ld, flags %#08" B_PRIx32 "\n", info.id, info.area,
 			info.offset, info.size, info.flags);

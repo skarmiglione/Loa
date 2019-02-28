@@ -72,6 +72,7 @@ rule HaikuImageGetSystemLibs
 			libalm.so
 			libbe.so libbsd.so libbnetapi.so
 			libbluetooth.so
+			libcodec.so
 			libdebug.so
 			libdebugger.so@primary
 			libdevice.so
@@ -187,6 +188,7 @@ SYSTEM_ADD_ONS_SCREENSAVERS += [ FFilterByBuildFeatures
 	Leaves
 	Message
 	Nebula
+	Shelf
 	Spider
 ] ;
 
@@ -224,6 +226,19 @@ SYSTEM_ADD_ONS_DRIVERS_MIDI +=
 	usb_midi
 ;
 
+SYSTEM_ADD_ONS_DRIVERS_NET += [ FFilterByBuildFeatures
+	# WLAN drivers
+	x86,x86_64 @{
+		aironetwifi atheroswifi
+		broadcom43xx
+		iprowifi2100 iprowifi2200 iprowifi3945 iprowifi4965
+		idualwifi7260
+		marvell88w8363 marvell88w8335
+		ralinkwifi realtekwifi
+		wavelanwifi
+	}@ # x86,x86_64
+] ;
+
 SYSTEM_ADD_ONS_DRIVERS_POWER += [ FFilterByBuildFeatures
 	acpi_battery@x86,x86_64
 ] ;
@@ -260,17 +275,3 @@ AddDirectoryToHaikuImage home config settings printers Preview
 	: home-config-settings-printers-preview.rdef ;
 AddDirectoryToHaikuImage home config settings printers "Save as PDF"
 	: home-config-settings-printers-save-as-pdf.rdef ;
-
-# repository config and cache files
-local repository ;
-for repository in $(HAIKU_REPOSITORIES) {
-	local config = [ on $(repository) return $(HAIKU_REPOSITORY_CONFIG_FILE) ] ;
-	local cache = [ on $(repository) return $(HAIKU_REPOSITORY_CACHE_FILE) ] ;
-	if $(HAIKU_UPDATE_ALL_PACKAGES) {
-		HAIKU_INCLUDE_IN_IMAGE on $(config) $(cache) = 1 ;
-	}
-	AddFilesToHaikuImage system settings package-repositories
-		: $(config) : $(repository:G=) ;
-	AddFilesToHaikuImage system cache package-repositories
-		: $(cache) : $(repository:G=) ;
-}

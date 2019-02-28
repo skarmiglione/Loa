@@ -19,12 +19,8 @@
 #include "Keymap.h"
 
 
-#ifdef HAIKU_HOST_PLATFORM_SUNOS
-static const char *sProgramName = "keymap";
-#else
 extern char *__progname;
 static const char *sProgramName = __progname;
-#endif
 
 
 static void
@@ -155,7 +151,7 @@ main(int argc, char** argv)
 	if (argc > optind && input == NULL)
 		input = argv[optind];
 
-	BApplication app("application/x-vnd.Haiku-keymap-cli");
+	BApplication* app = new BApplication("application/x-vnd.Haiku-keymap-cli");
 	Keymap keymap;
 
 	switch (mode) {

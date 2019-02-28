@@ -7,6 +7,7 @@
 //!	file system interface to Haiku's vnode layer
 
 
+#include "CheckVisitor.h"
 #include "Debug.h"
 #include "Volume.h"
 #include "Inode.h"
@@ -25,6 +26,14 @@
 
 
 #define BFS_IO_SIZE	65536
+
+#if defined(BFS_LITTLE_ENDIAN_ONLY)
+#define BFS_ENDIAN_SUFFIX ""
+#define BFS_ENDIAN_PRETTY_SUFFIX ""
+#else
+#define BFS_ENDIAN_SUFFIX "_big"
+#define BFS_ENDIAN_PRETTY_SUFFIX " (Big Endian)"
+#endif
 
 
 struct identify_cookie {
@@ -664,12 +673,18 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 		case BFS_IOCTL_START_CHECKING:
 		{
 			// start checking
-			BlockAllocator& allocator = volume->Allocator();
-			check_control control;
-			if (user_memcpy(&control, buffer, sizeof(check_control)) != B_OK)
-				return B_BAD_ADDRESS;
+			status_t status = volume->CreateCheckVisitor();
+			if (status != B_OK)
+				return status;
 
-			status_t status = allocator.StartChecking(&control);
+			CheckVisitor* checker = volume->CheckVisitor();
+
+			if (user_memcpy(&checker->Control(), buffer,
+					sizeof(check_control)) != B_OK) {
+				return B_BAD_ADDRESS;
+			}
+
+			status = checker->StartBitmapPass();
 			if (status == B_OK) {
 				file_cookie* cookie = (file_cookie*)_cookie;
 				cookie->open_mode |= BFS_OPEN_MODE_CHECKING;
@@ -680,28 +695,51 @@ bfs_ioctl(fs_volume* _volume, fs_vnode* _node, void* _cookie, uint32 cmd,
 		case BFS_IOCTL_STOP_CHECKING:
 		{
 			// stop checking
-			BlockAllocator& allocator = volume->Allocator();
-			check_control control;
+			CheckVisitor* checker = volume->CheckVisitor();
+			if (checker == NULL)
+				return B_NO_INIT;
 
-			status_t status = allocator.StopChecking(&control);
+			status_t status = checker->StopChecking();
+
 			if (status == B_OK) {
 				file_cookie* cookie = (file_cookie*)_cookie;
 				cookie->open_mode &= ~BFS_OPEN_MODE_CHECKING;
+
+				status = user_memcpy(buffer, &checker->Control(),
+					sizeof(check_control));
 			}
-			if (status == B_OK)
-				status = user_memcpy(buffer, &control, sizeof(check_control));
+
+			volume->DeleteCheckVisitor();
+			volume->SetCheckingThread(-1);
 
 			return status;
 		}
 		case BFS_IOCTL_CHECK_NEXT_NODE:
 		{
 			// check next
-			BlockAllocator& allocator = volume->Allocator();
-			check_control control;
+			CheckVisitor* checker = volume->CheckVisitor();
+			if (checker == NULL)
+				return B_NO_INIT;
 
-			status_t status = allocator.CheckNextNode(&control);
-			if (status == B_OK)
-				status = user_memcpy(buffer, &control, sizeof(check_control));
+			volume->SetCheckingThread(find_thread(NULL));
+
+			checker->Control().errors = 0;
+
+			status_t status = checker->Next();
+			if (status == B_ENTRY_NOT_FOUND) {
+				checker->Control().status = B_ENTRY_NOT_FOUND;
+					// tells StopChecking() that we finished the pass
+
+				if (checker->Pass() == BFS_CHECK_PASS_BITMAP) {
+					if (checker->WriteBackCheckBitmap() == B_OK)
+						status = checker->StartIndexPass();
+				}
+			}
+			
+			if (status == B_OK) {
+				status = user_memcpy(buffer, &checker->Control(),
+					sizeof(check_control));
+			}
 
 			return status;
 		}
@@ -1500,7 +1538,8 @@ bfs_free_cookie(fs_volume* _volume, fs_vnode* _node, void* _cookie)
 	if ((cookie->open_mode & BFS_OPEN_MODE_CHECKING) != 0) {
 		// "chkbfs" exited abnormally, so we have to stop it here...
 		FATAL(("check process was aborted!\n"));
-		volume->Allocator().StopChecking(NULL);
+		volume->CheckVisitor()->StopChecking();
+		volume->DeleteCheckVisitor();
 	}
 
 	if ((cookie->open_mode & O_NOCACHE) != 0 && inode->FileCache() != NULL)
@@ -2500,13 +2539,13 @@ fs_vnode_ops gBFSVnodeOps = {
 
 static file_system_module_info sBeFileSystem = {
 	{
-		"file_systems/bfs" B_CURRENT_FS_API_VERSION,
+		"file_systems/bfs" BFS_ENDIAN_SUFFIX B_CURRENT_FS_API_VERSION,
 		0,
 		bfs_std_ops,
 	},
 
-	"bfs",						// short_name
-	"Be File System",			// pretty_name
+	"bfs" BFS_ENDIAN_SUFFIX,						// short_name
+	"Be File System" BFS_ENDIAN_PRETTY_SUFFIX,		// pretty_name
 
 	// DDM flags
 	0

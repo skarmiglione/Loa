@@ -9,7 +9,7 @@ boot loader, kernel, the system libraries, servers, and applications."
 packager		"The Haiku build system"
 vendor			"Haiku Project"
 
-copyrights		"2001-2018 Haiku, Inc. et al"
+copyrights		"2001-2019 Haiku, Inc. et al"
 licenses {
 	MIT
 	"GNU LGPL v2.1"
@@ -116,9 +116,7 @@ requires {
 	lib:libavcodec >= 58
 	lib:libavfilter >= 7
 	lib:libavformat >= 58
-	lib:libavresample >= 4
 	lib:libavutil >= 56
-	lib:libswscale >= 5
 	lib:libswresample >= 3
 #endif
 #ifdef HAIKU_BUILD_FEATURE_X86_64_ZSTD_ENABLED

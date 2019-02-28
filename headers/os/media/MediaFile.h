@@ -13,12 +13,13 @@
 #include <StorageDefs.h>
 
 
+namespace BCodecKit {
+	class BMediaExtractor;
+	class BMediaStreamer;
+	class BMediaWriter;
+}
+
 namespace BPrivate {
-	namespace media {
-		class MediaExtractor;
-		class MediaStreamer;
-		class MediaWriter;
-	}
 	class _AddonManager;
 }
 
@@ -162,18 +163,18 @@ private:
 			status_t			ControlFile(int32 selector, void* ioData,
 									size_t size);
 
-			BPrivate::media::MediaExtractor* fExtractor;
+			BCodecKit::BMediaExtractor* fExtractor;
 			int32				_reserved_BMediaFile_was_fExtractorID;
 			int32				fTrackNum;
 			status_t			fErr;
 
 			BPrivate::_AddonManager* fEncoderMgr;
 			BPrivate::_AddonManager* fWriterMgr;
-			BPrivate::media::MediaWriter* fWriter;
+			BCodecKit::BMediaWriter* fWriter;
 			int32				fWriterID;
 			media_file_format	fMFI;
 
-			BPrivate::media::MediaStreamer* fStreamer;
+			BCodecKit::BMediaStreamer* fStreamer;
 
 			bool				fFileClosed;
 			bool				fDeleteSource;

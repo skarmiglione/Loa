@@ -12,7 +12,7 @@
 
 #include "MediaClientNode.h"
 
-#include "debug.h"
+#include "MediaDebug.h"
 
 
 namespace BPrivate { namespace media {
@@ -336,6 +336,9 @@ BMediaClient::Start()
 			err = BMediaRoster::CurrentRoster()->StartNode(
 				remoteNode, fNode->TimeSource()->Now());
 	}
+
+	if (err != B_OK)
+		return err;
 
 	return BMediaRoster::CurrentRoster()->StartNode(
 		fNode->Node(), fNode->TimeSource()->Now());

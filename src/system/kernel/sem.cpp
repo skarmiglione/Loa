@@ -763,11 +763,12 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		return B_OK;
 	if (sSemsActive == false)
 		return B_NO_MORE_SEMS;
-
+#if KDEBUG
 	if (!are_interrupts_enabled()) {
 		panic("switch_sem_etc: called with interrupts disabled for sem "
 			"%" B_PRId32 "\n", id);
 	}
+#endif
 
 	if (id < 0)
 		return B_BAD_SEM_ID;
@@ -925,6 +926,12 @@ release_sem_etc(sem_id id, int32 count, uint32 flags)
 		return B_BAD_SEM_ID;
 	if (count <= 0 && (flags & B_RELEASE_ALL) == 0)
 		return B_BAD_VALUE;
+#if KDEBUG
+	if ((flags & B_DO_NOT_RESCHEDULE) == 0 && !are_interrupts_enabled()) {
+		panic("release_sem_etc(): called with interrupts disabled and "
+			"rescheduling allowed for sem_id %" B_PRId32, id);
+	}
+#endif
 
 	InterruptsLocker _;
 	SpinLocker semLocker(sSems[slot].lock);

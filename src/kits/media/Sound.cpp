@@ -1,20 +1,22 @@
 /*
- * Copyright 2009, Haiku Inc. All Rights Reserved.
+ * Copyright 2009-2019, Haiku Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
+ *		Jacob Secunda
  *		Marcus Overhagen
  *		Michael Lotz <mmlr@mlotz.ch>
  */
 
 #include <Sound.h>
-#include <File.h>
 
-#include "TrackReader.h"
-
-#include <debug.h>
 #include <new>
 #include <string.h>
+
+#include <File.h>
+#include <MediaDebug.h>
+
+#include "TrackReader.h"
 
 
 BSound::BSound(void* data, size_t size, const media_raw_audio_format& format,
@@ -132,8 +134,16 @@ BSound::RefCount() const
 bigtime_t
 BSound::Duration() const
 {
-	UNIMPLEMENTED();
-	return 0;
+	float frameRate = fFormat.frame_rate;
+
+	if (frameRate == 0.0)
+		return 0;
+
+	uint32 bytesPerSample = fFormat.format &
+		media_raw_audio_format::B_AUDIO_SIZE_MASK;
+	int64 frameCount = Size() / (fFormat.channel_count * bytesPerSample);
+
+	return (bigtime_t)ceil((1000000LL * frameCount) / frameRate);
 }
 
 
@@ -164,7 +174,7 @@ BSound::Size() const
 }
 
 
-bool 
+bool
 BSound::GetDataAt(off_t offset, void* intoBuffer, size_t bufferSize,
 	size_t* outUsed)
 {

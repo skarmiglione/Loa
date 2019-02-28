@@ -54,7 +54,10 @@ All rights reserved.
 #include <Messenger.h>
 #include <Path.h>
 #include <Roster.h>
+
+#include <DeskbarPrivate.h>
 #include <RosterPrivate.h>
+#include "tracker_private.h"
 
 #include "BarView.h"
 #include "BarWindow.h"
@@ -67,7 +70,6 @@ All rights reserved.
 #include "Utilities.h"
 
 #include "icons.h"
-#include "tracker_private.h"
 
 
 BLocker TBarApp::sSubscriberLock;
@@ -398,6 +400,7 @@ TBarApp::MessageReceived(BMessage* message)
 		case kMsgGetItemInfo:
 		case kMsgHasItem:
 		case kMsgCountItems:
+		case kMsgMaxItemSize:
 		case kMsgAddView:
 		case kMsgRemoveItem:
 		case kMsgAddAddOn:

@@ -33,6 +33,10 @@ typedef List<BString, false>	StringList;
 #define ERROR_CODE_LIMITEXCEEDED				-32805
 #define ERROR_CODE_AUTHORIZATIONRULECONFLICT	-32806
 
+/*! This constant can be used to indicate the lack of a rating. */
+
+#define RATING_NONE -1
+
 
 class WebAppInterface {
 public:
@@ -113,13 +117,15 @@ private:
 									BJsonWriter& writer,
 									const char* methodName);
 			status_t			_SendJsonRequest(const char* domain,
-									BString jsonString, uint32 flags,
+									const BString& jsonString, uint32 flags,
 									BMessage& reply) const;
 			status_t			_SendJsonRequest(const char* domain,
-									BDataIO* requestData,
+									BPositionIO* requestData,
 									size_t requestDataSize, uint32 flags,
 									BMessage& reply) const;
-	static	void				_LogPayload(const char* data, ssize_t size);
+	static	void				_LogPayload(BPositionIO* requestData,
+									size_t size);
+	static	off_t				_LengthAndSeekToZero(BPositionIO* data);
 
 private:
 			BString				fUsername;

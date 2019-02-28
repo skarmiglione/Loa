@@ -1,12 +1,4 @@
-if ! [ Match "(.*)-haiku-(.*)" : $(JAMVERSION) ] {
-	Exit "You can only build Haiku with Haiku's Jam, not Perforce Jam or"
-		"some other variant (you are using $(JAMVERSION))." ;
-}
-
 SubDir HAIKU_TOP ;
-
-NotFile doc_files ;
-Depends files : doc_files ;
 
 # Prepare the optional build features before parsing the Jamfile tree.
 local architectureObject ;
@@ -118,6 +110,7 @@ include [ FDirName $(HAIKU_BUILD_RULES_DIR) images FloppyBootImage ] ;
 include [ FDirName $(HAIKU_BUILD_RULES_DIR) images CDBootImage ] ;
 include [ FDirName $(HAIKU_BUILD_RULES_DIR) images HaikuCD ] ;
 include [ FDirName $(HAIKU_BUILD_RULES_DIR) images AnybootImage ] ;
+include [ FDirName $(HAIKU_BUILD_RULES_DIR) images MMCImage ] ;
 
 # Check whether all requested optional packages do actually exist.
 local package ;

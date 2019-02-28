@@ -9,6 +9,8 @@ local libDir = lib$(secondaryArchSubDir) ;
 local developLibDir = develop/lib$(secondaryArchSubDir) ;
 local developHeadersDir = develop/headers$(secondaryArchSubDir) ;
 
+local unavailableBuildFeatures ;
+
 
 # SSL
 
@@ -32,7 +34,7 @@ if $(HAIKU_BUILD_FEATURE_SSL) {
 
 		EnableBuildFeatures openssl ;
 	} else {
-		Echo "SSL build feature not available for $(TARGET_PACKAGING_ARCH)" ;
+		unavailableBuildFeatures += openssl ;
 	}
 }
 
@@ -50,7 +52,7 @@ if $(TARGET_PACKAGING_ARCH) != x86_gcc2 {
 
 		EnableBuildFeatures gcc_syslibs ;
 	} else {
-		Echo "gcc_syslibs not available for $(TARGET_PACKAGING_ARCH)" ;
+		unavailableBuildFeatures += gcc_syslibs ;
 	}
 }
 
@@ -86,7 +88,7 @@ if [ IsPackageAvailable gcc_syslibs_devel ] {
 
 	EnableBuildFeatures gcc_syslibs_devel ;
 } else {
-	Echo "gcc_syslibs_devel not available for $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += gcc_syslibs_devel ;
 }
 
 
@@ -111,25 +113,7 @@ if [ IsPackageAvailable icu_devel ] {
 
 	EnableBuildFeatures icu ;
 } else {
-	Echo "ICU not available for $(TARGET_PACKAGING_ARCH)" ;
-}
-
-
-# curl
-if [ IsPackageAvailable curl_devel ] {
-	ExtractBuildFeatureArchives curl :
-		file: base curl
-			runtime: lib
-		file: devel curl_devel
-			depends: base
-			library:
-				$(developLibDir)/libcurl.so
-			headers: $(developHeadersDir) $(developHeadersDir)/curl
-		;
-
-	EnableBuildFeatures curl ;
-} else {
-	Echo "Curl not available for $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += icu ;
 }
 
 
@@ -197,7 +181,7 @@ if [ IsPackageAvailable giflib_devel ] {
 
 	EnableBuildFeatures giflib ;
 } else {
-	Echo "Giflib support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += giflib ;
 }
 
 
@@ -214,7 +198,7 @@ if [ IsPackageAvailable glu_devel ] {
 
 	EnableBuildFeatures glu ;
 } else {
-	Echo "GLU not yet available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += glu ;
 }
 
 
@@ -231,7 +215,7 @@ if [ IsPackageAvailable mesa_devel ] {
 
 	EnableBuildFeatures mesa ;
 } else {
-	Echo "GL not yet available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += mesa ;
 }
 
 
@@ -252,7 +236,7 @@ if [ IsPackageAvailable ffmpeg_devel ] {
 	EnableBuildFeatures ffmpeg ;
 
 } else {
-	Echo "FFMpeg support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += ffmpeg ;
 }
 
 
@@ -266,7 +250,7 @@ if [ IsPackageAvailable fluidlite_devel ] && [ IsPackageAvailable libvorbis_deve
 
 	EnableBuildFeatures fluidlite ;
 } else {
-	Echo "Fluidlite support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += fluidlite ;
 }
 
 
@@ -283,7 +267,7 @@ if [ IsPackageAvailable libvorbis_devel ] {
 
 	EnableBuildFeatures libvorbis ;
 } else {
-	Echo "Libvorbis support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += libvorbis ;
 }
 
 
@@ -300,7 +284,7 @@ if [ IsPackageAvailable freetype_devel ] {
 
 	EnableBuildFeatures freetype ;
 } else {
-	Echo "Freetype support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += freetype ;
 }
 
 # fontconfig
@@ -316,7 +300,7 @@ if [ IsPackageAvailable fontconfig_devel ] {
 
 	EnableBuildFeatures fontconfig ;
 } else {
-	Echo "fontconfig support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += fontconfig ;
 }
 
 # Gutenprint
@@ -332,7 +316,7 @@ if [ IsPackageAvailable gutenprint_devel ] {
 
 	EnableBuildFeatures gutenprint ;
 } else {
-	Echo "Gutenprint support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += gutenprint ;
 }
 
 
@@ -400,7 +384,7 @@ if [ IsPackageAvailable haikuwebkit_devel ] {
 
 	EnableBuildFeatures webkit ;
 } else {
-	Echo "WebKit build feature not available for $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += webkit ;
 }
 
 
@@ -417,7 +401,7 @@ if [ IsPackageAvailable libpng16_devel ] {
 
 	EnableBuildFeatures libpng ;
 } else {
-	Echo "libpng support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += libpng ;
 }
 
 
@@ -434,7 +418,7 @@ if [ IsPackageAvailable libicns_devel ] {
 
 	EnableBuildFeatures libicns ;
 } else {
-	Echo "libicns support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += libicns ;
 }
 
 
@@ -451,7 +435,7 @@ if [ IsPackageAvailable jasper_devel ] {
 
 	EnableBuildFeatures jasper ;
 } else {
-	Echo "Jasper support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += jasper ;
 }
 
 
@@ -468,7 +452,7 @@ if [ IsPackageAvailable jpeg_devel ] {
 
 	EnableBuildFeatures jpeg ;
 } else {
-	Echo "jpeg support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += jpeg ;
 }
 
 
@@ -490,7 +474,7 @@ if [ IsPackageAvailable zlib_devel ] {
 
 	EnableBuildFeatures zlib ;
 } else {
-	Echo "zlib support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += zlib ;
 }
 
 
@@ -507,7 +491,7 @@ if [ IsPackageAvailable libedit_devel ] {
 
 	EnableBuildFeatures libedit ;
 } else {
-	Echo "libedit support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += libedit ;
 }
 
 
@@ -531,7 +515,7 @@ if [ IsPackageAvailable libsolv_devel ] {
 
 	EnableBuildFeatures libsolv ;
 } else {
-	Echo "libsolv package not available for $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += libsolv ;
 }
 
 
@@ -545,7 +529,7 @@ if [ IsPackageAvailable qrencode_kdl_devel ] {
 
 	EnableBuildFeatures libqrencode_kdl ;
 } else {
-	Echo "qrencode support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += qrencode_kdl ;
 }
 
 
@@ -562,7 +546,7 @@ if [ IsPackageAvailable tiff4_devel ] {
 
 	EnableBuildFeatures tiff ;
 } else {
-	Echo "Tiff support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += tiff ;
 }
 
 
@@ -582,7 +566,7 @@ if [ IsPackageAvailable openexr_devel ]
 
 	EnableBuildFeatures openexr ;
 } else {
-	Echo "OpenEXR support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += openexr ;
 }
 
 
@@ -604,7 +588,41 @@ if [ IsPackageAvailable ilmbase_devel ] {
 
 	EnableBuildFeatures ilmbase ;
 } else {
-	Echo "IlmBase support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += ilmbase ;
+}
+
+
+# libdvdread
+if [ IsPackageAvailable libdvdread_devel ] {
+	ExtractBuildFeatureArchives libdvdread :
+		file: base libdvdread
+			runtime: lib
+		file: devel libdvdread_devel
+			depends: base
+			libraries: $(developLibDir)/libdvdread.so.4
+			headers: $(developHeadersDir)
+		;
+
+	EnableBuildFeatures libdvdread ;
+} else {
+	unavailableBuildFeatures += libdvdread ;
+}
+
+
+# libdvdnav
+if [ IsPackageAvailable libdvdnav_devel ] {
+	ExtractBuildFeatureArchives libdvdnav :
+		file: base libdvdnav
+			runtime: lib
+		file: devel libdvdnav_devel
+			depends: base
+			libraries: $(developLibDir)/libdvdnav.so.4
+			headers: $(developHeadersDir)
+		;
+
+	EnableBuildFeatures libdvdnav ;
+} else {
+	unavailableBuildFeatures += libdvdnav ;
 }
 
 
@@ -632,7 +650,7 @@ if [ IsPackageAvailable libwebp_devel ] {
 
 	EnableBuildFeatures libwebp ;
 } else {
-	Echo "Libwebp support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += libwebp ;
 }
 
 
@@ -654,7 +672,7 @@ if [ IsPackageAvailable live555_devel ] {
 		;
 	EnableBuildFeatures live555 ;
 } else {
-	Echo "live555 not available for $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += live555 ;
 }
 
 
@@ -671,7 +689,7 @@ if [ IsPackageAvailable ncurses6_devel ] {
 
 	EnableBuildFeatures ncurses ;
 } else {
-	Echo "ncurses support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += ncurses6 ;
 }
 
 
@@ -688,7 +706,7 @@ if [ IsPackageAvailable expat_devel ] {
 
 	EnableBuildFeatures expat ;
 } else {
-	Echo "expat support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += expat ;
 }
 
 
@@ -704,7 +722,7 @@ if [ IsPackageAvailable gnu_efi_kernel ] {
 
 	EnableBuildFeatures gnuefi ;
 } else {
-	Echo "gnu_efi_kernel support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += gnu_efi_kernel ;
 }
 
 
@@ -726,9 +744,12 @@ if [ IsPackageAvailable zstd_devel ] {
 
 	EnableBuildFeatures zstd ;
 } else {
-	Echo "zstd support not available on $(TARGET_PACKAGING_ARCH)" ;
+	unavailableBuildFeatures += zstd ;
 }
 
 
-# ATA Drivers + Bus
-EnableBuildFeatures ata ;
+# Print a diagnostic message with build features not presently available.
+if $(unavailableBuildFeatures) {
+	Echo "build-feature packages unavailable on $(TARGET_PACKAGING_ARCH):"
+		"$(unavailableBuildFeatures)" ;
+}

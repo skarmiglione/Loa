@@ -4,16 +4,16 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2015, Haiku. All rights reserved.
+ * Copyright 2008-2018, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		Oscar Carballal
  *		Humdinger
- *		miguel~1.mx
  *		kervas
+ *		miguel~1.mx
+ *		Oscar Carballal
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -54,7 +54,7 @@
 <span>
     <!-- «  <a href="installation.html">Installing Haiku</a> 
 ::  -->
-    <a href="contents.html" class="uplink">Contenidos</a> 
+    <a href="contents.html" class="uplink">Contenido</a> 
 ::  <a href="filesystem-layout.html">Disposición del sistema de archivos</a>  »
 </span></div>
 </div>
@@ -64,17 +64,17 @@
 
 <h1>Cargador de arranque</h1>
 
-<p>El cargador de arranque de Haiku puede ayudarle cuando experimente problemas de hardware o quiera elegir cual instalación de Haiku quiere iniciar, en caso que disponga de más de una (seguramente en un CD de instalación o unidad USB).<br />
+<p>Las opciones del cargador de arranque de Haiku pueden ayudarle cuando experimente problemas de hardware o quiera elegir cual instalación de Haiku quiere iniciar, en caso que disponga de más de una (seguramente en un CD de instalación o unidad USB).<br />
 También viene muy bien para cuando ha instalado algún componente de software que muestra problemas, previniendo el arranque del sistema, vea <a href="#troubleshooting">Resolución de problemas</a> abajo.</p>
-<p>Para visualizar las opciones del cargador de arranque, hay que mantener presionada la techa <span class="key">SHIFT</span> (de mayúsculas) antes del comienzo del proceso de arranque de Haiku. En de haber un administrador de arranque instalado, empiece a presionar la tecla antes de seleccionar Haiku desde el mismo. Si Haiku es el único sistema operativo instalado, empiece a presionar la tecla mientras se viualizan los mensajes de arranque del BIOS.</p>
+<p>Para visualizar las opciones del cargador de arranque, hay que mantener presionada la techa <span class="key">Mayús</span> (SHIFT) antes del comienzo del proceso de arranque de Haiku. En de haber un administrador de arranque instalado, empiece a presionar la tecla antes de seleccionar Haiku desde el mismo. Si Haiku es el único sistema operativo instalado, empiece a presionar la tecla mientras se viualizan los mensajes de arranque del BIOS.</p>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
 <a id="options" name="options">Opciones del Cargador de Arranque</a></h2>
 <p>Una vez allí, se le ofrecerán tres menús:</p>
 <table summary="bootloader menus" border="0" cellspacing="0" cellpadding="2">
-<tr><td><b>Seleccionar volumen de arranque</b></td><td> </td><td>Elija qué instalación/versión de Haiku desea iniciar.</td></tr>
+<tr><td><b>Seleccionar volumen de arranque</b></td><td> </td><td>Elija qué instalación/versión de Haiku desea iniciar (vea <a href="#troubleshooting">Diagnóstico de Problemas</a> below).</td></tr>
 <tr><td><b>Seleccionar opciones de modo seguro</b><br />
-</td><td> </td><td>Existen muchas opciones para probarse en caso de que tenga un problema de hardware o si el sistema se vuelve inestable o no arranca por una extensión (add-on) con comportamiento indebido. Al mover la barra de selección a una opción, una pequeña explicación aparecerá en la parte inferior de la pantalla.
+</td><td> </td><td>Existen muchas opciones para probarse en caso de que tenga un problema de hardware o si el sistema se vuelve inestable o no arranca debido a una extensión (add-on) con mal comportamiento. Al mover la barra de selección a una opción, una pequeña explicación aparecerá en la parte inferior de la pantalla.
 </td></tr>
 <tr><td></td><td></td><td>
 	<p><span class="menu">Safe mode (Modo a prueba de fallas)</span><br />
@@ -134,9 +134,10 @@ También viene muy bien para cuando ha instalado algún componente de software q
 <ul>
 <li><p>Activar el <span class="menu">modo seguro</span> prevendrá que inicien la mayoría de los servidores, servicios de fondo (daemons) y el UserBootScript.</p></li>
 <li><p>Activar la opción <span class="menu">Deshabilitar extensiones (add-ons) de usuario</span> prevendrá el uso de cualquier extensión (controladores, traductores, etc.) que tenga instalados en su jerarquía bajo su carpeta personal Home.</p></li>
+<li><p>Si logra resolver sus problemas al activar la opción de <span class="menu">Utilizar controlador de gráficos a prueba de fallas</span> recurriendo a gráficos VESA, puede hacer que el ajuste sea permanente, quitando el <tt>#</tt> de la línea que dice <i>#fail_safe_video_mode true</i> en el archivo de texto <span class="path">/boot/home/config/settings/kernel/drivers/kernel</span>.</p></li>
 <li><p>
 Si un controlador, extensión, etc. infractor está instalado bajo la jerarquía del sistema, las cosas se vuelven un poco más complicadas, porque esa área es de sólo léctura. Aquí, las <span class="menu">Entradas de lista negra</span> hacen su parte. Con ellas, puede navegar a través de toda la jerarquía del sistema y deshabilitar el componente que está causando problemas, al activar una de las entradas con la tecla<span class="key">ESPACIADORA</span> o <span class="key">RETORNO</span>. <span class="key">ESC</span> lo regresa un nivel arriba al directorio padre.</p>
-<p>Hay un artículo en línea, <a href="http://www.haiku-os.org/blog/barrett/2013-12-15_how_permanently_blacklist_package_file">Cómo incluir un paquete en la lista negra permanentemente (en inglés)</a>, que muestra cómo lograr que se mantengan los cambios.</p></li>
+<p>Existe un artículo en línea, <a href="http://www.haiku-os.org/blog/barrett/2013-12-15_how_permanently_blacklist_package_file">Cómo incluir un paquete en la lista negra permanentemente (en inglés)</a>, que muestra cómo lograr que se mantengan los cambios.</p></li>
 <li><p>Bajo <span class="menu">Select boot volume (Elija el volumen de arranque)</span> puede especificar cuál versión anterior de Haiku a arrancar. Cada vez que instale/desinstale un paquete, el estado anterior se guarda y puede iniciar en él seleccionandolo de la lista presentada en las opciones del cargador de arranque.<br />
 Por tanto, si encuentra problemas de arranque después de instalar algún paquete, inicie una versión de Haiku previa a ese momento, y desinstale el paquete infractor.</p></li>
 </ul>
@@ -149,11 +150,11 @@ Por tanto, si encuentra problemas de arranque después de instalar algún paquet
 <p>Si  todo funciona bien, se deben iluminar un símbolo tras otro rápidamente.<br />
 Los deferentes símbolos se corresponden con estas etapas de inicio:</p>
 <table summary="layout" border="0" cellpadding="2" cellspacing="0"> 
-	<tr><td><b>Átomo</b></td><td style="width:10px;"> </td><td>Iniciando módulos.</td></tr>
-	<tr><td><b>Disco y lupa</b></td><td> </td><td>Creando rootfs (<span class="path">/</span>) y montando devfs (<span class="path">/dev</span>).</td></tr>
-	<tr><td><b>Tarjeta plug-in</b></td><td> </td><td>Iniciando gestor de dispositivos.</td></tr>
-	<tr><td><b>Disco de arranque</b></td><td> </td><td>Montando disco de arranque.</td></tr>
-	<tr><td><b>Chip</b></td><td> </td><td>Cargando módulos específicos de CPU.</td></tr>
+	<tr><td><b>Átomo</b></td><td style="width:10px;"> </td><td>Iniciación de módulos.</td></tr>
+	<tr><td><b>Disco y lupa</b></td><td> </td><td>Creación de rootfs (<span class="path">/</span>) y montaje de devfs (<span class="path">/dev</span>).</td></tr>
+	<tr><td><b>Tarjeta plug-in</b></td><td> </td><td>Iniciación de gestor de dispositivos.</td></tr>
+	<tr><td><b>Disco de arranque</b></td><td> </td><td>Montaje de disco de arranque.</td></tr>
+	<tr><td><b>Chip</b></td><td> </td><td>Carga de módulos específicos de CPU.</td></tr>
 	<tr><td><b>Carpeta</b></td><td> </td><td>Inicialización final de subsistemas.</td></tr>
 	<tr><td><b>Cohete</b></td><td> </td><td>El Launch_daemon (servicio lanzador) ha iniciado el sistema.</td></tr>
 </table>
@@ -165,7 +166,7 @@ Los deferentes símbolos se corresponden con estas etapas de inicio:</p>
 <div class="inner"><span>
     <!-- «  <a href="installation.html">Installing Haiku</a> 
 ::  -->
-    <a href="contents.html" class="uplink">Contenidos</a> 
+    <a href="contents.html" class="uplink">Contenido</a> 
 ::  <a href="filesystem-layout.html">Disposición del sistema de archivos</a>  »
 </span></div>
 </div>

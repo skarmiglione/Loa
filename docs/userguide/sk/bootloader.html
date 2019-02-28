@@ -4,7 +4,7 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2015, Haiku. All rights reserved.
+ * Copyright 2008-2018, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -63,42 +63,42 @@
 
 <h1>Zavádzač systému</h1>
 
-<p>Zavádzač systému Haiku vám môže pomôcť, keď narazíte na problémy s hardvérom alebo ak si chcete vybrať, ktorú inštaláciu Haiku chcete spustiť ak máte viac než jednu (možno na inštalačnom CD alebo na kľúči USB).<br />
-Tiež sa hodí potom ako nainštalujete softvérový komponent, ktorý robí problémy a zabraňuje vám naštartovať systém, na jeho odstránenie a opätovné pridanie. Pozri <a href="#troubleshooting">Riešenie problémov</a> nižšie.</p>
+<p>Haiku's Boot Loader Options can help when you experience hardware related problems or want to choose which Haiku installation to start, if you have more than one (maybe on an installation CD or USB stick). It's also handy if you have installed a software component that acts up and prevents you from booting Haiku, see <a href="#troubleshooting">Troubleshooting</a> below.</p>
 <p>Voľby Zavádzača systému môžete zadať po stlačení a podržaní klávesu <span class="key">SHIFT</span> pred začiatkom zavádzania systému Haiku. Ak je nainštalovaný správca zavádzania, môžete kláves <span class="key">SHIFT</span> začať držať už predtým, než vyvoláte položku Haiku. Ak je Haiku na počítači jediný operačný systém, môžete začať držať kláves ešte vtedy, keď vidíte štartovacie správy od BIOSu.</p>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
 <a id="options" name="options">Voľby zavádzača</a></h2>
 <p>Po jeho zobrazení vám ponúkne štyri menu:</p>
 <table summary="bootloader menus" border="0" cellspacing="0" cellpadding="2">
-<tr><td><b>Vyberte zavádzací zväzok</b></td><td> </td><td>Vyberte, ktorú inštaláciu/verziu Haiku chcete spustiť.</td></tr>
+<tr><td><b>Vyberte zavádzací zväzok</b></td><td> </td><td>Choose which Haiku installation/state to start (see <a href="#troubleshooting">Troubleshooting</a> below).</td></tr>
 <tr><td><b>Vyberte voľby bezpečného režimu</b></td><td> </td><td>V prípade problémov súvisiacich s hardvérom alebo ak sa systém stane nestabilný alebo ho nie je možné spustiť z dôvodu nesprávneho správania doplnku, existuje niekoľko volieb, ktoré môžete skúsiť. Pri označení každej z volieb sa zobrazí na spodku obrazovky jej krátky popis.</td></tr>
 <tr><td></td><td></td><td>
-	<p><span class="menu">Safe mode</span><br />
-		Puts the system into safe mode. This can be enabled independently from the other options.</p>
-	<p><span class="menu">Disable user add-ons</span><br />
-		Prevents all user installed add-ons from being loaded. Only the add-ons in the system directory will be used. See <a href="#troubleshooting">Troubleshooting</a> below.</p>
-	<p><span class="menu">Disable IDE DMA</span><br />
-		Disables IDE DMA, increasing IDE compatibility at the expense of performance.</p>
-	<p><span class="menu">Ignore memory beyond 4 GiB</span><br />
-		Ignores all memory beyond the 4 GiB address limit, overriding the setting in the kernel settings file.
+	<p><span class="menu">Bezpečný režim</span><br />
+		Uvedie systém do bezpečného režimu. Túto voľbu je možné zapnúť nezávisle na ostatných voľbách.</p>
+	<p><span class="menu">Zakázať používateľské doplnky</span><br />
+		Zabráni načítaniu všetkých používateľom nainštalovaných doplnkov. Použijú sa iba doplnky v adresári system. Pozri <a href="#troubleshooting">Riešenie problémov</a> nižšie.</p>
+	<p><span class="menu">Zakázať IDE DMA</span><br />
+		Zakáže IDE DMA, čím zvýši kompatibilitu IDE na úkor výkonu.</p>
+	<p><span class="menu">Ignorovať pamäť nad 4 GiB</span><br />
+		Ignoruje všetku pamäť nad adresným obmedzením 4 GiB. Má preferenciu pred nastavením v súbore nastavení jadra.
 </p>
-	<p><span class="menu">Use fail-safe graphics driver</span><br />
-		The system will use VESA mode and won't try to use any video graphics drivers.</p>
-	<p><span class="menu">Disable IO-APIC</span><br />
-		Disables using the IO APIC for interrupt routing, forcing the use of the legacy PIC instead.</p>
-	<p><span class="menu">Disable local APIC</span><br />
-		Disables using the local APIC, also disables SMP.</p>
-	<p><span class="menu">Disable SMP</span><br />
-		Disables all but one CPU core.</p>
-	<p><span class="menu">Don't call the BIOS</span><br />
-		Stops the system from calling BIOS functions.</p>
-	<p><span class="menu">Disable APM</span><br />
-		Disables Advanced Power Management hardware support, overriding the APM setting in the kernel settings file.</p>
-	<p><span class="menu">Disable ACPI</span><br />
-		Disables Advanced Configuration and Power Interface hardware support, overriding the ACPI setting in the kernel settings file.</p>
-	<p><span class="menu">Blacklist entries</span><br />
-		Allows to select system files that shall be ignored. Useful e.g. to disable drivers temporarily. See <a href="#troubleshooting">Troubleshooting</a> below.</p></td></tr>
+	<p><span class="menu">Použiť bezpečný video režim</span><br />
+		Systém použije režim VESA a nebude sa pokúšať používať žiadne grafické ovládače.</p>
+	<p><span class="menu">Zakázať IO-APIC</span><br />
+		Zakáže používanie IO APIC na smerovanie prerušení, čím vynúti použitie historického PIC.</p>
+	<p><span class="menu">Zakázať miestny APIC</span><br />
+		Zakáže používanie miestneho APIC, tiež zakáže SMP.</p>
+	<p><span class="menu">Zakázať SMP</span><br />
+		Zakáže všetky jadrá CPU okrem jedného.</p>
+	<p><span class="menu">Nevolať BIOS</span><br />
+		Zabráni systému volať funkcie BIOSu.</p>
+	<p><span class="menu">Zakázať APM</span><br />
+		Zakáže hardvérovú podporu Pokročilého riadenia napájania (APM). Má preferenciu pred nastavením APM v súbore nastavení jadra.</p>
+	<p><span class="menu">Zakázať ACPI</span><br />
+		Zakáže hardvérovú podporu ACPI. Má preferenciu pred nastavením ACPI v súbore nastavení jadra.</p>
+	<p><span class="menu">Položky čiernej listiny</span><br />
+		Umožňuje vybrať súbory systému, ktoré sa majú ignorovať. To je užitočné napr. na dočasné vypnutie ovládačov. Pozri <a href="#troubleshooting">Riešenie problémov</a> nižšie.</p>
+</td></tr>
 <tr><td><b>Vyberte voľby ladenia</b>
 </td><td> </td><td>Tu nájdete niekoľko volieb, ktoré pomáhajú pri ladení alebo získavaní podrobností do <a href="../../welcome/sk/bugreports.html">hlásenia chyby</a>. Dolu má opäť každá voľba krátke vysvetlenie.</td></tr>
 <tr><td></td><td></td><td>
@@ -122,7 +122,7 @@ Tiež sa hodí potom ako nainštalujete softvérový komponent, ktorý robí pro
 		Zobrazí syslog z predošlej relácie Haiku</p>
 	<p><span class="menu">Uložiť syslog z predošlej relácie</span><br />
 		Uloží syslog z predošlej relácie Haiku na disk. Momentálne sú podporované iba súborové systémy FAT32.</p></td></tr>
-<tr><td class="onelinetop"><b>Select screen resolution</b></td><td> </td><td>Lets you force a certain screen resolution and color depth.</td></tr>
+<tr><td class="onelinetop"><b>Vyberte rozlíšenie obrazovky</b></td><td> </td><td>Umožňuje vám vynútiť konkrétne rozlíšenie obrazovky a farebnú hĺbku.</td></tr>
 </table>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -132,10 +132,11 @@ Tiež sa hodí potom ako nainštalujete softvérový komponent, ktorý robí pro
 <ul>
 <li><p>Aktivácia <span class="menu">Bezpečného režimu</span> zabráni spusteniu väčšiny serverov, démonov a používateľských skriptov pri štarte (UserBootScript).</p></li>
 <li><p><span class="menu">Vypnutie používateľských doplnkov</span> zabráni použitiu akýchkoľvek doplnkov (ovládače, prekladače atď.), ktoré ste si nainštalovali do používateľskej hierarchie vo vašom domovskom priečinku.</p></li>
+<li><p>If activating <span class="menu">Use fail-safe graphics driver</span> solves your troubles by falling back to VESA graphics, you can make the setting permanent by removing the <tt>#</tt> of the line <i>#fail_safe_video_mode true</i> in the text file <span class="path">/boot/home/config/settings/kernel/drivers/kernel</span>.</p></li>
 <li><p>V prípade, že je problematický ovládač, doplnok atď. nainštalovaný v hierarchii systému, bude to trochu zložitejšie, pretože táto oblasť je len na čítanie. To sa dajú použiť položky na <span class="menu">Černej listine</span>. Pomocou nich môžete prechádzať celou hierarchiou systému a zakázať komponenty, ktoré vám spôsobujú problémy, zaškrtnutím položky pomocou klávesu <span class="key">medzerník</span> alebo <span class="key">Enter</span>. <span class="key">ESC</span> vás vráti o úroveň vyššie do nadradeného adresára.</p>
 <p>Online nájdete článok <a href="http://www.haiku-os.org/blog/barrett/2013-12-15_how_permanently_blacklist_package_file">Ako trvale umiestniť na čiernu listinu súbor balíka</a>, ktorý vám ukáže ako toto nastavenie zachovať natrvalo.</p></li>
-<li><p>V menu <span class="menu">Vybraš zavádzací zväzok</span> môžete zadať, ktorú predchádzajúcu „verziu“ Haiku chcete spustiť. Zakaždým, keď nainštalujete alebo odinštalujete balík, starý stav sa uloží a môžete ho spustiť výberom zo zoznamu uvedeného v možnostiach zavádzača systému.<br />
-Takže, ak narazíte na problémy so spustením systému po inštalácii niektorého balíka, spustite verziu Haiku z doby pred problematickou udalosťou a odinštalujte problematický balík.</p></li>
+<li><p>Under <span class="menu">Select boot volume</span> you can specify what former "version" of Haiku to boot. Every time you un/install a package, the old state is saved and you can boot into it by choosing it from the list presented in the boot loader options.<br />
+So, if you encounter boot problems after installing some package, boot a Haiku state from before that time and uninstall the offending package.</p></li>
 </ul>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>

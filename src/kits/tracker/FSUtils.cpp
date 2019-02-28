@@ -75,6 +75,7 @@ respective holders. All rights reserved.
 #include <AutoLocker.h>
 #include <libroot/libroot_private.h>
 #include <system/syscalls.h>
+#include <system/syscall_load_image.h>
 
 #include "Attributes.h"
 #include "Bitmaps.h"
@@ -3756,15 +3757,6 @@ TrackerLaunch(const BMessage* refs, bool async, bool openWithOK)
 	else
 		AsynchLaunchBinder(&_TrackerLaunchDocuments, NULL, refs, openWithOK);
 
-	return B_OK;
-}
-
-status_t
-LaunchBrokenLink(const char* signature, const BMessage* refs)
-{
-	// This call is to support a hacky workaround for double-clicking
-	// broken refs for cifs
-	be_roster->Launch(signature, const_cast<BMessage*>(refs));
 	return B_OK;
 }
 

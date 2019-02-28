@@ -4,14 +4,14 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2015, Haiku. All rights reserved.
+ * Copyright 2008-2018, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		Karvjorm
  *		Humdinger
+ *		Jorma Karvonen
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -59,17 +59,18 @@
 
 <div id="content">
 <div>
+<div class="box-info">Tämän sivun kotoistaminen ei ole vielä täydellinen. Siihen asti keskeneräiset osat käyttävät englanninkielistä alkuperäistekstiä.</div>
 
 <h1>Käynnistyslataaja</h1>
 
-<p>Haikun käynnistyslataaja voi attaa kun koet laitteistopulmia tai haluat valita, minkä Haiku-asennuksen käynnistät, jos sinulla on useampia kuin yksi (ehkä asennus-CD:ltä tai USB-tikulta). Se on myös kätevä kun olet asentanut ohjelmistokomponentin, joka oireilee ja estää sinua käynnistämästä järjestelmää uudelleen komponentin poistamiseksi, katso alla <a href="#troubleshooting">Vianjäljitys</a>.</p>
-<p>Käynnistyslataajan valitsimiin pääsemiseksi sinun on painettava ja pidettävä alhaalla  <span class="key">VAIHTO</span>-näppäintä ennen Haikun käynnistysprosessin alkamista. Jos käynnistyshallinta on asennettu, voit aloittaa pitämällä <span class="key">VAIHTO</span>-näppäintä ennen Haikun käynnistysrivin valintaa. Jos Haiku on ainoa koneeseen asennettu käyttöjärjestelmä, voit aloittaa näppäimen pitämisen alhaalla jo silloin, kun näet näytölläsi BIOS-käynnistysviestit.</p>
+<p>Haikun käynnistyslataaja voi auttaa kun koet laitteistopulmia tai haluat valita, minkä Haiku-asennuksen käynnistät, jos sinulla on useampia kuin yksi asennettu järjestelmä (ehkä asennus-CD:ltä tai USB-tikulta). Se on myös kätevä kun olet asentanut ohjelmistokomponentin, joka oireilee ja estää sinua käynnistämästä järjestelmää uudelleen komponentin poistamiseksi, katso alla <a href="#troubleshooting">Vianjäljitys</a>.</p>
+<p>Käynnistyslataajan valitsimiin pääsemiseksi sinun on painettava ja pidettävä alhaalla  <span class="key">VAIHTO</span>-näppäintä ennen Haikun käynnistysprosessin alkamista. Jos käynnistyshallinta on asennettu, voit aloittaa pitämällä <span class="key">VAIHTO</span>-näppäintä alhaalla ennen Haikun käynnistysrivin valintaa. Jos Haiku on ainoa koneeseen asennettu käyttöjärjestelmä, voit aloittaa näppäimen pitämisen alhaalla jo silloin, kun näet näytölläsi BIOS-käynnistysviestit.</p>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
 <a id="options" name="options">Käynnistyslataajavalitsimet</a></h2>
 <p>Kun olet päässyt sinne, näkyviin tulee neljä valikkoa:</p>
 <table summary="bootloader menus" border="0" cellspacing="0" cellpadding="2">
-<tr><td><b>Valitse käynnistyslevy</b></td><td> </td><td>Valitse, minkä Haiku-asennuksen/version käynnistät.</td></tr>
+<tr><td><b>Valitse käynnistyslevy</b></td><td> </td><td>Valitse, minkä Haiku-asennuksen/version käynnistät (katso <a href="#troubleshooting">Vianjäljitys</a> alla).</td></tr>
 <tr><td><b>Valitse turvatilavalitsimet</b>
 </td><td> </td><td>Laitteistopulmien tapahtuessa voit kokeilla useita valitsimia tai jos järjestelmä tulee epästabiiliksi tai sitä ei pysty käynnistämään huonosti käyttäytyvän lisäosan vuoksi. Kun valintapalkin siirtää valitsimelle, niin näytön alalaitaan ilmaantuu lyhyt selite.</td></tr>
 <tr><td></td><td></td><td>
@@ -91,7 +92,7 @@
 	<p><span class="menu">Ota pois käytöstä SMP</span><br />
 		Ottaa pois käytöstä kaiken muun paitsi yhden prosessoriytimen.</p>
 	<p><span class="menu">Älä kutsu BIOS:ia</span><br />
-		Estää järjestelmän kutsumasta BIOS-funktioita.</p>
+		Estää järjestelmää kutsumasta BIOS-funktioita.</p>
 	<p><span class="menu">Ota pois käytöstä APM</span><br />
 		Ottaa pois käytöstä Advanced Power Management -laitetuen, korvaa APM-asetukset käyttöjärjestelmäytimen asetustiedostossa.</p>
 	<p><span class="menu">Ota pois käytöstä ACPI</span><br />
@@ -99,7 +100,7 @@
 	<p><span class="menu">Merkitse kohde mustalle listalle</span><br />
 		Sallii valita järjestelmätiedostoja, jotka ohitetaan. Hyödyllinen esim. otettaessa tilapäisesti ajureita pois käytöstä. Katso alla <a href="#troubleshooting">Vianjäljitys</a>.</p></td></tr>
 <tr><td><b>Valitse vianjäljitysvalitsimet</b>
-</td><td> </td><td>Tästä löydät useita valitsimia, jotka opastavat vianjäljityksessä tai yksityiskohtien hakemisessa <a href="../../welcome/fi/bugreports.html">vikailmoitukseen</a>. Taas näytön alalaidassa näytetään lyhyt selite.</td></tr>
+</td><td> </td><td>Tästä löydät useita valitsimia, jotka opastavat vianjäljityksessä tai lisätietojen hakemisessa <a href="../../welcome/fi/bugreports.html">vikailmoitukseen</a>. Taas näytön alalaidassa näytetään lyhyt selite.</td></tr>
 <tr><td></td><td></td><td>
 	<p><span class="menu">Ota käyttöön vianjäljitystulostus sarjaporttiin</span><br />
 		Kääntää päälle järjestelmälokin lähetyksen sarjaporttiin (oletus: 115200, 8N1).</p>
@@ -129,11 +130,12 @@
 <p>Toisaalta, jos Haiku äkkiä vain häiriököi, kun olet asentanut jonkin ohjelmiston, erityisesti laitteistoajurin, sinulla on useita valitsimia käytettävissä saadaksesi Haikun taas käynnistymään poistamalla häiritsevän pakkauksen asennuksen:</p>
 <ul>
 <li><p><span class="menu">Turvatila</span>-aktivointi estää useimpien palvelin-, taustaprosessi- ja KäyttäjäKäynnistysSkriptien käynnistymisen.</p></li>
-<li><p><span class="menu">Ota pois käytöstä käyttäjälisäosat</span>-aktivointi estää kaikkien lisäosien käytön (ajurit, kääntäjät, jne.), jotka olet asentanut Home-kansion alaiseen hierarkkiaan.</p></li>
+<li><p><span class="menu">Ota pois käytöstä käyttäjälisäosat</span>-aktivointi estää kaikkien lisäosien käytön (ajurit, kääntäjät, jne.), jotka olet asentanut kotikansion alaiseen hierarkkiaan.</p></li>
+<li><p>If activating <span class="menu">Use fail-safe graphics driver</span> solves your troubles by falling back to VESA graphics, you can make the setting permanent by removing the <tt>#</tt> of the line <i>#fail_safe_video_mode true</i> in the text file <span class="path">/boot/home/config/settings/kernel/drivers/kernel</span>.</p></li>
 <li><p>Jos häiritsevä ajuri, lisäosa jne. on asennettu järjestelmähierarkiaan, asiat ovat hiukan mutkikkaampia, koska se alue on kirjoitussuojattu. Tässä <span class="menu">Merkitse kohteita mustalle listalle</span> voi näytellä tärkeää roolia. Sen avulla voit navigoida läpi koko järjestelmähierarkian ja ottaa pois käytöstä komponentit, jotka sotkevat järjestelmää merkitsemällä kohteita <span class="key">VÄLILYÖNTI</span>-näppäimellä tai <span class="key">RETURN</span>-näppäimellä. <span class="key">ESC</span>-näppäin palauttaa sinut yhden tason ylöspäin ylempään hakemistoon.</p>
 <p>Verkossa oleva artikkeli <a href="http://www.haiku-os.org/blog/barrett/2013-12-15_how_permanently_blacklist_package_file">Kuinka merkitä pakkaustiedoston mustalle listalle pysyvästi</a> näyttää, kuinka tästä asetuksesta tekee pysyvän.</p></li>
 <li><p>Kohdasta <span class="menu">Valitse käynnistyslevy</span> voit määritellä, että minkä aikaisemman ”version” käynnistät. Joka kerta kun asennat pakkauksen tai poistat sen, vanha tila tallennetaan ja voit käynnistää järjestelmän siihen tilaan valitsemalla sen käynnistyslatausvalitsimissa esitetystä luettelosta.<br />
-Joten jos kohtaat käynnistyspulmia, käynnistä Haiku-versioon ennen sitä aikaa ja poista haittallinen pakkaus.</p></li>
+Joten jos kohtaat käynnistyspulmia jonkun pakkauksen asentamisen jälkeen, käynnistä Haiku-versioon ennen sitä aikaa ja poista haittallinen pakkaus.</p></li>
 </ul>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -141,7 +143,7 @@ Joten jos kohtaat käynnistyspulmia, käynnistä Haiku-versioon ennen sitä aika
 <p>Yhden tai useamman valitsimen aktivoinnin jälkeen palaat päävalikkoon ja jatkat käynnistystä, mikä esittää sinulle tämän käynnistysnäytön:</p>
 <img src="../images/bootloader-images/boot-screen.png" alt="boot-screen.png" />
 
-<p>Jos kaikki toimii normaalisti, symboli toisensa jälkeen syttyy.<br />Erilaiset symbolit vastaavat likimain näitä alkulatausvaiheita:</p>
+<p>Jos kaikki toimii normaalisti, symboli toisensa jälkeen syttyy.<br />Erilaiset symbolit vastaavat likimain näitä käynnistyslatausvaiheita:</p>
 <table summary="layout" border="0" cellpadding="2" cellspacing="0"> 
 	<tr><td><b>Atomi</b></td><td style="width:10px;"> </td><td>Moduulien alustaminen</td></tr>
 	<tr><td><b>Levy + suurentaja</b></td><td> </td><td>Luodaan rootfs (<span class="path">/</span>) ja liitetään devfs (<span class="path">/dev</span>).</td></tr>

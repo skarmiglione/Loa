@@ -31,7 +31,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: releng/12.0/sys/dev/rl/if_rl.c 338951 2018-09-26 19:41:00Z imp $");
 
 /*
  * RealTek 8129/8139 PCI NIC driver
@@ -259,6 +259,8 @@ static driver_t rl_driver = {
 static devclass_t rl_devclass;
 
 DRIVER_MODULE(rl, pci, rl_driver, rl_devclass, 0, 0);
+MODULE_PNP_INFO("U16:vendor;U16:device", pci, rl, rl_devs,
+    nitems(rl_devs) - 1);
 DRIVER_MODULE(rl, cardbus, rl_driver, rl_devclass, 0, 0);
 DRIVER_MODULE(miibus, rl, miibus_driver, miibus_devclass, 0, 0);
 
@@ -276,7 +278,7 @@ DRIVER_MODULE(miibus, rl, miibus_driver, miibus_devclass, 0, 0);
 static void
 rl_eeprom_putbyte(struct rl_softc *sc, int addr)
 {
-	register int		d, i;
+	int			d, i;
 
 	d = addr | sc->rl_eecmd_read;
 
@@ -303,7 +305,7 @@ rl_eeprom_putbyte(struct rl_softc *sc, int addr)
 static void
 rl_eeprom_getword(struct rl_softc *sc, int addr, uint16_t *dest)
 {
-	register int		i;
+	int			i;
 	uint16_t		word = 0;
 
 	/* Enter EEPROM access mode. */
@@ -561,7 +563,7 @@ rl_rxfilter(struct rl_softc *sc)
 static void
 rl_reset(struct rl_softc *sc)
 {
-	register int		i;
+	int			i;
 
 	RL_LOCK_ASSERT(sc);
 
@@ -586,7 +588,7 @@ rl_probe(device_t dev)
 	const struct rl_type	*t;
 	uint16_t		devid, revid, vendor;
 	int			i;
-	
+
 	vendor = pci_get_vendor(dev);
 	devid = pci_get_device(dev);
 	revid = pci_get_revid(dev);
@@ -1389,7 +1391,7 @@ rl_twister_update(struct rl_softc *sc)
 	case DONE:
 		break;
 	}
-	
+
 }
 
 static void
@@ -1397,7 +1399,7 @@ rl_tick(void *xsc)
 {
 	struct rl_softc		*sc = xsc;
 	struct mii_data		*mii;
-	int ticks;
+	int _ticks;
 
 	RL_LOCK_ASSERT(sc);
 	/*
@@ -1421,15 +1423,15 @@ rl_tick(void *xsc)
 		else
 			rl_twister_update(sc);
 		if (sc->rl_twister == DONE)
-			ticks = hz;
+			_ticks = hz;
 		else
-			ticks = hz / 10;
+			_ticks = hz / 10;
 	} else {
 		rl_watchdog(sc);
-		ticks = hz;
+		_ticks = hz;
 	}
 
-	callout_reset(&sc->rl_stat_callout, ticks, rl_tick, sc);
+	callout_reset(&sc->rl_stat_callout, _ticks, rl_tick, sc);
 }
 
 #ifdef DEVICE_POLLING
@@ -1856,7 +1858,7 @@ rl_ioctl(struct ifnet *ifp, u_long command, caddr_t data)
 			ifp->if_capenable |= IFCAP_POLLING;
 			RL_UNLOCK(sc);
 			return (error);
-			
+
 		}
 		if (!(ifr->ifr_reqcap & IFCAP_POLLING) &&
 		    ifp->if_capenable & IFCAP_POLLING) {
@@ -1912,7 +1914,7 @@ rl_watchdog(struct rl_softc *sc)
 static void
 rl_stop(struct rl_softc *sc)
 {
-	register int		i;
+	int			i;
 	struct ifnet		*ifp = sc->rl_ifp;
 
 	RL_LOCK_ASSERT(sc);

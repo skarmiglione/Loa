@@ -12,17 +12,18 @@
 
 #include <MediaTrack.h>
 
+#include <CodecRoster.h>
+#include <MediaExtractor.h>
+#include <MediaWriter.h>
+#include <Roster.h>
+
 #include <new>
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include <Roster.h>
-
-#include "MediaExtractor.h"
-#include "MediaWriter.h"
-#include "PluginManager.h"
+using namespace BCodecKit;
 
 
 //#define TRACE_MEDIA_TRACK
@@ -58,9 +59,9 @@ enum {
 	// TODO: move this (after name change?) to MediaDefs.h
 
 
-class RawDecoderChunkProvider : public ChunkProvider {
+class RawDecoderChunkProvider : public BChunkProvider {
 public:
-							RawDecoderChunkProvider(Decoder* decoder,
+							RawDecoderChunkProvider(BDecoder* decoder,
 								int buffer_size, int frame_size);
 	virtual					~RawDecoderChunkProvider();
 
@@ -69,7 +70,7 @@ public:
 								media_header* mediaHeader);
 
 private:
-			Decoder*		fDecoder;
+			BDecoder*		fDecoder;
 			void*			fBuffer;
 			int				fBufferSize;
 			int				fFrameSize;
@@ -84,9 +85,9 @@ BMediaTrack::~BMediaTrack()
 {
 	CALLED();
 
-	gPluginManager.DestroyDecoder(fRawDecoder);
-	gPluginManager.DestroyDecoder(fDecoder);
-	gPluginManager.DestroyEncoder(fEncoder);
+	BCodecRoster::ReleaseDecoder(fRawDecoder);
+	BCodecRoster::ReleaseDecoder(fDecoder);
+	BCodecRoster::ReleaseEncoder(fEncoder);
 }
 
 /*************************************************************
@@ -163,7 +164,7 @@ BMediaTrack::DecodedFormat(media_format* _format, uint32 flags)
 	if (fExtractor == NULL || fDecoder == NULL)
 		return B_NO_INIT;
 
-	gPluginManager.DestroyDecoder(fRawDecoder);
+	BCodecRoster::ReleaseDecoder(fRawDecoder);
 	fRawDecoder = NULL;
 
 #ifdef TRACE_MEDIA_TRACK
@@ -301,7 +302,12 @@ BMediaTrack::GetMetaData(BMessage* _data) const
 
 	_data->MakeEmpty();
 
-	return fExtractor->GetStreamMetaData(fStream, _data);
+	BMetaData data;
+	if (fExtractor->GetStreamMetaData(fStream, &data) != B_OK) {
+		*_data = *data.Message();
+		return B_OK;
+	}
+	return B_ERROR;
 }
 
 
@@ -626,7 +632,9 @@ BMediaTrack::AddCopyright(const char* copyright)
 	if (fWriter == NULL)
 		return B_NO_INIT;
 
-	return fWriter->SetCopyright(fStream, copyright);
+	BMetaData* data = new BMetaData();
+	data->SetString(kCopyright, copyright);
+	return fWriter->SetMetaData(data);
 }
 
 
@@ -832,7 +840,7 @@ BMediaTrack::Perform(int32 selector, void* data)
 // #pragma mark - private
 
 
-BMediaTrack::BMediaTrack(BPrivate::media::MediaExtractor* extractor,
+BMediaTrack::BMediaTrack(BCodecKit::BMediaExtractor* extractor,
 	int32 stream)
 {
 	CALLED();
@@ -864,7 +872,7 @@ BMediaTrack::BMediaTrack(BPrivate::media::MediaExtractor* extractor,
 }
 
 
-BMediaTrack::BMediaTrack(BPrivate::media::MediaWriter* writer,
+BMediaTrack::BMediaTrack(BCodecKit::BMediaWriter* writer,
 	int32 streamIndex, media_format* format,
 	const media_codec_info* codecInfo)
 {
@@ -943,7 +951,7 @@ BMediaTrack::SetupWorkaround()
 bool
 BMediaTrack::SetupFormatTranslation(const media_format &from, media_format* to)
 {
-	gPluginManager.DestroyDecoder(fRawDecoder);
+	BCodecRoster::ReleaseDecoder(fRawDecoder);
 	fRawDecoder = NULL;
 
 #ifdef TRACE_MEDIA_TRACK
@@ -952,7 +960,7 @@ BMediaTrack::SetupFormatTranslation(const media_format &from, media_format* to)
 	printf("BMediaTrack::SetupFormatTranslation: from: %s\n", s);
 #endif
 
-	status_t result = gPluginManager.CreateDecoder(&fRawDecoder, from);
+	status_t result = BCodecRoster::InstantiateDecoder(&fRawDecoder, from);
 	if (result != B_OK) {
 		ERROR("BMediaTrack::SetupFormatTranslation: CreateDecoder failed\n");
 		return false;
@@ -964,7 +972,7 @@ BMediaTrack::SetupFormatTranslation(const media_format &from, media_format* to)
 		* from.u.raw_audio.channel_count;
 	media_format fromNotConst = from;
 
-	ChunkProvider* chunkProvider
+	BChunkProvider* chunkProvider
 		= new (std::nothrow) RawDecoderChunkProvider(fDecoder, buffer_size,
 			frame_size);
 	if (chunkProvider == NULL) {
@@ -1000,7 +1008,7 @@ BMediaTrack::SetupFormatTranslation(const media_format &from, media_format* to)
 	return true;
 
 error:
-	gPluginManager.DestroyDecoder(fRawDecoder);
+	BCodecRoster::ReleaseDecoder(fRawDecoder);
 	fRawDecoder = NULL;
 	return false;
 }
@@ -1080,7 +1088,7 @@ status_t BMediaTrack::_Reserved_BMediaTrack_46(int32 arg, ...) { return B_ERROR;
 status_t BMediaTrack::_Reserved_BMediaTrack_47(int32 arg, ...) { return B_ERROR; }
 
 
-RawDecoderChunkProvider::RawDecoderChunkProvider(Decoder* decoder,
+RawDecoderChunkProvider::RawDecoderChunkProvider(BDecoder* decoder,
 	int buffer_size, int frame_size)
 {
 //	printf("RawDecoderChunkProvider: buffer_size %d, frame_size %d\n",

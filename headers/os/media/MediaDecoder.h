@@ -1,18 +1,14 @@
 #ifndef MEDIADECODER_H
 #define MEDIADECODER_H
 
-#include <MediaDefs.h>
+
 #include <MediaFormats.h>
 
-namespace BPrivate {
-	class Decoder;
+
+namespace BCodecKit {
+	class BDecoder;
 }
-namespace BPrivate {
-	namespace media {
-		class Decoder;
-		class DecoderPlugin;
-	}
-}
+
 
 class BMediaDecoder {
 	public:
@@ -47,8 +43,8 @@ class BMediaDecoder {
 
 		status_t AttachToDecoder();
 
-		BPrivate::media::Decoder	*fDecoder;
-		status_t			fInitStatus;
+		BCodecKit::BDecoder*	fDecoder;
+		status_t				fInitStatus;
 
 		/* fbc data and virtuals */
 

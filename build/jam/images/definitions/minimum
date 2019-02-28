@@ -183,32 +183,21 @@ SYSTEM_ADD_ONS_DRIVERS_NET = [ FFilterByBuildFeatures
 		atheros813x ar81xx attansic_l1 attansic_l2
 		broadcom440x broadcom570x
 		dec21xxx
+		emulex_oce
 		ipro100 ipro1000
 		jmicron2x0
 		marvell_yukon
 		nforce
 		pcnet
 		rtl8139 rtl81xx
-		sis19x syskonnect
+		sis19x sis900 syskonnect
 		via_rhine vt612x
 	}@ # x86,x86_64
 
 	etherpci
 	pegasus
-	sis900
 	usb_asix usb_davicom usb_ecm
 	wb840
-
-	# WLAN drivers
-	x86,x86_64 @{
-		aironetwifi atheroswifi
-		broadcom43xx
-		iprowifi2100 iprowifi2200 iprowifi3945 iprowifi4965
-		idualwifi7260
-		marvell88w8363 marvell88w8335
-		ralinkwifi realtekwifi
-		wavelanwifi
-	}@ # x86,x86_64
 ] ;
 
 SYSTEM_ADD_ONS_DRIVERS_POWER = [ FFilterByBuildFeatures
@@ -216,7 +205,7 @@ SYSTEM_ADD_ONS_DRIVERS_POWER = [ FFilterByBuildFeatures
 ] ;
 
 SYSTEM_ADD_ONS_BUS_MANAGERS = [ FFilterByBuildFeatures
-	acpi@x86,x86_64	agp_gart@x86,x86_64 ata@ata
+	acpi@x86,x86_64	agp_gart@x86,x86_64 ata
 	config_manager
 	firewire@x86
 	scsi isa@x86,x86_64
@@ -284,3 +273,17 @@ AddFilesToHaikuImage system settings network : $(networkSettingsFiles) ;
 SEARCH on <post-install>fresh_install
 	= [ FDirName $(HAIKU_TOP) data system settings ] ;
 AddFilesToHaikuImage system settings : <post-install>fresh_install ;
+
+# repository config and cache files
+local repository ;
+for repository in $(HAIKU_REPOSITORIES) {
+	local config = [ on $(repository) return $(HAIKU_REPOSITORY_CONFIG_FILE) ] ;
+	local cache = [ on $(repository) return $(HAIKU_REPOSITORY_CACHE_FILE) ] ;
+	if $(HAIKU_UPDATE_ALL_PACKAGES) {
+		HAIKU_INCLUDE_IN_IMAGE on $(config) $(cache) = 1 ;
+	}
+	AddFilesToHaikuImage system settings package-repositories
+		: $(config) : $(repository:G=) ;
+	AddFilesToHaikuImage system cache package-repositories
+		: $(cache) : $(repository:G=) ;
+}

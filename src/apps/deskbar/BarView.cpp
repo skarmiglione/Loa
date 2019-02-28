@@ -61,7 +61,6 @@ All rights reserved.
 
 
 const int32 kDefaultRecentDocCount = 10;
-const int32 kDefaultRecentFolderCount = 10;
 const int32 kDefaultRecentAppCount = 10;
 
 const int32 kMenuTrackMargin = 20;
@@ -395,7 +394,7 @@ TBarView::PlaceDeskbarMenu()
 	BRect menuFrame(Bounds());
 	if (fVertical) {
 		width = static_cast<TBarApp*>(be_app)->Settings()->width;
-		height = kMenuBarHeight;
+		height = 4 + fReplicantTray->MaxReplicantHeight();
 		menuFrame.bottom = menuFrame.top + height;
 	} else {
 		width = gMinimumWindowWidth;
@@ -1116,6 +1115,14 @@ int32
 TBarView::CountItems(DeskbarShelf)
 {
 	return fReplicantTray->ReplicantCount();
+}
+
+
+BSize
+TBarView::MaxItemSize(DeskbarShelf shelf)
+{
+	return BSize(fReplicantTray->MaxReplicantWidth(),
+		fReplicantTray->MaxReplicantHeight());
 }
 
 

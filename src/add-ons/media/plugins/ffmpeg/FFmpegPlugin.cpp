@@ -4,6 +4,7 @@
  * Copyright (C) 2001 Axel Dörfler
  * Copyright (C) 2004 Marcus Overhagen
  * Copyright (C) 2009 Stephan Aßmus <superstippi@gmx.de>
+ * Copyright (C) 2018 Dario Casalinuovo
  *
  * All rights reserved. Distributed under the terms of the MIT License.
  */
@@ -15,8 +16,6 @@
 #include <stdio.h>
 
 #include <new>
-
-#include <Locker.h>
 
 extern "C" {
 	#include "avcodec.h"
@@ -42,68 +41,17 @@ extern "C" {
 #define ERROR(a...) fprintf(stderr, a)
 
 
-static int
-manage_locks(void** _lock, enum AVLockOp operation)
-{
-	TRACE("manage_locks(%p, %d)\n", *_lock, operation);
-
-	BLocker** lock = reinterpret_cast<BLocker**>(_lock);
-
-	switch (operation) {
-		case AV_LOCK_CREATE:
-			TRACE("  AV_LOCK_CREATE\n");
-			*lock = new(std::nothrow) BLocker("FFmpeg lock");
-			if (*lock == NULL)
-				return 1;
-			break;
-
-		case AV_LOCK_OBTAIN:
-			TRACE("  AV_LOCK_OBTAIN\n");
-			if (!(*lock)->Lock())
-				return 1;
-			break;
-
-		case AV_LOCK_RELEASE:
-			TRACE("  AV_LOCK_RELEASE\n");
-			(*lock)->Unlock();
-			break;
-
-		case AV_LOCK_DESTROY:
-			TRACE("  AV_LOCK_DESTROY\n");
-			delete *lock;
-			break;
-
-		default:
-			return 1;
-	}
-	return 0;
-}
-
-
-FFmpegPlugin::GlobalInitilizer::GlobalInitilizer()
-{
-	if (av_lockmgr_register(manage_locks) != 0)
-		ERROR("Failed to register lock management!\n");
-
-	av_register_all();
-		// This will also call av_codec_init() by registering codecs.
-	avfilter_register_all();
-}
-
-
-FFmpegPlugin::GlobalInitilizer::~GlobalInitilizer()
-{
-	av_lockmgr_register(NULL);
-}
-
-
-FFmpegPlugin::GlobalInitilizer FFmpegPlugin::sInitilizer;
+B_DECLARE_CODEC_KIT_PLUGIN(
+	FFmpegPlugin,
+	"ffmpeg",
+	B_CODEC_KIT_PLUGIN_VERSION
+);
 
 
 // #pragma mark -
 
 
-Decoder*
+BDecoder*
 FFmpegPlugin::NewDecoder(uint index)
 {
 // TODO: Confirm we can check index here.
@@ -113,7 +61,7 @@ FFmpegPlugin::NewDecoder(uint index)
 }
 
 
-Reader*
+BReader*
 FFmpegPlugin::NewReader()
 {
 	return new(std::nothrow) AVFormatReader();
@@ -127,7 +75,7 @@ FFmpegPlugin::GetSupportedFormats(media_format** _formats, size_t* _count)
 }
 
 
-Writer*
+BWriter*
 FFmpegPlugin::NewWriter()
 {
 	return new(std::nothrow) AVFormatWriter();
@@ -144,7 +92,7 @@ FFmpegPlugin::GetSupportedFileFormats(const media_file_format** _fileFormats,
 }
 
 
-Encoder*
+BEncoder*
 FFmpegPlugin::NewEncoder(const media_codec_info& codecInfo)
 {
 	for (size_t i = 0; i < gEncoderCount; i++) {
@@ -157,7 +105,7 @@ FFmpegPlugin::NewEncoder(const media_codec_info& codecInfo)
 }
 
 
-Encoder*
+BEncoder*
 FFmpegPlugin::NewEncoder(const media_format& format)
 {
 	for (size_t i = 0; i < gEncoderCount; i++) {
@@ -188,14 +136,3 @@ FFmpegPlugin::RegisterNextEncoder(int32* cookie, media_codec_info* _codecInfo,
 
 	return B_OK;
 }
-
-
-// #pragma mark -
-
-
-MediaPlugin*
-instantiate_plugin()
-{
-	return new(std::nothrow) FFmpegPlugin;
-}
-

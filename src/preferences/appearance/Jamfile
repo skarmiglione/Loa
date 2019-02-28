@@ -3,10 +3,6 @@ SubDir HAIKU_TOP src preferences appearance ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 UsePrivateHeaders app interface [ FDirName servers app ] ;
-UseBuildFeatureHeaders freetype ;
-
-Includes [ FGristFiles AntialiasingSettingsView.cpp ]
-	: [ BuildFeatureAttribute freetype : headers ] ;
 
 Preference Appearance :
 	APRMain.cpp
@@ -26,10 +22,6 @@ Preference Appearance :
 	#CurView.cpp
 	#CursorWhichItem.cpp
 	#SysCursorAPI.cpp
-
-	# These exist for post-R1, so they are disabled for now
-	#FontMenu.cpp
-	#MenuView.cpp
 
 	: be [ TargetLibstdc++ ] [ TargetLibsupc++ ] localestub
 	: Appearance.rdef

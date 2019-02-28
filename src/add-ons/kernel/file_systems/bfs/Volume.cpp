@@ -8,6 +8,7 @@
 
 
 #include "Attribute.h"
+#include "CheckVisitor.h"
 #include "Debug.h"
 #include "Inode.h"
 #include "Journal.h"
@@ -282,7 +283,8 @@ Volume::Volume(fs_volume* volume)
 	fIndicesNode(NULL),
 	fDirtyCachedBlocks(0),
 	fFlags(0),
-	fCheckingThread(-1)
+	fCheckingThread(-1),
+	fCheckVisitor(NULL)
 {
 	mutex_init(&fLock, "bfs volume");
 	mutex_init(&fQueryLock, "bfs queries");
@@ -357,8 +359,11 @@ Volume::Mount(const char* deviceName, uint32 flags)
 	off_t diskSize;
 	if (opener.GetSize(&diskSize, &fDeviceBlockSize) != B_OK)
 		RETURN_ERROR(B_ERROR);
-	if (diskSize < (NumBlocks() << BlockShift()))
+	if (diskSize < (NumBlocks() << BlockShift())) {
+		FATAL(("Disk size (%" B_PRIdOFF " bytes) < file system size (%"
+			B_PRIdOFF " bytes)!\n", diskSize, NumBlocks() << BlockShift()));
 		RETURN_ERROR(B_BAD_VALUE);
+	}
 
 	// set the current log pointers, so that journaling will work correctly
 	fLogStart = fSuperBlock.LogStart();
@@ -616,6 +621,28 @@ Volume::RemoveQuery(Query* query)
 {
 	MutexLocker _(fQueryLock);
 	fQueries.Remove(query);
+}
+
+
+status_t
+Volume::CreateCheckVisitor()
+{
+	if (fCheckVisitor != NULL)
+		return B_BUSY;
+
+	fCheckVisitor = new(std::nothrow) ::CheckVisitor(this);
+	if (fCheckVisitor == NULL)
+		return B_NO_MEMORY;
+
+	return B_OK;
+}
+
+
+void
+Volume::DeleteCheckVisitor()
+{
+	delete fCheckVisitor;
+	fCheckVisitor = NULL;
 }
 
 

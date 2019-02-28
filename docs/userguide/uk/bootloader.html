@@ -4,14 +4,14 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2015, Haiku. All rights reserved.
+ * Copyright 2008-2018, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		totish
  *		Humdinger
+ *		totish
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -63,14 +63,14 @@
 
 <h1>Завантажувач системи (Boot Loader)</h1>
 
-<p>Завантажувач Haiku може допомогти вирішити апаратні проблеми або вибрати яку з систем Haiku  використовувати для запуску якщо у Вас їх більше однієї копії (можливо з загрузочного CD або USB флешки). Він дозволить запуститись коли недавно встановлений компонет блокує завантаження системи, дивись <a href="#troubleshooting">Troubleshooting (Труднощі)</a> нижче.</p>
+<p>Haiku's Boot Loader Options can help when you experience hardware related problems or want to choose which Haiku installation to start, if you have more than one (maybe on an installation CD or USB stick). It's also handy if you have installed a software component that acts up and prevents you from booting Haiku, see <a href="#troubleshooting">Troubleshooting</a> below.</p>
 <p>Для того щоб зайти в налаштування Завантажувача системи необхідно натиснути і утримувати клавішу <span class="key">SHIFT</span> до початку завантаження Haiku. Якщо завантажувач встановлено, то Ви можете починати утримання <span class="key">SHIFT</span> перед вибором загрузочного запису  Haiku. Якщо Haiku єдина система на комп'ютер, то утримання можна починати під час початкових повідомлень BIOS.</p>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
 <a id="options" name="options">Boot Loader Options (Опції Завантажувача системи)</a></h2>
 <p>Ви побачите три пункти меню:</p>
 <table summary="bootloader menus" border="0" cellspacing="0" cellpadding="2">
-<tr><td><b>Вибір загрузочного розділу<br />(Select boot volume)</b></td><td> </td><td>Choose which Haiku installation/version to start.</td></tr>
+<tr><td><b>Вибір загрузочного розділу<br />(Select boot volume)</b></td><td> </td><td>Choose which Haiku installation/state to start (see <a href="#troubleshooting">Troubleshooting</a> below).</td></tr>
 <tr><td><b>Select safe mode options</b></td><td> </td><td>There are several options to try in case of hardware related trouble or if the system becomes unstable or unbootable because of a misbehaving add-on. When moving the selection bar to an option, a short explanation appears at the bottom of the screen.</td></tr>
 <tr><td></td><td></td><td>
 	<p><span class="menu">Safe mode</span><br />
@@ -129,10 +129,11 @@
 <ul>
 <li><p>Активація <span class="menu">Safe mode</span> запобігатиме запуску основних серверів, служб та користувацького завантажувального скрипта.</p></li>
 <li><p>Активація <span class="menu">Disable user add-ons</span> запобігатиме використанню усіх додатків (драйверів, трансляторів, etc.) встановлених у користувацькій ієрархії  у Вашій теці Home.</p></li>
+<li><p>If activating <span class="menu">Use fail-safe graphics driver</span> solves your troubles by falling back to VESA graphics, you can make the setting permanent by removing the <tt>#</tt> of the line <i>#fail_safe_video_mode true</i> in the text file <span class="path">/boot/home/config/settings/kernel/drivers/kernel</span>.</p></li>
 <li><p>Якщо сумнівний драйвер, додаток або щось інше встановлені у системній ієрархії (тека "system"), ситуація ускладнюється, бо це область тільки для читання. Тоді вступає в силу опція <span class="menu">Blacklist entries</span>. З  нею Ви отримуєте можливість подорожуючи системною ієрархією забороняти роботу компонентів вибравши їх за допомогою клавіш <span class="key">SPACE</span> або <span class="key">RETURN</span>. Кнопка <span class="key">ESC</span> повертатиме Вас до батьківської директорії.</p>
 <p>Онлайн доступна стаття <a href="http://www.haiku-os.org/blog/barrett/2013-12-15_how_permanently_blacklist_package_file">How to Permanently Blacklist a Package File</a> де показано приклад як це зробити.</p></li>
-<li><p>Пункт <span class="menu">Select boot volume</span> дозволяє вибрати попередню версію системи Haiku для завантаження. Щоразу при оновленні  старіша версія зберігається і її можна вибрати з пропонованих варіантів.<br />
-Таким чином, якщо у вас виникнуть проблеми із завантаженням після установки якогось пакету, завантажтесь у попередню версію Haiku та видаліть сумнівний пакет.</p></li>
+<li><p>Under <span class="menu">Select boot volume</span> you can specify what former "version" of Haiku to boot. Every time you un/install a package, the old state is saved and you can boot into it by choosing it from the list presented in the boot loader options.<br />
+So, if you encounter boot problems after installing some package, boot a Haiku state from before that time and uninstall the offending package.</p></li>
 </ul>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>

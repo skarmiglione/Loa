@@ -21,16 +21,16 @@ IMPORTANT INFORMATION BEFORE INSTALLING HAIKU\n\n	InstallerApp		INFORMAZIONI IMP
 Continue	InstallerWindow	In alert after pressing Stop	Continua
 Write boot sector to '%s'	InstallerWindow		Scrittura settore d'avvio su '%s'
 Collecting copy information.	InstallProgress		Raccolta informazioni di copia.
-Have fun and thanks for trying out Haiku!	InstallerApp		Buon divertimento e grazie per aver provato Haiku!
+Have fun and thanks for trying out Haiku!	InstallerApp		Buon divertimento e grazie per il tuo interesse per Haiku!
 Choose the source disk from the pop-up menu. Then click \"Begin\".	InstallerWindow		Scegli il disco d'origine dal menu a pop-up. Quindi fai click su \"Inizia\".
 Quit Boot Manager and DriveSetup	InstallerWindow		Esci dal Boot Manager e da DriveSetup
 Quit	InstallerWindow		Esci
-Welcome to the Haiku Installer!\n\n	InstallerApp		Benvenuto nell'Installer di Haiku!\n\n
+Welcome to the Haiku Installer!\n\n	InstallerApp		Benvenuto nel programma di installazione di Haiku!\n\n
 Boot sector successfully written.	InstallProgress		Settore d'avvio scritto con successo.
 Performing installation.	InstallProgress		Esecuzione dell'installazione.
 scanning…	InstallerWindow		scansione…
 Set up boot menu	InstallerWindow		Configura il menu di avvio
-2)   The Installer will make the Haiku partition itself bootable, but takes no steps to integrate Haiku into an existing boot menu. If you have GRUB already installed, you can add Haiku to it.\nFor details, please consult the guide on booting Haiku on our website at https://www.haiku-os.org/guides/booting.\nOr you can set up a boot menu from Installer's \"Tools\" menu, see the Userguide's topic on the application \"BootManager\".\n\n\n	InstallerApp		2)   L'Installer provvederà a rendere la partizione di Haiku avviabile, ma non integrerà Haiku su un menu di avvio già esistente. Se hai GRUB installato, puoi aggiungere Haiku da li\nPer maggiori dettagli, per favore consulta la guida sull'avvio di Haiku su https://www.haiku-os.org/guides/booting.\nOppure puoi creare un menu di avvio dal menu \"Strumenti\" dell'Installer, consulta la Guida per l'Utente all'argomento che riguarda l'applicazione \"BootManager\".\n\n\n
+2)   The Installer will make the Haiku partition itself bootable, but takes no steps to integrate Haiku into an existing boot menu. If you have GRUB already installed, you can add Haiku to it.\nFor details, please consult the guide on booting Haiku on our website at https://www.haiku-os.org/guides/booting.\nOr you can set up a boot menu from Installer's \"Tools\" menu, see the Userguide's topic on the application \"BootManager\".\n\n\n	InstallerApp		2)   L'Installer provvederà a rendere la partizione di Haiku avviabile, ma non integrerà Haiku su un menu di avvio già esistente. Se hai GRUB installato, puoi aggiungere Haiku da li\nPer maggiori dettagli, per favore consulta la guida sull'avvio di Haiku su https://www.haiku-os.org/guides/booting.\nOppure puoi creare un menu di avvio dal menu \"Strumenti\" del programma di installazione, consulta la Guida per l'Utente all'argomento che riguarda l'applicazione \"BootManager\".\n\n\n
 Abort	InstallerWindow		Annulla
 Finishing Installation.	InstallProgress		Conclusione installazione.
 Restart	InstallerWindow		Riavvia
@@ -48,14 +48,14 @@ Unknown Type	InstallProgress	Partition content type	Tipo Sconosciuto
 <none>	InstallerWindow	No partition available	<nessuna>
 Installation completed. Boot sector has been written to '%s'. Press Restart to restart the computer or choose a new target volume to perform another installation.	InstallerWindow		Installazione completata. Il boot sector è stato scritto su '%s'. Premi Riavvia o scegli una nuova partizione per effettuare un'altra installazione.
 Installation canceled.	InstallProgress		Installazione annullata.
-Installer	System name		Installatore
+Installer	System name		Installer
 You can't install the contents of a disk onto itself. Please choose a different disk.	InstallProgress		Non puoi installare i contenuti di un disco su se stesso. Scegli un disco differente.
 ???	InstallerWindow	Unknown currently copied item	???
 Quit DriveSetup	InstallerWindow		Esci da DriveSetup
 Hide optional packages	InstallerWindow		Nascondi pacchetti opzionali
-Please close the DriveSetup window before closing the Installer window.	InstallerWindow		Chiudi la finestra di DriveSetup prima di chiudere quella dell'Installer
+Please close the DriveSetup window before closing the Installer window.	InstallerWindow		Chiudi la finestra del Gestore Disco prima di chiudere quella dell'Installer.
 Restart system	InstallerWindow		Riavvia sistema
-1)   If you are installing Haiku onto real hardware (not inside an emulator), you may want to prepare a hard disk partition from another OS (you could, for example, use a GParted Live-CD, which can also resize existing partitions to make room).\nYou can also set up partitions by launching DriveSetup from Installer, but you won't be able to resize existing partitions with it. While DriveSetup has been quite thoroughly tested over the years, it's recommended to have up-to-date backups of the other partitions on your system. Just in case…	InstallerApp		1)   Se intendi installare Haiku su dell'hardware reale (non all'interno di un emulatore), potresti voler preparare una partizione sul disco rigido da un altro sistema operativo (potresti, ad esempio, utilizzare un CD avviabile con GParted, che è anche in grado di ridimensionale le partizioni esistenti per liberare spazio).\nPuoi anche configurare le partizioni lancianto DriveSetup dall'Installer, ma non sarai in grado di ridimensionare le partizioni con quello. Per quanto DriveSetup sia stato testato a fondo nel corso degli anni, è raccomandato disporre di un backup aggiornato delle altre partizioni del sistema. Non si sa mai…
+1)   If you are installing Haiku onto real hardware (not inside an emulator), you may want to prepare a hard disk partition from another OS (you could, for example, use a GParted Live-CD, which can also resize existing partitions to make room).\nYou can also set up partitions by launching DriveSetup from Installer, but you won't be able to resize existing partitions with it. While DriveSetup has been quite thoroughly tested over the years, it's recommended to have up-to-date backups of the other partitions on your system. Just in case…	InstallerApp		1)   Se intendi installare Haiku su dell'hardware reale (non all'interno di un emulatore), potresti voler preparare una partizione sul disco rigido da un altro sistema operativo (potresti, ad esempio, utilizzare un CD avviabile con GParted, che è anche in grado di ridimensionare le partizioni esistenti per liberare spazio).\nPuoi anche configurare le partizioni lanciando il DriveSetup, il gestore dei dischi, dal programma di installazione, ma non sarai in grado di ridimensionare le partizioni con quello. Per quanto DriveSetup sia stato testato a fondo nel corso degli anni, è raccomandato disporre di un backup aggiornato delle altre partizioni del sistema. Non si sa mai…
 OK	InstallerWindow		OK
 Set up partitions…	InstallerWindow		Imposta partizioni…
 The partition can't be mounted. Please choose a different partition.	InstallProgress		La partizione non può essere montata. Scegli una partizione differente.

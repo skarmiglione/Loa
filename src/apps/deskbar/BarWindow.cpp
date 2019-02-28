@@ -52,6 +52,9 @@ All rights reserved.
 #include <MessagePrivate.h>
 #include <Screen.h>
 
+#include <DeskbarPrivate.h>
+#include <tracker_private.h>
+
 #include "BarApp.h"
 #include "BarMenuBar.h"
 #include "BarView.h"
@@ -60,7 +63,6 @@ All rights reserved.
 #include "ExpandoMenuBar.h"
 #include "StatusView.h"
 
-#include "tracker_private.h"
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "MainWindow"
@@ -194,6 +196,10 @@ TBarWindow::MessageReceived(BMessage* message)
 
 		case kMsgCountItems:
 			CountItems(message);
+			break;
+
+		case kMsgMaxItemSize:
+			MaxItemSize(message);
 			break;
 
 		case kMsgAddAddOn:
@@ -539,6 +545,24 @@ TBarWindow::CountItems(BMessage* message)
 
 	BMessage reply('rply');
 	reply.AddInt32("count", fBarView->CountItems(shelf));
+	message->SendReply(&reply);
+}
+
+
+void
+TBarWindow::MaxItemSize(BMessage* message)
+{
+	DeskbarShelf shelf;
+#if SHELF_AWARE
+	if (message->FindInt32("shelf", (int32*)&shelf) != B_OK)
+#endif
+		shelf = B_DESKBAR_TRAY;
+
+	BSize size = fBarView->MaxItemSize(shelf);
+
+	BMessage reply('rply');
+	reply.AddFloat("width", size.width);
+	reply.AddFloat("height", size.height);
 	message->SendReply(&reply);
 }
 

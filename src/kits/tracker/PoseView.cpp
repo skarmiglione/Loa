@@ -277,10 +277,10 @@ BPoseView::BPoseView(Model* model, uint32 viewMode)
 	fDeskbarFrame(0, 0, -1, -1),
 	fTextWidgetToCheck(NULL)
 {
-	fViewState->SetViewMode(viewMode);
-	if (viewMode == kIconMode && fViewState->IconSize() == B_MINI_ICON)
-		fViewState->SetIconSize(B_LARGE_ICON);
+	fListElemHeight = std::fmax(ListIconSize(),
+		ceilf(sFontHeight) < 20 ? 20 : ceilf(sFontHeight * 1.1f));
 
+	fViewState->SetViewMode(viewMode);
 	fShowSelectionWhenInactive
 		= TrackerSettings().ShowSelectionWhenInactive();
 	fTransparentSelection = TrackerSettings().TransparentSelection();
@@ -345,13 +345,9 @@ BPoseView::InitCommon()
 	PinPointToValidRange(origin);
 
 	// init things related to laying out items
-
 	SetIconPoseHeight();
 	GetLayoutInfo(ViewMode(), &fGrid, &fOffset);
 	ResetPosePlacementHint();
-
-	if (ViewMode() == kListMode)
-		SetListElemHeight();
 
 	DisableScrollBars();
 	ScrollTo(origin);
@@ -434,6 +430,7 @@ BPoseView::RestoreColumnState(AttributeStreamNode* node)
 		}
 	}
 
+	_ResetStartOffset();
 	SetUpDefaultColumnsIfNeeded();
 	if (!ColumnFor(PrimarySort())) {
 		fViewState->SetPrimarySort(FirstColumn()->AttrHash());
@@ -461,6 +458,7 @@ BPoseView::RestoreColumnState(const BMessage &message)
 
 	AddColumnList(&tempSortedList);
 
+	_ResetStartOffset();
 	SetUpDefaultColumnsIfNeeded();
 	if (!ColumnFor(PrimarySort())) {
 		fViewState->SetPrimarySort(FirstColumn()->AttrHash());
@@ -1031,7 +1029,7 @@ BPoseView::SetIconPoseHeight()
 		case kListMode:
 		default:
 		{
-			SetListElemHeight();
+			fViewState->SetIconSize(ListIconSize());
 			fIconPoseHeight = fListElemHeight;
 			break;
 		}
@@ -2251,36 +2249,6 @@ BPoseView::MessageReceived(BMessage* message)
 		}
 
 		case kListMode:
-		{
-			uint32 oldMode = fViewState->ViewMode();
-			int32 oldIconSize = fViewState->IconSize();
-			int32 iconSize;
-			if (message->FindInt32("icon_size", &iconSize) == B_OK) {
-				// sanatize
-				if ((icon_size)iconSize != B_LARGE_ICON)
-					iconSize = B_MINI_ICON;
-			} else
-				iconSize = B_MINI_ICON;
-
-			fViewState->SetIconSize(iconSize);
-			SetViewMode(message->what);
-
-			if (oldMode == kListMode && iconSize == oldIconSize)
-				break;
-
-			if (iconSize == B_MINI_ICON)
-				ResizeColumn(FirstColumn(), FirstColumn()->Width() - B_MINI_ICON);
-			else
-				ResizeColumn(FirstColumn(), FirstColumn()->Width() + B_MINI_ICON);
-
-			SetListElemHeight();
-			Invalidate();
-			if (fTitleView != NULL && !fTitleView->IsHidden())
-				fTitleView->Invalidate();
-
-			break;
-		}
-
 		case kMiniIconMode:
 			SetViewMode(message->what);
 			break;
@@ -10476,6 +10444,18 @@ BPoseView::ExcludeTrashFromSelection()
 			break;
 		}
 	}
+}
+
+
+/*!	Since the start offset of the first column is part of the stored
+	column state, it has to be corrected to match the current offset
+	(that depends on the font size).
+*/
+void
+BPoseView::_ResetStartOffset()
+{
+	if (!fColumnList->IsEmpty())
+		fColumnList->ItemAt(0)->SetOffset(StartOffset());
 }
 
 

@@ -6,20 +6,21 @@
 
 #include <MediaFile.h>
 
+#include <File.h>
+#include <MediaExtractor.h>
+#include <MediaStreamer.h>
+#include <MediaTrack.h>
+#include <MediaWriter.h>
+#include <Url.h>
+
 #include <new>
 
 #include <stdlib.h>
 #include <string.h>
 
-#include <File.h>
-#include <MediaTrack.h>
-#include <Url.h>
+#include "MediaDebug.h"
 
-#include "debug.h"
-
-#include "MediaExtractor.h"
-#include "MediaStreamer.h"
-#include "MediaWriter.h"
+using namespace BCodecKit;
 
 
 BMediaFile::BMediaFile(const entry_ref* ref)
@@ -197,14 +198,25 @@ BMediaFile::GetMetaData(BMessage* _data) const
 
 	_data->MakeEmpty();
 
-	return fExtractor->GetMetaData(_data);
+	BMetaData metaData;
+	if (fExtractor->GetMetaData(&metaData) == B_OK) {
+		*_data = *metaData.Message();
+		return B_OK;
+	}
+
+	return B_ERROR;
 }
 
 
 const char*
 BMediaFile::Copyright() const
 {
-	return fExtractor->Copyright();
+	BMetaData data;
+	BString copyright;
+	if (fExtractor->GetMetaData(&data) == B_OK)
+		data.GetString(kCopyright, &copyright);
+
+	return copyright.String();
 }
 
 
@@ -345,7 +357,9 @@ BMediaFile::AddCopyright(const char* copyright)
 	if (fWriter == NULL)
 		return B_NO_INIT;
 
-	return fWriter->SetCopyright(copyright);
+	BMetaData* data = new BMetaData();
+	data->SetString(kCopyright, copyright);
+	return fWriter->SetMetaData(data);
 }
 
 
@@ -513,7 +527,7 @@ BMediaFile::_InitReader(BDataIO* source, const BUrl* url, int32 flags)
 	if (fErr != B_OK)
 		return;
 
-	fExtractor = new(std::nothrow) MediaExtractor(source, flags);
+	fExtractor = new(std::nothrow) BMediaExtractor(source, flags);
 
 	if (fExtractor == NULL)
 		fErr = B_NO_MEMORY;
@@ -527,7 +541,7 @@ BMediaFile::_InitReader(BDataIO* source, const BUrl* url, int32 flags)
 	fSource = fExtractor->Source();
 
 	fExtractor->GetFileFormatInfo(&fMFI);
-	fTrackNum = fExtractor->StreamCount();
+	fTrackNum = fExtractor->CountStreams();
 	fTrackList = (BMediaTrack**)malloc(fTrackNum * sizeof(BMediaTrack*));
 	if (fTrackList == NULL) {
 		fErr = B_NO_MEMORY;
@@ -561,7 +575,7 @@ BMediaFile::_InitWriter(BDataIO* target, const BUrl* url,
 			return;
 	}
 
-	fWriter = new(std::nothrow) MediaWriter(target, fMFI);
+	fWriter = new(std::nothrow) BMediaWriter(target, fMFI);
 
 	if (fWriter == NULL)
 		fErr = B_NO_MEMORY;
@@ -584,13 +598,14 @@ BMediaFile::_InitStreamer(const BUrl& url, BDataIO** adapter)
 
 	TRACE(url.UrlString());
 
-	fStreamer = new(std::nothrow) MediaStreamer(url);
+	fStreamer = new(std::nothrow) BMediaStreamer(url);
 	if (fStreamer == NULL) {
 		fErr = B_NO_MEMORY;
 		return;
 	}
 
-	fErr = fStreamer->CreateAdapter(adapter);
+	fErr = fStreamer->Open();
+	*adapter = fStreamer->Adapter();
 }
 
 /*

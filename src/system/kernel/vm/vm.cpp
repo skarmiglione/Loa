@@ -756,8 +756,12 @@ unmap_address_range(VMAddressSpace* addressSpace, addr_t address, addr_t size,
 				VMArea* area = it.Next();) {
 			addr_t areaLast = area->Base() + (area->Size() - 1);
 			if (area->Base() < lastAddress && address < areaLast) {
-				if ((area->protection & B_KERNEL_AREA) != 0)
+				if (area->address_space == VMAddressSpace::Kernel()) {
+					dprintf("unmap_address_range: team %" B_PRId32 " tried to "
+						"unmap range of kernel area %" B_PRId32 " (%s)\n",
+						team_get_current_team_id(), area->id, area->name);
 					return B_NOT_ALLOWED;
+				}
 			}
 		}
 	}
@@ -867,16 +871,16 @@ map_backing_store(VMAddressSpace* addressSpace, VMCache* cache, off_t offset,
 
 	status = addressSpace->InsertArea(area, size, addressRestrictions,
 		allocationFlags, _virtualAddress);
-	if (status != B_OK) {
-		// TODO: wait and try again once this is working in the backend
-#if 0
-		if (status == B_NO_MEMORY && addressSpec == B_ANY_KERNEL_ADDRESS) {
-			low_resource(B_KERNEL_RESOURCE_ADDRESS_SPACE, size,
-				0, 0);
-		}
-#endif
-		goto err2;
+	if (status == B_NO_MEMORY
+			&& addressRestrictions->address_specification == B_ANY_KERNEL_ADDRESS) {
+		// Since the kernel address space is locked by the caller, we can't
+		// wait here as of course no resources can be released while the locks
+		// are held. But we can at least issue this so the next caller doesn't
+		// run into the same problem.
+		low_resource(B_KERNEL_RESOURCE_ADDRESS_SPACE, size, 0, 0);
 	}
+	if (status != B_OK)
+		goto err2;
 
 	// attach the cache to the area
 	area->cache = cache;
@@ -2069,9 +2073,6 @@ vm_clone_area(team_id team, const char* name, void** address,
 		if (status != B_OK)
 			return status;
 
-		if (!kernel && (sourceArea->protection & B_KERNEL_AREA) != 0)
-			return B_NOT_ALLOWED;
-
 		sourceArea->protection |= B_SHARED_AREA;
 		protection |= B_SHARED_AREA;
 	}
@@ -2096,9 +2097,6 @@ vm_clone_area(team_id team, const char* name, void** address,
 	sourceArea = lookup_area(sourceAddressSpace, sourceID);
 	if (sourceArea == NULL)
 		return B_BAD_VALUE;
-
-	if (!kernel && (sourceArea->protection & B_KERNEL_AREA) != 0)
-		return B_NOT_ALLOWED;
 
 	VMCache* cache = vm_area_get_locked_cache(sourceArea);
 
@@ -2278,8 +2276,8 @@ vm_delete_area(team_id team, area_id id, bool kernel)
 
 	cacheLocker.Unlock();
 
-	if (!kernel && (area->protection & B_KERNEL_AREA) != 0)
-		return B_NOT_ALLOWED;
+	// SetFromArea will have returned an error if the area's owning team is not
+	// the same as the passed team, so we don't need to do those checks here.
 
 	delete_area(locker.AddressSpace(), area, false);
 	return B_OK;
@@ -2563,8 +2561,12 @@ vm_set_area_protection(team_id team, area_id areaID, uint32 newProtection,
 
 		cacheLocker.SetTo(cache, true);	// already locked
 
-		if (!kernel && (area->protection & B_KERNEL_AREA) != 0)
+		if (!kernel && area->address_space == VMAddressSpace::Kernel()) {
+			dprintf("vm_set_area_protection: team %" B_PRId32 " tried to "
+				"set protection %#" B_PRIx32 " on kernel area %" B_PRId32
+				" (%s)\n", team, newProtection, areaID, area->name);
 			return B_NOT_ALLOWED;
+		}
 
 		if (area->protection == newProtection)
 			return B_OK;
@@ -2950,7 +2952,7 @@ display_mem(int argc, char** argv)
 	} else {
 		// number mode
 		for (i = 0; i < num; i++) {
-			uint32 value;
+			uint64 value;
 
 			if ((i % displayWidth) == 0) {
 				int32 displayed = min_c(displayWidth, (num-i)) * itemSize;
@@ -4248,16 +4250,15 @@ vm_page_fault(addr_t address, addr_t faultAddress, bool isWrite, bool isExecute,
 					"0x%lx, ip 0x%lx\n", address, faultAddress);
 			}
 		} else {
-#if 1
-			// TODO: remove me once we have proper userland debugging support
-			// (and tools)
+			Thread* thread = thread_get_current_thread();
+
+#ifdef TRACE_FAULTS
 			VMArea* area = NULL;
 			if (addressSpace != NULL) {
 				addressSpace->ReadLock();
 				area = addressSpace->LookupArea(faultAddress);
 			}
 
-			Thread* thread = thread_get_current_thread();
 			dprintf("vm_page_fault: thread \"%s\" (%" B_PRId32 ") in team "
 				"\"%s\" (%" B_PRId32 ") tried to %s address %#lx, ip %#lx "
 				"(\"%s\" +%#lx)\n", thread->name, thread->id,
@@ -4265,60 +4266,6 @@ vm_page_fault(addr_t address, addr_t faultAddress, bool isWrite, bool isExecute,
 				isWrite ? "write" : (isExecute ? "execute" : "read"), address,
 				faultAddress, area ? area->name : "???", faultAddress - (area ?
 					area->Base() : 0x0));
-
-			// We can print a stack trace of the userland thread here.
-// TODO: The user_memcpy() below can cause a deadlock, if it causes a page
-// fault and someone is already waiting for a write lock on the same address
-// space. This thread will then try to acquire the lock again and will
-// be queued after the writer.
-#	if 0
-			if (area) {
-				struct stack_frame {
-					#if defined(__INTEL__) || defined(__POWERPC__) || defined(__M68K__)
-						struct stack_frame*	previous;
-						void*				return_address;
-					#else
-						// ...
-					#warning writeme
-					#endif
-				} frame;
-#		ifdef __INTEL__
-				struct iframe* iframe = x86_get_user_iframe();
-				if (iframe == NULL)
-					panic("iframe is NULL!");
-
-				status_t status = user_memcpy(&frame, (void*)iframe->ebp,
-					sizeof(struct stack_frame));
-#		elif defined(__POWERPC__)
-				struct iframe* iframe = ppc_get_user_iframe();
-				if (iframe == NULL)
-					panic("iframe is NULL!");
-
-				status_t status = user_memcpy(&frame, (void*)iframe->r1,
-					sizeof(struct stack_frame));
-#		else
-#			warning "vm_page_fault() stack trace won't work"
-				status = B_ERROR;
-#		endif
-
-				dprintf("stack trace:\n");
-				int32 maxFrames = 50;
-				while (status == B_OK && --maxFrames >= 0
-						&& frame.return_address != NULL) {
-					dprintf("  %p", frame.return_address);
-					area = addressSpace->LookupArea(
-						(addr_t)frame.return_address);
-					if (area) {
-						dprintf(" (%s + %#lx)", area->name,
-							(addr_t)frame.return_address - area->Base());
-					}
-					dprintf("\n");
-
-					status = user_memcpy(&frame, frame.previous,
-						sizeof(struct stack_frame));
-				}
-			}
-#	endif	// 0 (stack trace)
 
 			if (addressSpace != NULL)
 				addressSpace->ReadUnlock();
@@ -4967,8 +4914,8 @@ vm_set_area_memory_type(area_id id, phys_addr_t physicalBase, uint32 type)
 
 
 /*!	This function enforces some protection properties:
+	 - kernel areas must be W^X (after kernel startup)
 	 - if B_WRITE_AREA is set, B_KERNEL_WRITE_AREA is set as well
-	 - if B_EXECUTE_AREA is set, B_KERNEL_EXECUTE_AREA is set as well
 	 - if only B_READ_AREA has been set, B_KERNEL_READ_AREA is also set
 	 - if no protection is specified, it defaults to B_KERNEL_READ_AREA
 	   and B_KERNEL_WRITE_AREA.
@@ -4976,14 +4923,18 @@ vm_set_area_memory_type(area_id id, phys_addr_t physicalBase, uint32 type)
 static void
 fix_protection(uint32* protection)
 {
+	if ((*protection & B_KERNEL_EXECUTE_AREA) != 0
+		&& ((*protection & B_KERNEL_WRITE_AREA) != 0
+			|| (*protection & B_WRITE_AREA) != 0)
+		&& !gKernelStartup)
+		panic("kernel areas cannot be both writable and executable!");
+
 	if ((*protection & B_KERNEL_PROTECTION) == 0) {
 		if ((*protection & B_USER_PROTECTION) == 0
 			|| (*protection & B_WRITE_AREA) != 0)
 			*protection |= B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA;
 		else
 			*protection |= B_KERNEL_READ_AREA;
-		if ((*protection & B_EXECUTE_AREA) != 0)
-			*protection |= B_KERNEL_EXECUTE_AREA;
 	}
 }
 
@@ -5042,11 +4993,13 @@ vm_resize_area(area_id areaID, size_t newSize, bool kernel)
 		cacheLocker.SetTo(cache, true);	// already locked
 
 		// enforce restrictions
-		if (!kernel) {
-			if ((area->protection & B_KERNEL_AREA) != 0)
-				return B_NOT_ALLOWED;
-			// TODO: Enforce all restrictions (team, etc.)!
+		if (!kernel && area->address_space == VMAddressSpace::Kernel()) {
+			dprintf("vm_resize_area: team %" B_PRId32 " tried to "
+				"resize kernel area %" B_PRId32 " (%s)\n",
+				team_get_current_team_id(), areaID, area->name);
+			return B_NOT_ALLOWED;
 		}
+		// TODO: Enforce all restrictions (team, etc.)!
 
 		oldSize = area->Size();
 		if (newSize == oldSize)
@@ -6489,7 +6442,7 @@ _user_set_memory_protection(void* _address, size_t size, uint32 protection)
 			if (area == NULL)
 				return B_NO_MEMORY;
 
-			if ((area->protection & B_KERNEL_AREA) != 0)
+			if (area->address_space == VMAddressSpace::Kernel())
 				return B_NOT_ALLOWED;
 
 			// TODO: For (shared) mapped files we should check whether the new

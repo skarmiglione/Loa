@@ -546,6 +546,12 @@ dump_feature_string(int currentCPU, cpu_ent* cpu)
 		strlcat(features, "ibrs ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_STIBP)
 		strlcat(features, "stibp ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_L1D_FLUSH)
+		strlcat(features, "l1d_flush ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_ARCH_CAPABILITIES)
+		strlcat(features, "msr_arch ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_SSBD)
+		strlcat(features, "ssbd ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_EXT_8_EBX] & IA32_FEATURE_AMD_EXT_IBPB)
 		strlcat(features, "ibpb ", sizeof(features));
 	dprintf("CPU %d: features: %s\n", currentCPU, features);
@@ -622,7 +628,7 @@ detect_amd_cache_topology(uint32 maxExtendedLeaf)
 
 	if (maxExtendedLeaf < 0x8000001d)
 		return;
-	
+
 	uint8 hierarchyLevels[CPU_MAX_CACHE_LEVEL];
 	int maxCacheLevel = 0;
 
@@ -1165,6 +1171,7 @@ arch_cpu_init(kernel_args* args)
 }
 
 
+#ifdef __x86_64__
 static void
 enable_smap(void* dummy, int cpu)
 {
@@ -1177,6 +1184,7 @@ enable_smep(void* dummy, int cpu)
 {
 	x86_write_cr4(x86_read_cr4() | IA32_CR4_SMEP);
 }
+#endif
 
 
 status_t

@@ -565,8 +565,8 @@ BRow::ValidateField(const BField* field, int32 logicalFieldIndex) const
 	if (column == NULL) {
 		BString dbmessage("\n\n\tThe parent BColumnListView does not have "
 			"\n\ta BColumn at the logical field index ");
-		dbmessage << logicalFieldIndex << ".\n\n";
-		printf(dbmessage.String());
+		dbmessage << logicalFieldIndex << ".\n";
+		puts(dbmessage.String());
 	} else {
 		if (!column->AcceptsField(field)) {
 			BString dbmessage("\n\n\tThe BColumn of type ");
@@ -2539,9 +2539,6 @@ void
 TitleView::DrawTitle(BView* view, BRect rect, BColumn* column, bool depressed)
 {
 	BRect drawRect;
-	rgb_color borderColor = mix_color(
-		fMasterView->Color(B_COLOR_HEADER_BACKGROUND),
-		make_color(0, 0, 0), 128);
 	drawRect = rect;
 
 	font_height fh;

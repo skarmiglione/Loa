@@ -23,7 +23,7 @@
 #include <user_thread.h>
 
 
-static const pthread_attr pthread_attr_default = {
+static pthread_attr pthread_attr_default = {
 	PTHREAD_CREATE_JOINABLE,
 	B_NORMAL_PRIORITY,
 	USER_STACK_SIZE,
@@ -39,6 +39,8 @@ static status_t
 pthread_thread_entry(void*, void* _thread)
 {
 	pthread_thread* thread = (pthread_thread*)_thread;
+
+	__heap_thread_init();
 
 	pthread_exit(thread->entry(thread->entry_argument));
 	return 0;
@@ -127,6 +129,13 @@ __pthread_init_creation_attributes(const pthread_attr_t* pthreadAttributes,
 		thread->flags |= THREAD_DETACHED;
 
 	return B_OK;
+}
+
+
+void
+__pthread_set_default_priority(int32 priority)
+{
+	pthread_attr_default.sched_priority = priority;
 }
 
 

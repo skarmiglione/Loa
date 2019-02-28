@@ -240,9 +240,9 @@ GetMinimumViewWidth()
 void
 Usage()
 {
-	printf(B_TRANSLATE("Usage: Pulse [--mini] [-w width] [--width=width]\n"
-	       "\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n"
-	       "\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]\n"));
+	puts(B_TRANSLATE("Usage: Pulse [--mini] [-w width] [--width=width]\n"
+		"\t[--deskbar] [--normal] [--framecolor 0xrrggbb]\n"
+		"\t[--activecolor 0xrrggbb] [--idlecolor 0xrrggbb]"));
 	exit(0);
 }
 
@@ -266,7 +266,8 @@ LoadInDeskbar()
 		width = min_width;
 	}
 
-	BRect rect(0, 0, width - 1, 15);
+	float height = deskbar->MaxItemHeight();
+	BRect rect(0, 0, width - 1, height - 1);
 	DeskbarPulseView *replicant = new DeskbarPulseView(rect);
 	status_t err = deskbar->AddItem(replicant);
 	delete replicant;

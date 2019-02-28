@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2007-2009 Sam Leffler, Errno Consulting
  * Copyright (c) 2007-2009 Marvell Semiconductor, Inc.
  * All rights reserved.
@@ -27,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
  * THE POSSIBILITY OF SUCH DAMAGES.
  *
- * $FreeBSD: releng/11.1/sys/dev/mwl/mwlhal.c 300077 2016-05-17 20:53:56Z avos $
+ * $FreeBSD: releng/12.0/sys/dev/mwl/mwlhal.c 326255 2017-11-27 14:52:40Z pfg $
  */
 
 #include <sys/param.h>
@@ -619,22 +621,13 @@ mwl_hal_sethwdma(struct mwl_hal *mh0, const struct mwl_hal_txrxdma *dma)
 	pCmd->NumTxQueues = htole32(dma->maxNumWCB);
 	pCmd->TotalRxWcb = htole32(1);		/* XXX */
 	pCmd->RxPdWrPtr = htole32(dma->rxDescRead);
-#ifdef __HAIKU__
-#ifdef MWL_HOST_PS_SUPPORT
 	pCmd->Flags = htole32(SET_HW_SPEC_HOSTFORM_BEACON
-		    | SET_HW_SPEC_HOST_POWERSAVE
-		    | SET_HW_SPEC_HOSTFORM_PROBERESP);
-#else
-	pCmd->Flags = htole32(SET_HW_SPEC_HOSTFORM_BEACON
-		    | SET_HW_SPEC_HOSTFORM_PROBERESP);
-#endif
-#else
-	pCmd->Flags = htole32(SET_HW_SPEC_HOSTFORM_BEACON
+/*
 #ifdef MWL_HOST_PS_SUPPORT
 		    | SET_HW_SPEC_HOST_POWERSAVE
 #endif
+*/
 		    | SET_HW_SPEC_HOSTFORM_PROBERESP);
-#endif
 	/* disable multi-bss operation for A1-A4 parts */
 	if (mh->mh_revs.mh_macRev < 5)
 		pCmd->Flags |= htole32(SET_HW_SPEC_DISABLEMBSS);

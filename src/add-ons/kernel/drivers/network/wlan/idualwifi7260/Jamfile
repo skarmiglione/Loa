@@ -1,8 +1,8 @@
 SubDir HAIKU_TOP src add-ons kernel drivers network wlan idualwifi7260 ;
 
-UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd11_network compat ]
+UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_network compat ]
 	: true ;
-UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd11_wlan ] : true ;
+UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_wlan ] : true ;
 UsePrivateHeaders net system ;
 UsePrivateKernelHeaders ;
 
@@ -28,14 +28,15 @@ KernelAddon idualwifi7260 :
 	if_iwm_phy_db.c
 	if_iwm_power.c
 	if_iwm_scan.c
+	if_iwm_sf.c
 	if_iwm_sta.c
 	if_iwm_time_event.c
 	if_iwm_util.c
 	if_iwm.c
 	glue.c
 	:
-	libfreebsd11_wlan.a
-	libfreebsd11_network.a
+	freebsd_wlan.a
+	libfreebsd_network.a
 	;
 
 HAIKU_WIFI_FIRMWARE_PACKAGES on idualwifi7260 =

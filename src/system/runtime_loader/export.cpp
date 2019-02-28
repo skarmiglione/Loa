@@ -43,6 +43,18 @@ export_unload_library(void* handle)
 }
 
 
+status_t
+reinit_after_fork()
+{
+	status_t returnstatus = B_OK;
+	if (status_t status = elf_reinit_after_fork())
+		returnstatus = status;
+	if (status_t status = heap_reinit_after_fork())
+		returnstatus = status;
+	return returnstatus;
+}
+
+
 struct rld_export gRuntimeLoader = {
 	// dynamic loading support API
 	export_load_add_on,
@@ -59,7 +71,7 @@ struct rld_export gRuntimeLoader = {
 	get_tls_address,
 	destroy_thread_tls,
 
-	elf_reinit_after_fork,
+	reinit_after_fork,
 	NULL, // call_atexit_hooks_for_range
 	terminate_program,
 

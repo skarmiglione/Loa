@@ -45,6 +45,7 @@
 #include <posix/xsi_semaphore.h>
 #include <sem.h>
 #include <syscall_process_info.h>
+#include <syscall_load_image.h>
 #include <syscall_restart.h>
 #include <syscalls.h>
 #include <tls.h>
@@ -143,7 +144,7 @@ typedef BOpenHashTable<ProcessGroupHashDefinition> ProcessGroupHashTable;
 
 // the team_id -> Team hash table and the lock protecting it
 static TeamTable sTeamHash;
-static spinlock sTeamHashLock = B_SPINLOCK_INITIALIZER;
+static rw_spinlock sTeamHashLock = B_RW_SPINLOCK_INITIALIZER;
 
 // the pid_t -> ProcessGroup hash table and the lock protecting it
 static ProcessGroupHashTable sGroupHash;
@@ -174,7 +175,7 @@ static const size_t kTeamUserDataInitialSize	= 4 * B_PAGE_SIZE;
 TeamListIterator::TeamListIterator()
 {
 	// queue the entry
-	InterruptsSpinLocker locker(sTeamHashLock);
+	InterruptsWriteSpinLocker locker(sTeamHashLock);
 	sTeamHash.InsertIteratorEntry(&fEntry);
 }
 
@@ -182,7 +183,7 @@ TeamListIterator::TeamListIterator()
 TeamListIterator::~TeamListIterator()
 {
 	// remove the entry
-	InterruptsSpinLocker locker(sTeamHashLock);
+	InterruptsWriteSpinLocker locker(sTeamHashLock);
 	sTeamHash.RemoveIteratorEntry(&fEntry);
 }
 
@@ -191,7 +192,7 @@ Team*
 TeamListIterator::Next()
 {
 	// get the next team -- if there is one, get reference for it
-	InterruptsSpinLocker locker(sTeamHashLock);
+	InterruptsWriteSpinLocker locker(sTeamHashLock);
 	Team* team = sTeamHash.NextElement(&fEntry);
 	if (team != NULL)
 		team->AcquireReference();
@@ -591,7 +592,7 @@ Team::Get(team_id id)
 		return team;
 	}
 
-	InterruptsSpinLocker locker(sTeamHashLock);
+	InterruptsReadSpinLocker locker(sTeamHashLock);
 	Team* team = sTeamHash.Lookup(id);
 	if (team != NULL)
 		team->AcquireReference();
@@ -1681,6 +1682,7 @@ load_image_internal(char**& _flatArgs, size_t flatArgsSize, int32 argCount,
 	status_t status;
 	struct team_arg* teamArgs;
 	struct team_loading_info loadingInfo;
+	ConditionVariableEntry loadingWaitEntry;
 	io_context* parentIOContext = NULL;
 	team_id teamID;
 	bool teamLimitReached = false;
@@ -1713,10 +1715,10 @@ load_image_internal(char**& _flatArgs, size_t flatArgsSize, int32 argCount,
 		return B_NO_MEMORY;
 	BReference<Team> teamReference(team, true);
 
-	if (flags & B_WAIT_TILL_LOADED) {
-		loadingInfo.thread = thread_get_current_thread();
+	if ((flags & B_WAIT_TILL_LOADED) != 0) {
+		loadingInfo.condition.Init(team, "image load");
+		loadingInfo.condition.Add(&loadingWaitEntry);
 		loadingInfo.result = B_ERROR;
-		loadingInfo.done = false;
 		team->loading_info = &loadingInfo;
 	}
 
@@ -1783,7 +1785,7 @@ load_image_internal(char**& _flatArgs, size_t flatArgsSize, int32 argCount,
 	team->Lock();
 
 	{
-		InterruptsSpinLocker teamsLocker(sTeamHashLock);
+		InterruptsWriteSpinLocker teamsLocker(sTeamHashLock);
 
 		sTeamHash.Insert(team);
 		teamLimitReached = sUsedTeams >= sMaxTeams;
@@ -1834,13 +1836,11 @@ load_image_internal(char**& _flatArgs, size_t flatArgsSize, int32 argCount,
 			thread_continue(mainThread);
 		}
 
-		// Now suspend ourselves until loading is finished. We will be woken
-		// either by the thread, when it finished or aborted loading, or when
-		// the team is going to die (e.g. is killed). In either case the one
-		// setting `loadingInfo.done' is responsible for removing the info from
-		// the team structure.
-		while (!loadingInfo.done)
-			thread_suspend();
+		// Now wait until loading is finished. We will be woken either by the
+		// thread, when it finished or aborted loading, or when the team is
+		// going to die (e.g. is killed). In either case the one notifying is
+		// responsible for unsetting `loading_info` in the team structure.
+		loadingWaitEntry.Wait();
 
 		if (loadingInfo.result < B_OK)
 			return loadingInfo.result;
@@ -1864,7 +1864,7 @@ err6:
 	parent->UnlockTeamAndProcessGroup();
 
 	{
-		InterruptsSpinLocker teamsLocker(sTeamHashLock);
+		InterruptsWriteSpinLocker teamsLocker(sTeamHashLock);
 		sTeamHash.Remove(team);
 		if (!teamLimitReached)
 			sUsedTeams--;
@@ -2175,7 +2175,7 @@ fork_team(void)
 	team->Lock();
 
 	{
-		InterruptsSpinLocker teamsLocker(sTeamHashLock);
+		InterruptsWriteSpinLocker teamsLocker(sTeamHashLock);
 
 		sTeamHash.Insert(team);
 		teamLimitReached = sUsedTeams >= sMaxTeams;
@@ -2231,7 +2231,7 @@ err6:
 	parentTeam->UnlockTeamAndProcessGroup();
 
 	{
-		InterruptsSpinLocker teamsLocker(sTeamHashLock);
+		InterruptsWriteSpinLocker teamsLocker(sTeamHashLock);
 		sTeamHash.Remove(team);
 		if (!teamLimitReached)
 			sUsedTeams--;
@@ -2865,7 +2865,7 @@ team_max_teams(void)
 int32
 team_used_teams(void)
 {
-	InterruptsSpinLocker teamsLocker(sTeamHashLock);
+	InterruptsReadSpinLocker teamsLocker(sTeamHashLock);
 	return sUsedTeams;
 }
 
@@ -2910,7 +2910,7 @@ team_is_valid(team_id id)
 	if (id <= 0)
 		return false;
 
-	InterruptsSpinLocker teamsLocker(sTeamHashLock);
+	InterruptsReadSpinLocker teamsLocker(sTeamHashLock);
 
 	return team_get_team_struct_locked(id) != NULL;
 }
@@ -3029,7 +3029,7 @@ team_remove_team(Team* team, pid_t& _signalGroup)
 		+ team->dead_children.user_time;
 
 	// remove the team from the hash table
-	InterruptsSpinLocker teamsLocker(sTeamHashLock);
+	InterruptsWriteSpinLocker teamsLocker(sTeamHashLock);
 	sTeamHash.Remove(team);
 	sUsedTeams--;
 	teamsLocker.Unlock();
@@ -3229,10 +3229,9 @@ team_delete_team(Team* team, port_id debuggerPort)
 		team->loading_info = NULL;
 
 		loadingInfo->result = B_ERROR;
-		loadingInfo->done = true;
 
 		// wake up the waiting thread
-		thread_continue(loadingInfo->thread);
+		loadingInfo->condition.NotifyAll();
 	}
 
 	// notify team watchers
@@ -3300,7 +3299,7 @@ team_get_address_space(team_id id, VMAddressSpace** _addressSpace)
 		return B_OK;
 	}
 
-	InterruptsSpinLocker teamsLocker(sTeamHashLock);
+	InterruptsReadSpinLocker teamsLocker(sTeamHashLock);
 
 	Team* team = team_get_team_struct_locked(id);
 	if (team == NULL)
@@ -3741,7 +3740,7 @@ status_t
 wait_for_team(team_id id, status_t* _returnCode)
 {
 	// check whether the team exists
-	InterruptsSpinLocker teamsLocker(sTeamHashLock);
+	InterruptsReadSpinLocker teamsLocker(sTeamHashLock);
 
 	Team* team = team_get_team_struct_locked(id);
 	if (team == NULL)
@@ -3759,7 +3758,7 @@ wait_for_team(team_id id, status_t* _returnCode)
 status_t
 kill_team(team_id id)
 {
-	InterruptsSpinLocker teamsLocker(sTeamHashLock);
+	InterruptsReadSpinLocker teamsLocker(sTeamHashLock);
 
 	Team* team = team_get_team_struct_locked(id);
 	if (team == NULL)
@@ -3799,7 +3798,7 @@ _get_next_team_info(int32* cookie, team_info* info, size_t size)
 	if (slot < 1)
 		slot = 1;
 
-	InterruptsSpinLocker locker(sTeamHashLock);
+	InterruptsReadSpinLocker locker(sTeamHashLock);
 
 	team_id lastTeamID = peek_next_thread_id();
 		// TODO: This is broken, since the id can wrap around!

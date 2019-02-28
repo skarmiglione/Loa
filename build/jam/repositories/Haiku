@@ -17,8 +17,9 @@ local packages = [ FFilterByBuildFeatures
 	haiku_$(secondaryArchs)_devel
 	] ;
 
-if $(HAIKU_IS_BOOTSTRAP) != 1 {
+if $(HAIKU_IS_BOOTSTRAP) != 1 && $(HAIKU_BUILD_TYPE) != minimum {
 	packages += [ FFilterByBuildFeatures
+		haiku_extras
 		haiku_source
 		haiku_userguide_ca
 		haiku_userguide_de
@@ -39,7 +40,7 @@ if $(HAIKU_IS_BOOTSTRAP) != 1 {
 		haiku_userguide_zh_CN
 		haiku_welcome
 		makefile_engine
-		netfs@!x86_64
+		netfs
 		userland_fs
 		] ;
 }

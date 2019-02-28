@@ -6,22 +6,34 @@
 #define _HTTP_STREAMER_PLUGIN_H
 
 
-#include "StreamerPlugin.h"
+#include <Streamer.h>
 
-class HTTPStreamer : public Streamer
+#include "HTTPMediaIO.h"
+
+using BCodecKit::BMediaIO;
+using BCodecKit::BMediaPlugin;
+using BCodecKit::BStreamer;
+using BCodecKit::BStreamerPlugin;
+
+
+class HTTPStreamer : public BStreamer
 {
 public:
 								HTTPStreamer();
 	virtual						~HTTPStreamer();
 
-	virtual status_t			Sniff(const BUrl& url, BDataIO** source);
+	virtual status_t			Sniff(const BUrl& url);
+	virtual BMediaIO*			Adapter() const;
+
+private:
+			HTTPMediaIO*		fAdapter;
 };
 
 
-class HTTPStreamerPlugin : public StreamerPlugin
+class HTTPStreamerPlugin : public BStreamerPlugin
 {
 public:
-	virtual	Streamer*			NewStreamer();
+	virtual	BStreamer*			NewStreamer();
 };
 
 #endif // _HTTP_STREAMER_PLUGIN_H

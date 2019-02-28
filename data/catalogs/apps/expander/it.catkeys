@@ -6,9 +6,9 @@ Set destination…	ExpanderMenu		Scegli la destinazione…
 Use:	ExpanderPreferences		Usa:
 File expanded	ExpanderWindow		File decompresso
 The destination is read only.	ExpanderWindow		La destinazione è in sola lettura.
-Expander: Open	ExpanderWindow		Decompressore: Apri
+Expander: Open	ExpanderWindow		Expander: Apri
  is not supported	ExpanderWindow		 non è supportato
-Expander settings	ExpanderPreferences		Impostazioni Expander
+Expander settings	ExpanderPreferences		Impostazioni di Expander
 Select current	DirectoryFilePanel		Seleziona la directory corrente
 Source	ExpanderWindow		Origine
 Error when expanding archive	ExpanderWindow		Errore durante la decompressione dell'archivio
@@ -23,7 +23,7 @@ Expansion	ExpanderPreferences		Estrazione
 Select	DirectoryFilePanel		Seleziona
 The folder was either moved, renamed or not supported.	ExpanderWindow		La cartella è stata spostata, rinominata o non è supportata.
 Destination folder doesn't exist. Would you like to create it?	ExpanderWindow		La cartella di destinazione non esiste. Vuoi crearla?
-Same directory as source (archive) file	ExpanderPreferences		Stessa directory del file (archivio) originario
+Same directory as source (archive) file	ExpanderPreferences		Stessa cartella del file (archivio) originario
 Settings	ExpanderMenu		Impostazioni
 Settings…	ExpanderMenu		Impostazioni…
 Expander: Choose destination	DirectoryFilePanel		Expander: Scegli la destinazione

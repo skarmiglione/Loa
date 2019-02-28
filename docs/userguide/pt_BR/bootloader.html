@@ -4,14 +4,14 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2015, Haiku. All rights reserved.
+ * Copyright 2008-2018, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		Adriano Duarte
  *		Humdinger
+ *		Adriano Duarte
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -63,14 +63,14 @@
 
 <h1>Inicializador do Sistema</h1>
 
-<p>Haiku's Boot Loader can help when you experience hardware related problems or want to choose which Haiku installation to start, if you have more than one (maybe on an installation CD or USB stick). It's also handy if you have installed a software component that acts up and prevents you from booting Haiku, see <a href="#troubleshooting">Troubleshooting</a> below.</p>
+<p>Haiku's Boot Loader Options can help when you experience hardware related problems or want to choose which Haiku installation to start, if you have more than one (maybe on an installation CD or USB stick). It's also handy if you have installed a software component that acts up and prevents you from booting Haiku, see <a href="#troubleshooting">Troubleshooting</a> below.</p>
 <p>Para entrar nas opções do Inicializador do Sistema, aperte e mantenha pressionada a tecla <span class="key">SHIFT</span> antes do início do processo de inicialização. Se houver um gerenciador de inicialização instalado, você pode começar segurando <span class="key">SHIFT</span> antes de chamar a entrada de inicialização para o Haiku. Se o Haiku é o único sistema operacional instalado na máquina, você pode iniciar segurando a tecla enquanto ainda vê as mensagens de inicialização do BIOS.</p>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
 <a id="options" name="options">Opções do Inicializador do Sistema</a></h2>
 <p>Uma vez lá, são oferecidos quatro menus:</p>
 <table summary="bootloader menus" border="0" cellspacing="0" cellpadding="2">
-<tr><td><b>Selecionar volume de inicialização</b></td><td> </td><td>Choose which Haiku installation/version to start.</td></tr>
+<tr><td><b>Selecionar volume de inicialização</b></td><td> </td><td>Choose which Haiku installation/state to start (see <a href="#troubleshooting">Troubleshooting</a> below).</td></tr>
 <tr><td><b>Selecionar opções de modo seguro</b><br />
 </td><td> </td><td>Existem muitas opções a tentar no caso de problemas com o hardware. Ao deslocar a barra de seleção para uma opção, uma explicação curta aparece na base da tela.
 </td></tr>
@@ -116,12 +116,11 @@
 	<p><span class="menu">Adicionar opção avançada de depuração</span><br />
 		Permite que opções de depuração avançadas sejam inseridas diretamente.</p></td></tr>
 <tr><td></td><td></td><td>Se <i>"Habilitar syslog da depuração"</i> está ativada, uma reinicialização a quente após um travamento mostra estas opções adicionais:</td></tr>
-<tr><td></td><td></td><td>	<p><span class="menu">Save syslog from previous session during boot</span><br />
-		Saves the syslog from the previous Haiku session to /var/log/previous_syslog when booting.</p>
-	<p><span class="menu">Display syslog from previous session</span><br />
-		Displays the syslog from the previous Haiku session</p>
-	<p><span class="menu">Save syslog from previous session</span><br />
-		Saves the syslog from the previous Haiku session to disk. Currently only FAT32 volumes are supported.</p></td></tr>
+<tr><td></td><td></td><td>
+	<p><span class="menu">Exibir relatório de sistema de uma sessão anterior</span><br />
+		Exibe o relatório de sistema da sessão anterior do Haiku</p>
+	<p><span class="menu">Salvar relatório de sistema da sessão anterior</span><br />
+		Salva o relatório de sistema da sessão anterior do Haiku session no disco. Atualmente apenas volumes FAT32 são suportados.</p></td></tr>
 <tr><td class="onelinetop"><b>Select screen resolution</b></td><td> </td><td>Lets you force a certain screen resolution and color depth.</td></tr>
 </table>
 <h2>
@@ -132,10 +131,11 @@
 <ul>
 <li><p>Ativar <span class="menu">Modo seguro</span> evitará que a maioria dos servidores, daemons e o UserBootScript sejam iniciados.</p></li>
 <li><p>Activating <span class="menu">Disable user add-ons</span> will prevent using any add-ons (drivers, translators, etc.) you have installed in the user hierarchy under your Home folder.</p></li>
+<li><p>If activating <span class="menu">Use fail-safe graphics driver</span> solves your troubles by falling back to VESA graphics, you can make the setting permanent by removing the <tt>#</tt> of the line <i>#fail_safe_video_mode true</i> in the text file <span class="path">/boot/home/config/settings/kernel/drivers/kernel</span>.</p></li>
 <li><p>Se o driver, adicional, etc. problemático é instalado na hieraquia do sistema, as coisas ficam um pouco mais complicadas, porque aquela área é somente-leitura. Aqui, as <span class="menu">Entradas da lista negra</span> entram no jogo. Come elas, pode-se navegar através da hierarquia inteira do sistema e desabilitar o componente que está bagunçando as coisas pela seleção de uma entrada com a tecla <span class="key">SPACE</span> ou <span class="key">RETURN</span>. <span class="key">ESC</span> retorna um nível no diretório pai.</p>
 <p>Na Internet, existe o artigo <a href="http://www.haiku-os.org/blog/barrett/2013-12-15_how_permanently_blacklist_package_file">Como Barrar Permanentemente um Arquivo de Pacote</a> mostrando como tornar essa definição fixa.</p></li>
 <li><p>Under <span class="menu">Select boot volume</span> you can specify what former "version" of Haiku to boot. Every time you un/install a package, the old state is saved and you can boot into it by choosing it from the list presented in the boot loader options.<br />
-So, if you encounter boot problems after installing some package, boot a Haiku version from before that time and uninstall the offending package.</p></li>
+So, if you encounter boot problems after installing some package, boot a Haiku state from before that time and uninstall the offending package.</p></li>
 </ul>
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>

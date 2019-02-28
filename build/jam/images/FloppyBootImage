@@ -26,7 +26,7 @@ if $(NET_BOOT) = 1 {
 }
 
 SYSTEM_ADD_ONS_BUS_MANAGERS = [ FFilterByBuildFeatures
-	acpi@x86,x86_64 ata@ata config_manager dpc pci
+	acpi@x86,x86_64 ata config_manager dpc pci
 	isa@x86,x86_64 scsi $(USB_ONLY)usb fdt@arm
 ] ;
 SYSTEM_ADD_ONS_FILE_SYSTEMS =
@@ -47,7 +47,7 @@ AddFilesToFloppyBootArchive system add-ons kernel console : vga_text ;
 AddFilesToFloppyBootArchive system add-ons kernel file_systems
 	: $(SYSTEM_ADD_ONS_FILE_SYSTEMS) ;
 AddFilesToFloppyBootArchive system add-ons kernel generic
-	: ata_adapter@ata locked_pool scsi_periph ;
+	: ata_adapter locked_pool scsi_periph ;
 AddFilesToFloppyBootArchive system add-ons kernel partitioning_systems
 	: intel session ;
 AddFilesToFloppyBootArchive system add-ons kernel interrupt_controllers
@@ -107,7 +107,7 @@ if $(NET_BOOT) = 1 {
 AddBootModuleSymlinksToFloppyBootArchive [ FFilterByBuildFeatures
 	$(SYSTEM_ADD_ONS_BUS_MANAGERS)
 	openpic@ppc
-	ata_adapter@ata locked_pool scsi_periph
+	ata_adapter locked_pool scsi_periph
 	generic_x86@x86
 	ahci generic_ide_pci ide_isa@x86 silicon_image_3112 legacy_sata
 	it8211
@@ -169,7 +169,7 @@ Depends haiku-floppyboot-archive : $(HAIKU_FLOPPY_BOOT_ARCHIVE) ;
 HAIKU_BOOT_FLOPPY = haiku-boot-floppy.image ;
 MakeLocate $(HAIKU_BOOT_FLOPPY) : $(HAIKU_OUTPUT_DIR) ;
 
-BuildFloppyBootImage $(HAIKU_BOOT_FLOPPY) : haiku_loader
+BuildFloppyBootImage $(HAIKU_BOOT_FLOPPY) : haiku_loader.$(HAIKU_KERNEL_PLATFORM)
 	: $(HAIKU_FLOPPY_BOOT_ARCHIVE) ;
 
 # remove the archive

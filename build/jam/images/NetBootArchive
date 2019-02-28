@@ -12,15 +12,14 @@ SYSTEM_ADD_ONS_DRIVERS_NET = [ FFilterByBuildFeatures
 		broadcom440x broadcom570x ipro1000
 		rtl8139 rtl81xx
 		via_rhine ipro100 nforce
-		marvell_yukon syskonnect
+		marvell_yukon sis900 syskonnect
 		attansic_l2 ar81xx
 	}@ # x86
 
-	etherpci pegasus sis900 usb_ecm wb840
-	#vlance
+	etherpci pegasus usb_ecm wb840
 ] ;
 SYSTEM_ADD_ONS_BUS_MANAGERS = [ FFilterByBuildFeatures
-	pci isa@x86 ata@ata
+	pci isa@x86 ata
 	scsi config_manager agp_gart
 ] ;
 SYSTEM_ADD_ONS_FILE_SYSTEMS = bfs packagefs ;
@@ -40,7 +39,7 @@ AddFilesToNetBootArchive system add-ons kernel console
 AddFilesToNetBootArchive system add-ons kernel file_systems
 	: $(SYSTEM_ADD_ONS_FILE_SYSTEMS) ;
 AddFilesToNetBootArchive system add-ons kernel generic
-	: ata_adapter@ata locked_pool scsi_periph ;
+	: ata_adapter locked_pool scsi_periph ;
 AddFilesToNetBootArchive system add-ons kernel partitioning_systems
 	: intel session ;
 AddFilesToNetBootArchive system add-ons kernel interrupt_controllers
@@ -88,7 +87,7 @@ AddBootModuleSymlinksToNetBootArchive
 	$(SYSTEM_ADD_ONS_BUS_MANAGERS)
 	ahci generic_ide_pci ide_isa@x86 silicon_image_3112
 	$(SYSTEM_ADD_ONS_FILE_SYSTEMS)
-	ata_adapter@ata locked_pool scsi_periph
+	ata_adapter locked_pool scsi_periph
 	intel session
 	openpic@ppc
 	generic_x86@x86

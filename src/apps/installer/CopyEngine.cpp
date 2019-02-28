@@ -286,7 +286,6 @@ CopyEngine::_CopyFolder(const char* _source, const char* _destination,
 	int32& level, sem_id cancelSemaphore)
 {
 	level++;
-	fCurrentTargetFolder = _destination;
 
 	BDirectory source(_source);
 	status_t ret = source.InitCheck();
@@ -332,6 +331,7 @@ CopyEngine::_CopyFolder(const char* _source, const char* _destination,
 
 		fItemsCopied++;
 		fCurrentItem = name;
+		fCurrentTargetFolder = _destination;
 		_UpdateProgress();
 
 		BEntry copy(&destination, name);
@@ -576,7 +576,7 @@ CopyEngine::_WriteThread()
 	}
 
 	double megaBytes = (double)fBytesWritten / (1024 * 1024);
-	double seconds = (fTimeWritten / 1000000);
+	double seconds = (double)fTimeWritten / 1000000;
 	if (seconds > 0) {
 		printf("%.2f MB written (%.2f MB/s)\n", megaBytes,
 			megaBytes / seconds);

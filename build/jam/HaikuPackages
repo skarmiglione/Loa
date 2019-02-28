@@ -2,12 +2,13 @@
 # subdirectory.
 local packages = [ FFilterByBuildFeatures
 	HaikuDevel
+	HaikuExtras
 	HaikuLoader
 	HaikuSource
 	HaikuUserguide
 	HaikuWelcome
 	MakefileEngine
-	NetFS@!x86_64
+	NetFS
 	UserlandFS
 	]
 	;

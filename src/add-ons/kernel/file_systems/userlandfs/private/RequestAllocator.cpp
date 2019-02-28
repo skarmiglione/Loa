@@ -4,6 +4,9 @@
  */
 
 #include <stdlib.h>
+#include <KernelExport.h>
+
+#include <kernel.h>
 
 #include "AreaSupport.h"
 #include "Compatibility.h"
@@ -238,7 +241,12 @@ RequestAllocator::AllocateAddress(Address& address, int32 size, int32 align,
 #else
 			B_ANY_ADDRESS,
 #endif
-			areaSize, B_NO_LOCK, B_READ_AREA | B_WRITE_AREA);
+			areaSize, B_NO_LOCK,
+			B_READ_AREA | B_WRITE_AREA
+#ifdef _KERNEL_MODE
+				| B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_USER_CLONEABLE_AREA
+#endif
+			);
 		if (area < 0)
 			RETURN_ERROR(area);
 		fAllocatedAreas[fAllocatedAreaCount++] = area;
@@ -273,8 +281,14 @@ RequestAllocator::AllocateData(Address& address, const void* data, int32 size,
 			deferredInit);
 		if (error != B_OK)
 			return error;
-		if (size > 0)
+		if (size > 0) {
+#ifndef _KERNEL_MODE
 			memcpy(destination, data, size);
+#else
+			if (user_memcpy(destination, data, size) < B_OK)
+				return B_BAD_ADDRESS;
+#endif
+		}
 	} else
 		address.SetTo(-1, 0, 0);
 	return error;

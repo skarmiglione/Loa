@@ -1,13 +1,15 @@
-/*
- * Copyright (c) 2007 The DragonFly Project.  All rights reserved.
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
  *
+ * Copyright (c) 2007 The DragonFly Project.  All rights reserved.
+ * 
  * This code is derived from software contributed to The DragonFly Project
  * by Sepherosa Ziehau <sepherosa@gmail.com>
- *
+ * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
- *
+ * 
  * 1. Redistributions of source code must retain the above copyright
  *    notice, this list of conditions and the following disclaimer.
  * 2. Redistributions in binary form must reproduce the above copyright
@@ -17,7 +19,7 @@
  * 3. Neither the name of The DragonFly Project nor the names of its
  *    contributors may be used to endorse or promote products derived
  *    from this software without specific, prior written permission.
- *
+ * 
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
@@ -30,12 +32,12 @@
  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
- *
+ * 
  * $DragonFly: src/sys/dev/netif/bwi/if_bwi.c,v 1.19 2008/02/15 11:15:38 sephe Exp $
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: releng/11.1/sys/dev/bwi/if_bwi.c 300755 2016-05-26 16:48:20Z avos $");
+__FBSDID("$FreeBSD: releng/12.0/sys/dev/bwi/if_bwi.c 337570 2018-08-10 13:06:14Z kevans $");
 
 #include "opt_inet.h"
 #include "opt_bwi.h"
@@ -53,7 +55,7 @@ __FBSDID("$FreeBSD: releng/11.1/sys/dev/bwi/if_bwi.c 300755 2016-05-26 16:48:20Z
 #include <sys/sysctl.h>
 #include <sys/systm.h>
 #include <sys/taskqueue.h>
-
+ 
 #include <net/if.h>
 #include <net/if_var.h>
 #include <net/if_dl.h>
@@ -72,7 +74,7 @@ __FBSDID("$FreeBSD: releng/11.1/sys/dev/bwi/if_bwi.c 300755 2016-05-26 16:48:20Z
 #include <net/bpf.h>
 
 #ifdef INET
-#include <netinet/in.h>
+#include <netinet/in.h> 
 #include <netinet/if_ether.h>
 #endif
 
@@ -381,6 +383,7 @@ bwi_attach(struct bwi_softc *sc)
 	 */
 	sc->sc_fw_version = BWI_FW_VERSION3;
 	sc->sc_led_idle = (2350 * hz) / 1000;
+	sc->sc_led_ticks = ticks - sc->sc_led_idle;
 	sc->sc_led_blink = 1;
 	sc->sc_txpwr_calib = 1;
 #ifdef BWI_DEBUG
@@ -1791,7 +1794,7 @@ bwi_newstate(struct ieee80211vap *vap, enum ieee80211_state nstate, int arg)
 			 * the same AP, this will reinialize things
 			 * correctly...
 			 */
-			if (ic->ic_opmode == IEEE80211_M_STA &&
+			if (ic->ic_opmode == IEEE80211_M_STA && 
 			    !(sc->sc_flags & BWI_F_STOP))
 				bwi_set_bssid(sc, bwi_zero_addr);
 		}
@@ -2651,7 +2654,7 @@ bwi_rxeof(struct bwi_softc *sc, int end_idx)
 			goto next;
 		}
 
-	        bcopy((uint8_t *)(hdr + 1) + hdr_extra, &plcp, sizeof(plcp));
+	        bcopy((uint8_t *)(hdr + 1) + hdr_extra, &plcp, sizeof(plcp));	
 		rssi = bwi_calc_rssi(sc, hdr);
 		noise = bwi_calc_noise(sc);
 
@@ -2938,7 +2941,7 @@ bwi_encap(struct bwi_softc *sc, int idx, struct mbuf *m,
 	struct bwi_mac *mac;
 	struct bwi_txbuf_hdr *hdr;
 	struct ieee80211_frame *wh;
-	const struct ieee80211_txparam *tp;
+	const struct ieee80211_txparam *tp = ni->ni_txparms;
 	uint8_t rate, rate_fb;
 	uint32_t mac_ctrl;
 	uint16_t phy_ctrl;
@@ -2963,7 +2966,6 @@ bwi_encap(struct bwi_softc *sc, int idx, struct mbuf *m,
 	/*
 	 * Find TX rate
 	 */
-	tp = &vap->iv_txparms[ieee80211_chan2mode(ic->ic_curchan)];
 	if (type != IEEE80211_FC0_TYPE_DATA || (m->m_flags & M_EAPOL)) {
 		rate = rate_fb = tp->mgmtrate;
 	} else if (ismcast) {
@@ -3329,7 +3331,6 @@ _bwi_txeof(struct bwi_softc *sc, uint16_t tx_id, int acked, int data_txcnt)
 	struct bwi_txbuf *tb;
 	int ring_idx, buf_idx;
 	struct ieee80211_node *ni;
-	struct ieee80211vap *vap;
 
 	if (tx_id == 0) {
 		device_printf(sc->sc_dev, "%s: zero tx id\n", __func__);
@@ -3356,7 +3357,7 @@ _bwi_txeof(struct bwi_softc *sc, uint16_t tx_id, int acked, int data_txcnt)
 	if ((ni = tb->tb_ni) != NULL) {
 		const struct bwi_txbuf_hdr *hdr =
 		    mtod(tb->tb_mbuf, const struct bwi_txbuf_hdr *);
-		vap = ni->ni_vap;
+		struct ieee80211_ratectl_tx_status txs;
 
 		/* NB: update rate control only for unicast frames */
 		if (hdr->txh_mac_ctrl & htole32(BWI_TXH_MAC_C_ACK)) {
@@ -3367,9 +3368,15 @@ _bwi_txeof(struct bwi_softc *sc, uint16_t tx_id, int acked, int data_txcnt)
 			 * well so to avoid over-aggressive downshifting we
 			 * treat any number of retries as "1".
 			 */
-			ieee80211_ratectl_tx_complete(vap, ni,
-			    (data_txcnt > 1) ? IEEE80211_RATECTL_TX_SUCCESS :
-			        IEEE80211_RATECTL_TX_FAILURE, &acked, NULL);
+			txs.flags = IEEE80211_RATECTL_STATUS_LONG_RETRY;
+			txs.long_retries = acked;
+			if (data_txcnt > 1)
+				txs.status = IEEE80211_RATECTL_TX_SUCCESS;
+			else {
+				txs.status =
+				    IEEE80211_RATECTL_TX_FAIL_UNSPECIFIED;
+			}
+			ieee80211_ratectl_tx_complete(ni, &txs);
 		}
 		ieee80211_tx_complete(ni, tb->tb_mbuf, !acked);
 		tb->tb_ni = NULL;

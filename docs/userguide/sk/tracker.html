@@ -4,7 +4,7 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2017, Haiku. All rights reserved.
+ * Copyright 2008-2018, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -85,8 +85,8 @@
 <img src="images/tracker-images/mount-settings.png" alt="drill-down.png" />
 <p>Tu sú aj <span class="menu">Nastavenia</span>, aby ste nemuseli manuálne pripájať po každom spustení počítača.<br />
 Hore uvedené nastavenia automaticky pripoja každé úložné zariadenie, ktoré pripojíte/vložíte a taktiež pri spustení pripojí všetky disky, ktoré boli pripojené predtým.</p>
-<div class="box-warning">Before you disconnect e.g. a harddrive or USB stick, make sure you have successfully unmounted the volume and its icon has disappeared. This guarantees that all data transfer has finished. Otherwise you may lose data or corrupt the disk!</div>
-<div class="box-warning">Haiku is able to mount non-BFS formatted volumes. Be warned, however, that these non-BFS filesystems haven't been rigorously tested. Writing to those volumes may cause corruption in some cases. If you want to be on the safe side, always choose <span class="button">Mount read-only</span> when mounting!</div>
+<div class="box-warning">Predtým, než odoberiete napr. pevný disk alebo USB kľúč, uistite sa, že ste daný zväzok úspešne odpojili. To garantuje, že všetok prenos dát bol ukončený. Inak môžete prísť o dáta alebo poškodiť disk!</div>
+<div class="box-warning">Haiku dokáže pripojiť aj diskové zväzky, ktoré nemajú formát BFS. Pamätajte však, že tieto súborové systémy iné ako BFS neboli dôkladne otestované. Zapisovanie na tieto zväzky môže v niektorých prípadoch spôsobiť stratu dát. Ak chcete zostať v bezpečí, vždy pri ich pripájané zvoľte <span class="button">Pripojiť iba na čítanie</span>!</div>
 
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -130,7 +130,7 @@ Filtrovanie počas písania sa dá nastaviť v <a href="#tracker-preferences.htm
 <ul>
 <li><p><span class="menu">Zobrazenie ikon</span> (<span class="key">ALT</span> <span class="key">1</span>) - Veľké ikony, ich rozmery môžete meniť v submenu alebo zväčšiť/zmenšiť ich veľkosť pomocou <span class="key">ALT</span> <span class="key">+</span>/<span class="key">-</span>.</p></li>
 <li><p><span class="menu">Zobrazenie mini ikon</span> (<span class="key">ALT</span> <span class="key">2</span>) - Malé ikony.</p></li>
-<li><p><span class="menu">Zobrazenie zoznamu</span> (<span class="key">ALT</span> <span class="key">3</span>) - Podrobný zoznam všetkých vašich súborov s možnosťou zobraziť/skryť ich <i>atribúty</i>. (Pozrite sekciu <a href="attributes.html">Atribúty</a>.)</p></li>
+<li><p><span class="menu">List view</span> (<span class="key">ALT</span> <span class="key">3</span>) - A detailed list of your files enabling you to show/hide file attributes. (See topic <a href="attributes.html">Attributes</a>.) From the submenu you can choose to use either mini or large icons.</p></li>
 </ul>
 <p>Menu <span class="menu">Okno</span> ponúka niekoľko iných funkcií:</p>
 <ul>
@@ -160,7 +160,6 @@ Filtrovanie počas písania sa dá nastaviť v <a href="#tracker-preferences.htm
 <img src="images/tracker-images/tracker-preferences-navigator.png" alt="tracker-preferences-navigator.png" />
 <p>Kým nastavíte Tracker na Navigáciu v jednom okne, pretože vám to môže byť povedomejšie, odporúčame vám najprv vyskúšať prehliadanie založené na menu, čo môže byť oveľa rýchlejšie, keď si na to už zvyknete. Na druhej strane ponúka Navigácia v jednom okne <i>Navigátor</i>, do ktorého môžete vložiť názov cesty alebo použiť tlačidlá späť, dopredu alebo hore.</p> 
 <p>Aktiváciou možnosti <span class="menu">Zapnúť filtrovanie počas písania</span> sa bude filtrovať okno Trackera počas písania, čím sa zobrazia iba súbory, v ktorých názvoch alebo atribútoch sa nachádza daný reťazec. Pozrite <a href="#type-ahead-filter">vyššie</a>.</p></li>
-<li><p><span class="menu">Kôš</span> - Nastavenie správania pri vymazávaní súboru.</p></li>
 <li><p><span class="menu">Ikony zväzkov</span> - Nastavenie farby voliteľného indikátora voľného miesta, ktoré je zobrazené vedľa ikony disku.</p></li>
 <li><p><span class="menu">Pripojenie disku</span> - Definuje kedu a ktoré disky sa pripájajú automaticky, ako je popísané vyššie v <a href="#mounting-volumes">Pripájanie zväzkov</a>.</p></li>
 </ul>

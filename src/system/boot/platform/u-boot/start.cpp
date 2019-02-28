@@ -70,9 +70,6 @@ extern "C" void _start(void);
 extern "C" int start_gen(int argc, const char **argv,
 	struct image_header *uimage=NULL, void *fdt=NULL);
 extern "C" void dump_uimage(struct image_header *image);
-#if defined(__arm__)
-extern "C" status_t arch_mailbox_init();
-#endif
 
 
 // declared in shell.S
@@ -230,12 +227,10 @@ start_gen(int argc, const char **argv, struct image_header *uimage, void *fdt)
 
 	serial_init(gFDT);
 
-	#if defined(__arm__)
-	arch_mailbox_init();
-	#endif
-
 	// initialize the OpenFirmware wrapper
-	of_init(NULL);
+	// TODO: We need to call this when HAIKU_KERNEL_PLATFORM == openfirmware
+	// boot_platform_init()?
+	//of_init(NULL);
 
 	console_init();
 

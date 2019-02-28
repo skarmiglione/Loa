@@ -3,11 +3,16 @@
  *   FILE: MediaDecoder.cpp
  *  DESCR: 
  ***********************************************************************/
+#include <CodecRoster.h>
+#include <Decoder.h>
 #include <MediaDecoder.h>
-#include <DecoderPlugin.h>
+
 #include <new>
-#include "PluginManager.h"
-#include "debug.h"
+
+#include "MediaDebug.h"
+
+using namespace BCodecKit;
+
 
 /*************************************************************
  * public BMediaDecoder
@@ -41,7 +46,7 @@ BMediaDecoder::BMediaDecoder(const media_codec_info *mci)
 /* virtual */
 BMediaDecoder::~BMediaDecoder()
 {
-	gPluginManager.DestroyDecoder(fDecoder);
+	BCodecRoster::ReleaseDecoder(fDecoder);
 }
 
 
@@ -57,10 +62,10 @@ BMediaDecoder::SetTo(const media_format *in_format,
 					 const void *info,
 					 size_t info_size)
 {
-	gPluginManager.DestroyDecoder(fDecoder);
+	BCodecRoster::ReleaseDecoder(fDecoder);
 	fDecoder = NULL;
 
-	status_t err = gPluginManager.CreateDecoder(&fDecoder, *in_format);
+	status_t err = BCodecRoster::InstantiateDecoder(&fDecoder, *in_format);
 	if (err < B_OK)
 		goto fail;
 
@@ -76,7 +81,7 @@ BMediaDecoder::SetTo(const media_format *in_format,
 	return B_OK;
 
 fail:
-	gPluginManager.DestroyDecoder(fDecoder);
+	BCodecRoster::ReleaseDecoder(fDecoder);
 	fDecoder = NULL;
 	fInitStatus = B_NO_INIT;
 	return err;
@@ -86,10 +91,10 @@ fail:
 status_t 
 BMediaDecoder::SetTo(const media_codec_info *mci)
 {
-	gPluginManager.DestroyDecoder(fDecoder);
+	BCodecRoster::ReleaseDecoder(fDecoder);
 	fDecoder = NULL;
 
-	status_t err = gPluginManager.CreateDecoder(&fDecoder, *mci);
+	status_t err = BCodecRoster::InstantiateDecoder(&fDecoder, *mci);
 	if (err < B_OK)
 		goto fail;
 
@@ -101,7 +106,7 @@ BMediaDecoder::SetTo(const media_codec_info *mci)
 	return B_OK;
 
 fail:
-	gPluginManager.DestroyDecoder(fDecoder);
+	BCodecRoster::ReleaseDecoder(fDecoder);
 	fDecoder = NULL;
 	fInitStatus = B_NO_INIT;
 	return err;
@@ -177,7 +182,7 @@ BMediaDecoder::GetDecoderInfo(media_codec_info *out_info) const
 	if (!fDecoder)
 		return B_NO_INIT;
 
-	return gPluginManager.GetDecoderInfo(fDecoder, out_info);
+	return BCodecRoster::GetDecoderInfo(fDecoder, out_info);
 }
 
 
@@ -199,7 +204,7 @@ BMediaDecoder::BMediaDecoder & operator=(const BMediaDecoder &);
 status_t
 BMediaDecoder::AttachToDecoder()
 {
-	class MediaDecoderChunkProvider : public ChunkProvider {
+	class MediaDecoderChunkProvider : public BChunkProvider {
 	private:
 		BMediaDecoder * fDecoder;
 	public:

@@ -45,7 +45,7 @@ AddFilesToPackage add-ons kernel debugger
 	  <kdebug>run_on_exit ;
 AddFilesToPackage add-ons kernel file_systems : $(SYSTEM_ADD_ONS_FILE_SYSTEMS) ;
 AddFilesToPackage add-ons kernel generic
-	: ata_adapter@ata bios@x86,x86_64 dpc
+	: ata_adapter bios@x86,x86_64 dpc
 		locked_pool mpu401 scsi_periph <module>tty ;
 AddFilesToPackage add-ons kernel partitioning_systems
 	: amiga_rdb@m68k apple@ppc efi_gpt intel session ;
@@ -73,8 +73,6 @@ AddDriversToPackage midi			: $(SYSTEM_ADD_ONS_DRIVERS_MIDI) ;
 AddDriversToPackage bus				: usb_raw fw_raw@x86 ;
 AddDriversToPackage disk floppy		: pc_floppy@x86 ;
 AddDriversToPackage disk usb		: usb_disk ;
-AddDriversToPackage disk usb		: usb_floppy ;
-AddDriversToPackage printer usb		: usb_printer ;
 AddDriversToPackage disk virtual	: nbd ;
 AddDriversToPackage dvb				: cx23882 ;
 AddDriversToPackage graphics		: $(SYSTEM_ADD_ONS_DRIVERS_GRAPHICS) ;
@@ -101,9 +99,6 @@ if $(HAIKU_GCC_VERSION_$(architecture)[1]) = 2 {
 	AddSymlinkToPackage lib : libbnetapi.so : libnetapi.so ;
 }
 
-
-# TODO: Remove when the packages have been rebuilt!
-AddSymlinkToPackage lib : libbe.so : liblocale.so ;
 
 # servers
 AddFilesToPackage servers : $(SYSTEM_SERVERS) ;
@@ -188,7 +183,7 @@ AddFilesToPackage data KeyboardLayouts ThinkPad
 
 # boot module links
 AddBootModuleSymlinksToPackage
-	acpi@x86,x86_64 ahci ata@ata ata_adapter@ata
+	acpi@x86,x86_64 ahci ata ata_adapter
 	bfs
 	config_manager
 	dpc
@@ -219,7 +214,7 @@ AddFilesToPackage add-ons media : $(SYSTEM_ADD_ONS_MEDIA) ;
 AddFilesToPackage add-ons media plugins : $(SYSTEM_ADD_ONS_MEDIA_PLUGINS) ;
 
 AddFilesToPackage add-ons Network\ Settings
-	: IPv4Interface IPv6Interface DNSClientService FTPService SSHService
+	: IPv4Interface IPv6Interface DNSClientService Hostname FTPService SSHService
 		TelnetService ;
 
 AddFilesToPackage add-ons Tracker
@@ -266,6 +261,9 @@ AddFilesToPackage add-ons decorators : BeDecorator ;
 # the MIME DB
 CopyDirectoryToPackage data : <mimedb>mime_db : : : isTarget ;
 
+# directory attributes
+AddDirectoryToPackage apps : system-apps.rdef ;
+AddDirectoryToPackage preferences : system-preferences.rdef ;
 
 # Deskbar menu symlinks
 

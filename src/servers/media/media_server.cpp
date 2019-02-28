@@ -50,12 +50,12 @@ char __dont_remove_copyright_from_binary[] = "Copyright (c) 2002, 2003 "
 #include "AppManager.h"
 #include "BufferManager.h"
 #include "DataExchange.h"
-#include "MediaMisc.h"
+#include "MediaDebug.h"
 #include "MediaFilesManager.h"
+#include "MediaMisc.h"
 #include "NodeManager.h"
 #include "NotificationManager.h"
 #include "ServerInterface.h"
-#include "debug.h"
 #include "media_server.h"
 
 
@@ -922,7 +922,7 @@ ServerApp::_ControlThread(void* _server)
 void
 ServerApp::MessageReceived(BMessage* msg)
 {
-	TRACE("ServerApp::MessageReceived %lx enter\n", msg->what);
+	TRACE("ServerApp::MessageReceived %" B_PRIu32 " enter\n", msg->what);
 	switch (msg->what) {
 		case MEDIA_SERVER_REQUEST_NOTIFICATIONS:
 		case MEDIA_SERVER_CANCEL_NOTIFICATIONS:
@@ -964,7 +964,7 @@ ServerApp::MessageReceived(BMessage* msg)
 			TRACE("\nmedia_server: unknown message received!\n");
 			break;
 	}
-	TRACE("ServerApp::MessageReceived %lx leave\n", msg->what);
+	TRACE("ServerApp::MessageReceived %" B_PRIu32 " leave\n", msg->what);
 }
 
 

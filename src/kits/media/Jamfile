@@ -2,7 +2,7 @@ SubDir HAIKU_TOP src kits media ;
 
 SetSubDirSupportedPlatformsBeOSCompatible ;
 
-UsePrivateHeaders app media shared ;
+UsePrivateHeaders app codec media shared ;
 UsePrivateHeaders [ FDirName media experimental ] ;
 
 if $(CHECK_MALLOC) {
@@ -27,6 +27,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			MediaAddOn.cpp
 			MediaDecoder.cpp
 			MediaDefs.cpp
+			MediaDefsNotify.cpp
 			MediaEncoder.cpp
 			MediaEventLooper.cpp
 			MediaFile.cpp
@@ -48,16 +49,13 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			TimeSource.cpp
 
 			# Experimental Media Kit
-			AdapterIO.cpp
 			MediaClient.cpp
 			MediaClientDefs.cpp
 			MediaClientNode.cpp
 			MediaConnection.cpp
-			MediaIO.cpp
 			SimpleMediaClient.cpp
 
 			# Internal Functionality
-			AddOnManager.cpp
 			BufferCache.cpp
 			DataExchange.cpp
 			DefaultMediaTheme.cpp
@@ -81,25 +79,18 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			OldMediaModule.cpp
 			OldSubscriber.cpp
 
-			# Codec Plugin API
-			ChunkCache.cpp
-			DecoderPlugin.cpp
-			EncoderPlugin.cpp
-			MediaExtractor.cpp
-			MediaPlugin.cpp
-			MediaStreamer.cpp
-			MediaWriter.cpp
-			PluginManager.cpp
-			ReaderPlugin.cpp
-			StreamerPlugin.cpp
-			WriterPlugin.cpp
-
 			# Compat Media Kit
 			!missing_symbols.cpp
 			Deprecated.cpp
 			:
-			be localestub shared
+			be codec localestub shared
 			[ TargetLibsupc++ ] [ TargetLibstdc++ ]
 			;
 	}
 }
+
+DoCatalogs libbe.so
+	: x-vnd.Haiku-libmedia
+	:
+	MediaDefs.cpp
+	;

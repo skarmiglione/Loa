@@ -102,8 +102,8 @@ public:
 			if (fBuffer != NULL)
 				fBufferSize *= 2;
 
-			int32* newBuffer = NULL;
-			newBuffer = (int32*)realloc(fBuffer, fBufferSize * sizeof(int32));
+			int32* newBuffer =
+				(int32*)realloc(fBuffer, fBufferSize * sizeof(int32));
 			if (newBuffer == NULL)
 				return false;
 
@@ -2360,9 +2360,14 @@ BString::_Resize(int32 length)
 	if (length < 0)
 		length = 0;
 
-	data = (char*)realloc(data, length + kPrivateDataOffset + 1);
-	if (data == NULL)
+	char* newData = (char*)realloc(data, length + kPrivateDataOffset + 1);
+	if (newData == NULL) {
+		free(data);
+		data = NULL;
 		return NULL;
+	} else {
+		data = newData;
+	}
 
 	data += kPrivateDataOffset;
 

@@ -42,6 +42,7 @@ static const char* const kLockName = "runtime loader";
 
 
 typedef void (*init_term_function)(image_id);
+typedef void (*initfini_array_function)();
 
 bool gProgramLoaded = false;
 image_t* gProgramImage;
@@ -50,20 +51,6 @@ static image_t** sPreloadedImages = NULL;
 static uint32 sPreloadedImageCount = 0;
 
 static recursive_lock sLock = RECURSIVE_LOCK_INITIALIZER(kLockName);
-
-
-static inline void
-rld_lock()
-{
-	recursive_lock_lock(&sLock);
-}
-
-
-static inline void
-rld_unlock()
-{
-	recursive_lock_unlock(&sLock);
-}
 
 
 static const char *
@@ -260,7 +247,14 @@ init_dependencies(image_t *image, bool initHead)
 		if (image->preinit_array) {
 			uint count_preinit = image->preinit_array_len / sizeof(addr_t);
 			for (uint j = 0; j < count_preinit; j++)
-				((init_term_function)image->preinit_array[j])(image->id);
+				((initfini_array_function)image->preinit_array[j])();
+		}
+
+		init_term_function before;
+		if (find_symbol(image,
+				SymbolLookupInfo(B_INIT_BEFORE_FUNCTION_NAME, B_SYMBOL_TYPE_TEXT),
+				(void**)&before) == B_OK) {
+			before(image->id);
 		}
 
 		if (image->init_routine != 0)
@@ -269,12 +263,19 @@ init_dependencies(image_t *image, bool initHead)
 		if (image->init_array) {
 			uint count_init = image->init_array_len / sizeof(addr_t);
 			for (uint j = 0; j < count_init; j++)
-				((init_term_function)image->init_array[j])(image->id);
+				((initfini_array_function)image->init_array[j])();
+		}
+
+		init_term_function after;
+		if (find_symbol(image,
+				SymbolLookupInfo(B_INIT_AFTER_FUNCTION_NAME, B_SYMBOL_TYPE_TEXT),
+				(void**)&after) == B_OK) {
+			after(image->id);
 		}
 
 		image_event(image, IMAGE_EVENT_INITIALIZED);
 	}
-	TRACE(("%ld:  init done.\n", find_thread(NULL)));
+	TRACE(("%ld: init done.\n", find_thread(NULL)));
 
 	free(initList);
 }
@@ -416,7 +417,7 @@ load_program(char const *path, void **_entry)
 
 	KTRACE("rld: load_program(\"%s\")", path);
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	preload_images();
@@ -460,8 +461,6 @@ load_program(char const *path, void **_entry)
 
 	*_entry = (void *)(gProgramImage->entry_point);
 
-	rld_unlock();
-
 	gProgramLoaded = true;
 
 	KTRACE("rld: load_program(\"%s\") done: entry: %p, id: %" B_PRId32 , path,
@@ -484,7 +483,6 @@ err:
 			gErrorMessage.Buffer(), gErrorMessage.ContentSize(), 0, 0);
 	}
 	_kern_loading_app_failed(status);
-	rld_unlock();
 
 	return status;
 }
@@ -502,7 +500,7 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 
 	KTRACE("rld: load_library(\"%s\", %#" B_PRIx32 ", %d)", path, flags, addOn);
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	// have we already loaded this library?
@@ -511,7 +509,6 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 		// a NULL path is fine -- it means the global scope shall be opened
 		if (path == NULL) {
 			*_handle = RLD_GLOBAL_SCOPE;
-			rld_unlock();
 			return 0;
 		}
 
@@ -521,7 +518,6 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 
 		if (image) {
 			atomic_add(&image->ref_count, 1);
-			rld_unlock();
 			KTRACE("rld: load_library(\"%s\"): already loaded: %" B_PRId32,
 				path, image->id);
 			*_handle = image;
@@ -531,7 +527,6 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 
 	status = load_image(path, type, NULL, NULL, &image);
 	if (status < B_OK) {
-		rld_unlock();
 		KTRACE("rld: load_library(\"%s\") failed to load container: %s", path,
 			strerror(status));
 		return status;
@@ -567,8 +562,6 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 	remap_images();
 	init_dependencies(image, true);
 
-	rld_unlock();
-
 	KTRACE("rld: load_library(\"%s\") done: id: %" B_PRId32, path, image->id);
 
 	*_handle = image;
@@ -579,7 +572,6 @@ err:
 
 	dequeue_loaded_image(image);
 	delete_image(image);
-	rld_unlock();
 	return status;
 }
 
@@ -596,7 +588,7 @@ unload_library(void* handle, image_id imageID, bool addOn)
 	if (handle == RLD_GLOBAL_SCOPE)
 		return B_OK;
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	if (gInvalidImageIDs) {
@@ -645,14 +637,28 @@ unload_library(void* handle, image_id imageID, bool addOn)
 
 			image_event(image, IMAGE_EVENT_UNINITIALIZING);
 
+			init_term_function before;
+			if (find_symbol(image,
+					SymbolLookupInfo(B_TERM_BEFORE_FUNCTION_NAME, B_SYMBOL_TYPE_TEXT),
+					(void**)&before) == B_OK) {
+				before(image->id);
+			}
+
 			if (image->term_array) {
 				uint count_term = image->term_array_len / sizeof(addr_t);
 				for (uint i = count_term; i-- > 0;)
-					((init_term_function)image->term_array[i])(image->id);
+					((initfini_array_function)image->term_array[i])();
 			}
 
 			if (image->term_routine)
 				((init_term_function)image->term_routine)(image->id);
+
+			init_term_function after;
+			if (find_symbol(image,
+					SymbolLookupInfo(B_TERM_AFTER_FUNCTION_NAME, B_SYMBOL_TYPE_TEXT),
+					(void**)&after) == B_OK) {
+				after(image->id);
+			}
 
 			TLSBlockTemplates::Get().Unregister(image->dso_tls_id);
 
@@ -665,7 +671,6 @@ unload_library(void* handle, image_id imageID, bool addOn)
 		}
 	}
 
-	rld_unlock();
 	return status;
 }
 
@@ -678,14 +683,12 @@ get_nth_symbol(image_id imageID, int32 num, char *nameBuffer,
 	uint32 i;
 	image_t *image;
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 
 	// get the image from those who have been already initialized
 	image = find_loaded_image_by_id(imageID, false);
-	if (image == NULL) {
-		rld_unlock();
+	if (image == NULL)
 		return B_BAD_IMAGE_ID;
-	}
 
 	// iterate through all the hash buckets until we've found the one
 	for (i = 0; i < HASHTABSIZE(image); i++) {
@@ -720,8 +723,6 @@ get_nth_symbol(image_id imageID, int32 num, char *nameBuffer,
 		}
 	}
 out:
-	rld_unlock();
-
 	if (num != count)
 		return B_BAD_INDEX;
 
@@ -734,13 +735,11 @@ get_nearest_symbol_at_address(void* address, image_id* _imageID,
 	char** _imagePath, char** _imageName, char** _symbolName, int32* _type,
 	void** _location, bool* _exactMatch)
 {
-	rld_lock();
+	RecursiveLocker _(sLock);
 
 	image_t* image = find_loaded_image_by_address((addr_t)address);
-	if (image == NULL) {
-		rld_unlock();
+	if (image == NULL)
 		return B_BAD_VALUE;
-	}
 
 	bool exactMatch = false;
 	elf_sym* foundSymbol = NULL;
@@ -795,7 +794,6 @@ get_nearest_symbol_at_address(void* address, image_id* _imageID,
 			*_location = NULL;
 	}
 
-	rld_unlock();
 	return B_OK;
 }
 
@@ -812,7 +810,16 @@ get_symbol(image_id imageID, char const *symbolName, int32 symbolType,
 	if (symbolName == NULL)
 		return B_BAD_VALUE;
 
-	rld_lock();
+	// Previously, these functions were called in __haiku_init_before
+	// and __haiku_init_after. Now we call them inside runtime_loader,
+	// so we prevent applications from fetching them.
+	if (strcmp(symbolName, B_INIT_BEFORE_FUNCTION_NAME) == 0
+		|| strcmp(symbolName, B_INIT_AFTER_FUNCTION_NAME) == 0
+		|| strcmp(symbolName, B_TERM_BEFORE_FUNCTION_NAME) == 0
+		|| strcmp(symbolName, B_TERM_AFTER_FUNCTION_NAME) == 0)
+		return B_BAD_VALUE;
+
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	// get the image from those who have been already initialized
@@ -836,7 +843,6 @@ get_symbol(image_id imageID, char const *symbolName, int32 symbolType,
 	} else
 		status = B_BAD_IMAGE_ID;
 
-	rld_unlock();
 	return status;
 }
 
@@ -850,7 +856,7 @@ get_library_symbol(void* handle, void* caller, const char* symbolName,
 	if (symbolName == NULL)
 		return B_BAD_VALUE;
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	if (handle == RTLD_DEFAULT || handle == RLD_GLOBAL_SCOPE) {
@@ -948,7 +954,6 @@ get_library_symbol(void* handle, void* caller, const char* symbolName,
 			&inImage, _location);
 	}
 
-	rld_unlock();
 	return status;
 }
 
@@ -963,19 +968,15 @@ get_next_image_dependency(image_id id, uint32 *cookie, const char **_name)
 	if (_name == NULL)
 		return B_BAD_VALUE;
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 
 	image = find_loaded_image_by_id(id, false);
-	if (image == NULL) {
-		rld_unlock();
+	if (image == NULL)
 		return B_BAD_IMAGE_ID;
-	}
 
 	dynamicSection = (elf_dyn *)image->dynamic_ptr;
-	if (dynamicSection == NULL || image->num_needed <= searchIndex) {
-		rld_unlock();
+	if (dynamicSection == NULL || image->num_needed <= searchIndex)
 		return B_ENTRY_NOT_FOUND;
-	}
 
 	for (i = 0, j = 0; dynamicSection[i].d_tag != DT_NULL; i++) {
 		if (dynamicSection[i].d_tag != DT_NEEDED)
@@ -986,12 +987,10 @@ get_next_image_dependency(image_id id, uint32 *cookie, const char **_name)
 
 			*_name = STRING(image, neededOffset);
 			*cookie = searchIndex + 1;
-			rld_unlock();
 			return B_OK;
 		}
 	}
 
-	rld_unlock();
 	return B_ENTRY_NOT_FOUND;
 }
 

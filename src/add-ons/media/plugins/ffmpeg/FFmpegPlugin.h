@@ -12,45 +12,38 @@
 
 #include <MediaFormats.h>
 
-#include "DecoderPlugin.h"
-#include "EncoderPlugin.h"
-#include "ReaderPlugin.h"
-#include "WriterPlugin.h"
+#include <Decoder.h>
+#include <Encoder.h>
+#include <Reader.h>
+#include <Writer.h>
+
+using namespace BCodecKit;
 
 
-class FFmpegPlugin : public ReaderPlugin, public DecoderPlugin,
-	public WriterPlugin, public EncoderPlugin {
+class FFmpegPlugin : public BReaderPlugin, public BDecoderPlugin,
+	public BWriterPlugin, public BEncoderPlugin {
 public:
-	virtual	Reader*				NewReader();
+	virtual	BReader*			NewReader();
 
-	virtual	Decoder*			NewDecoder(uint index);
+	virtual	BDecoder*			NewDecoder(uint index);
 	virtual	status_t			GetSupportedFormats(media_format** _formats,
 									size_t* _count);
 
-	virtual	Writer*				NewWriter();
+	virtual	BWriter*			NewWriter();
 	virtual	status_t			GetSupportedFileFormats(
 									const media_file_format** _fileFormats,
 									size_t* _count);
 
-	virtual	Encoder*			NewEncoder(
+	virtual	BEncoder*			NewEncoder(
 									const media_codec_info& codecInfo);
 
-	virtual	Encoder*			NewEncoder(const media_format& format);
+	virtual	BEncoder*			NewEncoder(const media_format& format);
 
 	virtual	status_t			RegisterNextEncoder(int32* cookie,
 									media_codec_info* codecInfo,
 									media_format_family* formatFamily,
 									media_format* inputFormat,
 									media_format* outputFormat);
-
-private:
-	class GlobalInitilizer {
-		public:
-								GlobalInitilizer();
-								~GlobalInitilizer();
-	};
-
-	static	GlobalInitilizer	sInitilizer;
 };
 
 
