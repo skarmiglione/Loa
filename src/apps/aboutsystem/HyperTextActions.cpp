@@ -33,9 +33,8 @@ URLAction::Clicked(HyperTextView* view, BPoint where, BMessage* message)
 	if (get_ref_for_path("/bin/open", &ref))
 		return;
 
-	const char* args[] = { "/bin/open", fURL.String(), NULL };
-	be_roster->Launch(&ref, 2, args);
-
+	const char* args[] = { fURL.String(), NULL };
+	be_roster->Launch(&ref, 1, args);
 }
 
 
@@ -64,11 +63,11 @@ OpenFileAction::Clicked(HyperTextView* view, BPoint where, BMessage* message)
 		return;
 	}
 
-    BMessenger tracker("application/x-vnd.Be-TRAK");
-    if (tracker.IsValid()) {
+	BMessenger tracker("application/x-vnd.Be-TRAK");
+	if (tracker.IsValid()) {
 		BMessage message(B_REFS_RECEIVED);
 		message.AddRef("refs", &ref);
 		tracker.SendMessage(&message);
 	} else
-        be_roster->Launch(&ref);
+		be_roster->Launch(&ref);
 }

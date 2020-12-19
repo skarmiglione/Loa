@@ -16,7 +16,7 @@
 #include <Autolock.h>
 
 #include "ChunkCache.h"
-#include "debug.h"
+#include "MediaDebug.h"
 #include "PluginManager.h"
 
 
@@ -170,13 +170,6 @@ MediaExtractor::InitCheck()
 {
 	CALLED();
 	return fInitStatus;
-}
-
-
-BDataIO*
-MediaExtractor::Source() const
-{
-	return fSource;
 }
 
 

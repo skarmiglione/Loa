@@ -1,5 +1,7 @@
-// String.h
-
+/*
+ * Copyright 2007, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * All rights reserved. Distributed under the terms of the MIT license.
+ */
 #ifndef STRING_H
 #define STRING_H
 
@@ -58,22 +60,6 @@ private:
 	int32	fLength;
 	char	*fString;
 };
-
-// strnlen
-size_t
-strnlen(const char *str, size_t maxLen)
-{
-	if (str) {
-		size_t origMaxLen = maxLen;
-		while (maxLen > 0 && *str != '\0') {
-			maxLen--;
-			str++;
-		}
-		return origMaxLen - maxLen;
-	}
-	return 0;
-}
-
 
 /*!
 	\class String
@@ -141,9 +127,7 @@ String::Truncate(int32 newLength)
 		newLength = 0;
 	if (newLength < fLength) {
 		char *string = fString;
-		int32 len = fLength;
 		fString = NULL;
-		len = 0;
 		if (!_SetTo(string, newLength)) {
 			fString = string;
 			fLength = newLength;

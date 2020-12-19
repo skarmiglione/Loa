@@ -1,8 +1,7 @@
 /*
- * Copyright 2004-2017, Haiku, Inc. All rights reserved.
- * Copyright 2003-2004, Ingo Weinhold, bonefish@cs.tu-berlin.de. All rights reserved.
- *
- * Distributed under the terms of the MIT License.
+ * Copyright 2004-2018, Haiku, Inc.
+ * Copyright 2003-2004, Ingo Weinhold, bonefish@cs.tu-berlin.de.
+ * All rights reserved. Distributed under the terms of the MIT License.
  */
 
 
@@ -198,7 +197,7 @@ public:
 
 		if (strcmp(event->name, "raw") == 0) {
 			// a new raw device was added/removed
-			KPath path(B_PATH_NAME_LENGTH + 1);
+			KPath path;
 			if (path.InitCheck() != B_OK
 				|| vfs_entry_ref_to_path(event->device, event->directory,
 					event->name, true, path.LockBuffer(),
@@ -706,19 +705,17 @@ KDiskDeviceManager::CreateDevice(const char* path, bool* newlyCreated)
 			return error;
 		}
 
-		if (error == B_OK) {
-			// scan for partitions
-			_ScanPartition(device, false);
-			device->UnmarkBusy(true);
+		// scan for partitions
+		_ScanPartition(device, false);
+		device->UnmarkBusy(true);
 
-			_NotifyDeviceEvent(device, B_DEVICE_ADDED,
-				B_DEVICE_REQUEST_DEVICE_LIST);
+		_NotifyDeviceEvent(device, B_DEVICE_ADDED,
+			B_DEVICE_REQUEST_DEVICE_LIST);
 
-			if (newlyCreated)
-				*newlyCreated = true;
+		if (newlyCreated)
+			*newlyCreated = true;
 
-			return device->ID();
-		}
+		return device->ID();
 	}
 
 	return error;
@@ -989,31 +986,33 @@ KDiskDeviceManager::LoadNextDiskSystem(int32* cookie)
 status_t
 KDiskDeviceManager::InitialDeviceScan()
 {
-	status_t error = B_ERROR;
-
 	// scan for devices
 	if (ManagerLocker locker = this) {
-		error = _Scan("/dev/disk");
+		status_t error = _Scan("/dev/disk");
 		if (error != B_OK)
 			return error;
 	}
 
 	// scan the devices for partitions
 	int32 cookie = 0;
+	status_t status = B_OK;
 	while (KDiskDevice* device = RegisterNextDevice(&cookie)) {
 		PartitionRegistrar _(device, true);
 		if (DeviceWriteLocker deviceLocker = device) {
 			if (ManagerLocker locker = this) {
-				error = _ScanPartition(device, false);
+				status_t error = _ScanPartition(device, false);
 				device->UnmarkBusy(true);
 				if (error != B_OK)
-					break;
+					status = error;
+				// Even if we could not scan this partition, we want to try
+				// and scan the rest. Just because one partition is invalid
+				// or unscannable does not mean the ones after it are.
 			} else
 				return B_ERROR;
 		} else
 			return B_ERROR;
 	}
-	return error;
+	return status;
 }
 
 
@@ -1094,21 +1093,23 @@ KDiskDeviceManager::RescanDiskSystems()
 
 	// rescan existing devices with the new disk systems
 	int32 cookie = 0;
+	status_t status = B_OK;
 	while (KDiskDevice* device = RegisterNextDevice(&cookie)) {
 		PartitionRegistrar _(device, true);
 		if (DeviceWriteLocker deviceLocker = device) {
 			if (ManagerLocker locker = this) {
-				status_t status = _ScanPartition(device, false, &addedSystems);
+				status_t error = _ScanPartition(device, false, &addedSystems);
 				device->UnmarkBusy(true);
-				if (status != B_OK)
-					break;
+				if (error != B_OK)
+					status = error;
+				// See comment in InitialDeviceScan().
 			} else
 				return B_ERROR;
 		} else
 			return B_ERROR;
 	}
 
-	return B_OK;
+	return status;
 }
 
 
@@ -1373,13 +1374,19 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 		return B_OK;
 	}
 
-	// This happens with some copy protected CDs. Just ignore the partition...
-	if (partition->Offset() < 0)
+	KPath partitionPath;
+	partition->GetPath(&partitionPath);
+
+	// This happens with some copy protected CDs or eventually other issues.
+	// Just ignore the partition...
+	if (partition->Offset() < 0 || partition->BlockSize() == 0
+		|| partition->Size() <= 0) {
+		OUT("Partition %s has invalid parameters, ignoring it.\n",
+			partitionPath.Path());
 		return B_BAD_DATA;
+	}
 
 	DBG(
-		KPath partitionPath;
-		partition->GetPath(&partitionPath);
 		OUT("KDiskDeviceManager::_ScanPartition(%s)\n", partitionPath.Path());
 	)
 
@@ -1414,7 +1421,7 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 
 		if (priority >= 0 && priority > bestPriority) {
 			// new best disk system
-			if (bestDiskSystem) {
+			if (bestDiskSystem != NULL) {
 				bestDiskSystem->FreeIdentifyCookie(partition, bestCookie);
 				bestDiskSystem->Unload();
 			}
@@ -1431,7 +1438,7 @@ KDiskDeviceManager::_ScanPartition(KPartition* partition,
 	}
 
 	// now, if we have found a disk system, let it scan the partition
-	if (bestDiskSystem) {
+	if (bestDiskSystem != NULL) {
 		DBG(OUT("  scanning with: %s\n", bestDiskSystem->Name()));
 		error = bestDiskSystem->Scan(partition, bestCookie);
 		bestDiskSystem->FreeIdentifyCookie(partition, bestCookie);

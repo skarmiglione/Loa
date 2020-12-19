@@ -91,8 +91,11 @@ UnpackingLeafNode::ModifiedTime() const
 off_t
 UnpackingLeafNode::FileSize() const
 {
-	if (PackageLeafNode* packageNode = _ActivePackageNode())
+	if (PackageLeafNode* packageNode = _ActivePackageNode()) {
+		if (S_ISLNK(packageNode->Mode()))
+			return strlen(packageNode->SymlinkPath());
 		return packageNode->FileSize();
+	}
 	return 0;
 }
 
@@ -272,10 +275,13 @@ UnpackingLeafNode::ReadSymlink(void* buffer, size_t* bufferSize)
 		return B_OK;
 	}
 
-	size_t toCopy = std::min(strlen(linkPath), *bufferSize);
-	memcpy(buffer, linkPath, toCopy);
-	*bufferSize = toCopy;
+	size_t linkLength = strnlen(linkPath, B_PATH_NAME_LENGTH);
 
+	size_t bytesToCopy = std::min(linkLength, *bufferSize);
+
+	*bufferSize = linkLength;
+
+	memcpy(buffer, linkPath, bytesToCopy);
 	return B_OK;
 }
 

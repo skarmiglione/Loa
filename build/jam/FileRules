@@ -10,7 +10,7 @@ rule Copy
 
 actions Copy1
 {
-	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
+	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR) \
 	"$(2[1])" -d "$(2[2-])" "$(1)"
 }
 
@@ -295,7 +295,7 @@ actions ExtractTarArchive1
 actions ExtractHPKGArchive1
 {
 	mkdir -p "$(1)"
-	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
+	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR) \
 	$(2[1]) extract -C "$(1)" "$(2[2])"
 }
 
@@ -355,7 +355,7 @@ rule CopySetHaikuRevision target : source
 
 actions CopySetHaikuRevision1
 {
-	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
+	export $(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
 
 	$(2[1]) --data $(2[3]) $(1) || exit 1
 
@@ -405,35 +405,6 @@ actions DetermineHaikuRevision2
 }
 
 
-rule DetermineEffectiveHaikuRevision
-{
-	local revisionFile = <haiku-rootdir>effective-haiku-revision ;
-	if ! [ on $(revisionFile) return $(HAIKU_EFFECTIVE_REVISION_DETERMINED) ] {
-		HAIKU_EFFECTIVE_REVISION_DETERMINED on $(revisionFile) = 1 ;
-		MakeLocate $(revisionFile) : $(HAIKU_BUILD_OUTPUT_DIR) ;
-		local rawRevision = [ DetermineHaikuRevision ] ;
-		Depends $(revisionFile) : $(rawRevision) ;
-		DetermineEffectiveHaikuRevision1 $(revisionFile) : $(rawRevision) ;
-		LocalClean clean : $(revisionFile) ;
-	}
-
-	return $(revisionFile) ;
-}
-
-
-actions DetermineEffectiveHaikuRevision1
-{
-	revision=`sed -n 's,^\(hrev[0-9]*\).*,\1,p' "$(2:E=unknown-revision)"`
-	if [ -z "$revision" ]; then
-		echo "Error: unable to determine the effective Haiku revision."
-		echo "       If you are using a Haiku clone without tags, you can set"
-		echo "       the revision tag to use with e.g. HAIKU_REVISION=hrev43210"
-		exit 1
-	fi
-	echo "${revision:-0}" > "$(1)"
-}
-
-
 rule DataFileToSourceFile sourceFile : dataFile : dataVariable : sizeVariable
 {
 	sourceFile = [ FGristFiles $(sourceFile) ] ;
@@ -451,7 +422,7 @@ rule DataFileToSourceFile sourceFile : dataFile : dataVariable : sizeVariable
 
 actions DataFileToSourceFile1
 {
-	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
+	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR) \
 	$(2[1]) $(DATA_VARIABLE) $(SIZE_VARIABLE) $(2[2]) $(1)
 }
 
@@ -471,15 +442,20 @@ rule DownloadLocatedFile target : url : source
 	DownloadLocatedFile1 $(target) : $(source) ;
 }
 
-actions DownloadLocatedFile1
-{
-	source="$(2)"
-	if [ "$(HAIKU_NO_DOWNLOADS)" = 1 ]; then
+if $(HAIKU_NO_DOWNLOADS) = 1 {
+	actions DownloadLocatedFile1
+	{
+		source="$(2)"
 		echo "ERROR: Would need to download $(URL), but HAIKU_NO_DOWNLOADS is set!"
 		exit 1
-	fi
-	wget --retry-connrefused --timeout 30 -O "$(1)" $(URL) || exit 1
-	touch "$(1)"
+	}
+} else {
+	actions DownloadLocatedFile1
+	{
+		source="$(2)"
+		wget --retry-connrefused --timeout 30 -O "$(1)" $(URL) || exit 1
+		touch "$(1)"
+	}
 }
 
 rule DownloadFile file : url : source
@@ -618,7 +594,7 @@ rule StripFile target : source
 
 actions StripFile1
 {
-	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
+	export $(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
 	"$(STRIP)" -o "$(1)" "$(2[1])"
 	"$(2[2])" -o "$(1)" "$(2[1])"
 	"$(2[3])" "$(2[1])" "$(1)"

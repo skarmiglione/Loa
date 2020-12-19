@@ -45,6 +45,8 @@ AlphaMask::AlphaMask(AlphaMask* previousMask, bool inverse)
 	fMask(),
 	fScanline(fMask)
 {
+	recursive_lock_init(&fLock, "AlphaMask");
+
 	if (previousMask != NULL)
 		atomic_add(&previousMask->fNextMaskCount, 1);
 }
@@ -67,11 +69,12 @@ AlphaMask::AlphaMask(AlphaMask* previousMask, AlphaMask* other)
 	fMask(other->fMask),
 	fScanline(fMask)
 {
+	recursive_lock_init(&fLock, "AlphaMask");
+
 	fMask.attach(fBuffer);
 
 	if (previousMask != NULL)
 		atomic_add(&previousMask->fNextMaskCount, 1);
-	fBits->AcquireReference();
 }
 
 
@@ -92,22 +95,23 @@ AlphaMask::AlphaMask(uint8 backgroundOpacity)
 	fMask(),
 	fScanline(fMask)
 {
+	recursive_lock_init(&fLock, "AlphaMask");
 }
 
 
 AlphaMask::~AlphaMask()
 {
-	if (fBits != NULL)
-		fBits->ReleaseReference();
 	if (fPreviousMask.Get() != NULL)
 		atomic_add(&fPreviousMask->fNextMaskCount, -1);
+
+	recursive_lock_destroy(&fLock);
 }
 
 
 IntPoint
 AlphaMask::SetCanvasGeometry(IntPoint origin, IntRect bounds)
 {
-	AutoLocker<BLocker> locker(fLock);
+	RecursiveLocker locker(fLock);
 
 	if (origin == fCanvasOrigin && bounds.Width() == fCanvasBounds.Width()
 		&& bounds.Height() == fCanvasBounds.Height())
@@ -146,27 +150,25 @@ AlphaMask::BitmapSize() const
 ServerBitmap*
 AlphaMask::_CreateTemporaryBitmap(BRect bounds) const
 {
-	UtilityBitmap* bitmap = new(std::nothrow) UtilityBitmap(bounds,
-		B_RGBA32, 0);
+	BReference<UtilityBitmap> bitmap(new(std::nothrow) UtilityBitmap(bounds,
+		B_RGBA32, 0), true);
 	if (bitmap == NULL)
 		return NULL;
 
-	if (!bitmap->IsValid()) {
-		delete bitmap;
+	if (!bitmap->IsValid())
 		return NULL;
-	}
 
 	memset(bitmap->Bits(), fBackgroundOpacity, bitmap->BitsLength());
 
-	return bitmap;
+	return bitmap.Detach();
 }
 
 
 void
 AlphaMask::_Generate()
 {
-	AutoLocker<BLocker> locker(fLock);
-	AutoLocker<BLocker> previousLocker;
+	RecursiveLocker locker(fLock);
+	RecursiveLocker previousLocker;
 	if (fPreviousMask != NULL)
 		previousLocker.SetTo(fPreviousMask->fLock, false);
 
@@ -177,9 +179,7 @@ AlphaMask::_Generate()
 		return;
 	}
 
-	if (fBits != NULL)
-		fBits->ReleaseReference();
-	fBits = new(std::nothrow) UtilityBitmap(fBounds, B_GRAY8, 0);
+	fBits.SetTo(new(std::nothrow) UtilityBitmap(fBounds, B_GRAY8, 0), true);
 	if (fBits == NULL)
 		return;
 
@@ -332,20 +332,19 @@ VectorAlphaMask<VectorMaskType>::_RenderSource(const IntRect& canvasBounds)
 	if (!fBounds.IsValid())
 		return NULL;
 
-	ServerBitmap* bitmap = _CreateTemporaryBitmap(fBounds);
+	BReference<ServerBitmap> bitmap(_CreateTemporaryBitmap(fBounds), true);
 	if (bitmap == NULL)
 		return NULL;
 
 	// Render the picture to the bitmap
 	BitmapHWInterface interface(bitmap);
-	DrawingEngine* engine = interface.CreateDrawingEngine();
-	if (engine == NULL) {
-		bitmap->ReleaseReference();
+	ObjectDeleter<DrawingEngine> engine(interface.CreateDrawingEngine());
+	if (engine.Get() == NULL)
 		return NULL;
-	}
+
 	engine->SetRendererOffset(fBounds.left, fBounds.top);
 
-	OffscreenCanvas canvas(engine,
+	OffscreenCanvas canvas(engine.Get(),
 		static_cast<VectorMaskType*>(this)->GetDrawState(), fBounds);
 
 	DrawState* const drawState = canvas.CurrentState();
@@ -365,9 +364,8 @@ VectorAlphaMask<VectorMaskType>::_RenderSource(const IntRect& canvasBounds)
 	}
 
 	canvas.PopState();
-	delete engine;
 
-	return bitmap;
+	return bitmap.Detach();
 }
 
 
@@ -396,7 +394,6 @@ PictureAlphaMask::PictureAlphaMask(AlphaMask* previousMask,
 
 PictureAlphaMask::~PictureAlphaMask()
 {
-	delete fDrawState;
 }
 
 
@@ -411,7 +408,7 @@ BRect
 PictureAlphaMask::DetermineBoundingBox() const
 {
 	BRect boundingBox;
-	PictureBoundingBoxPlayer::Play(fPicture, fDrawState, &boundingBox);
+	PictureBoundingBoxPlayer::Play(fPicture, fDrawState.Get(), &boundingBox);
 
 	if (!boundingBox.IsValid())
 		return boundingBox;
@@ -430,7 +427,7 @@ PictureAlphaMask::DetermineBoundingBox() const
 const DrawState&
 PictureAlphaMask::GetDrawState() const
 {
-	return *fDrawState;
+	return *fDrawState.Get();
 }
 
 
@@ -451,7 +448,7 @@ ShapeAlphaMask::ShapeAlphaMask(AlphaMask* previousMask,
 	const shape_data& shape, BPoint where, bool inverse)
 	:
 	VectorAlphaMask<ShapeAlphaMask>(previousMask, where, inverse),
-	fShape(new(std::nothrow) shape_data(shape))
+	fShape(new(std::nothrow) shape_data(shape), true)
 {
 	if (fDrawState == NULL)
 		fDrawState = new(std::nothrow) DrawState();
@@ -467,13 +464,11 @@ ShapeAlphaMask::ShapeAlphaMask(AlphaMask* previousMask,
 	fShape(other->fShape),
 	fShapeBounds(other->fShapeBounds)
 {
-	fShape->AcquireReference();
 }
 
 
 ShapeAlphaMask::~ShapeAlphaMask()
 {
-	fShape->ReleaseReference();
 }
 
 
@@ -482,25 +477,23 @@ ShapeAlphaMask::Create(AlphaMask* previousMask, const shape_data& shape,
 	BPoint where, bool inverse)
 {
 	// Look if we have a suitable cached mask
-	ShapeAlphaMask* mask = AlphaMaskCache::Default()->Get(shape, previousMask,
-		inverse);
+	BReference<ShapeAlphaMask> mask(AlphaMaskCache::Default()->Get(shape,
+		previousMask, inverse), true);
 
 	if (mask == NULL) {
 		// No cached mask, create new one
-		mask = new(std::nothrow) ShapeAlphaMask(previousMask, shape,
-			BPoint(0, 0), inverse);
+		mask.SetTo(new(std::nothrow) ShapeAlphaMask(previousMask, shape,
+			BPoint(0, 0), inverse), true);
 	} else {
 		// Create new mask which reuses the parameters and the mask bitmap
 		// of the cache entry
 		// TODO: don't make a new mask if the cache entry has no drawstate
 		// using it anymore, because then we ca just immediately reuse it
-		AlphaMask* cachedMask = mask;
-		AutoLocker<BLocker> locker(mask->fLock);
-		mask = new(std::nothrow) ShapeAlphaMask(previousMask, mask);
-		cachedMask->ReleaseReference();
+		RecursiveLocker locker(mask->fLock);
+		mask.SetTo(new(std::nothrow) ShapeAlphaMask(previousMask, mask), true);
 	}
 
-	return mask;
+	return mask.Detach();
 }
 
 

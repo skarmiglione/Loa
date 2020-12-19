@@ -48,8 +48,7 @@ struct disk_address_packet {
 	uint16		number_of_blocks;
 	uint32		buffer;
 	uint64		lba;
-	uint64		flat_buffer;
-};
+} _PACKED;
 
 static const uint16 kParametersSizeVersion1 = 0x1a;
 static const uint16 kParametersSizeVersion2 = 0x1e;
@@ -878,8 +877,8 @@ platform_add_boot_device(struct stage2_args *args, NodeList *devicesList)
 
 
 status_t
-platform_get_boot_partitions(struct stage2_args *args, Node *bootDevice,
-	NodeList *list, NodeList *bootList)
+platform_get_boot_partition(struct stage2_args *args, Node *bootDevice,
+	NodeList *list, boot::Partition **_partition)
 {
 	BIOSDrive *drive = static_cast<BIOSDrive *>(bootDevice);
 	off_t offset = (off_t)gBootPartitionOffset * drive->BlockSize();
@@ -894,7 +893,7 @@ platform_get_boot_partitions(struct stage2_args *args, Node *bootDevice,
 		// offset as reported by the BFS boot block
 		if (offset >= partition->offset
 			&& offset < partition->offset + partition->size) {
-			bootList->Insert(partition);
+			*_partition = partition;
 			return B_OK;
 		}
 	}
@@ -924,3 +923,8 @@ platform_register_boot_device(Node *device)
 	return B_OK;
 }
 
+
+void
+platform_cleanup_devices()
+{
+}

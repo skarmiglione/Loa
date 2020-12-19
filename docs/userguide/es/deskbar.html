@@ -4,17 +4,17 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2017, Haiku. All rights reserved.
+ * Copyright 2008-2020, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
  *		CapitanPico
- *		miguel~1.mx
  *		Humdinger
- *		killa.fr0gg
  *		kervas
+ *		killa.fr0gg
+ *		miguel~1.mx
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -33,27 +33,30 @@
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/es.png" alt="" /> Español</li>
-<li><a href="../ca/deskbar.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/deskbar.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/deskbar.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../fr/deskbar.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../it/deskbar.html"><img src="../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../hu/deskbar.html"><img src="../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../pl/deskbar.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/deskbar.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/deskbar.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/deskbar.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/deskbar.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/deskbar.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/deskbar.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/deskbar.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/deskbar.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/deskbar.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/deskbar.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Español&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/deskbar.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/deskbar.html">Català</a></li>
+<li><a href="../de/deskbar.html">Deutsch</a></li>
+<li><a href="../en/deskbar.html">English</a></li>
+<li><a href="../fr/deskbar.html">Français</a></li>
+<li><a href="../fur/deskbar.html">Furlan</a></li>
+<li><a href="../it/deskbar.html">Italiano</a></li>
+<li><a href="../hu/deskbar.html">Magyar</a></li>
+<li><a href="../pl/deskbar.html">Polski</a></li>
+<li><a href="../pt_PT/deskbar.html">Português</a></li>
+<li><a href="../pt_BR/deskbar.html">Português (Brazil)</a></li>
+<li><a href="../ro/deskbar.html">Română</a></li>
+<li><a href="../sk/deskbar.html">Slovenčina</a></li>
+<li><a href="../fi/deskbar.html">Suomi</a></li>
+<li><a href="../sv_SE/deskbar.html">Svenska</a></li>
+<li><a href="../tr/deskbar.html">Türkçe</a></li>
+<li><a href="../zh_CN/deskbar.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/deskbar.html">Русский</a></li>
+<li><a href="../uk/deskbar.html">Українська</a></li>
+<li><a href="../jp/deskbar.html">日本語</a></li>
 </ul>
 <span>
- «  <a href="tracker-add-ons.html">Agregados de Tracker</a> 
+ «  <a href="tracker-add-ons.html">Tracker Add-Ons</a> 
 ::  <a href="contents.html" class="uplink">Contents</a> 
 ::  <a href="filetypes.html">Tipos de archivo</a>  »
 </span></div>
@@ -74,12 +77,13 @@
 
 <h1>Deskbar (Barra de Escritorio)</h1>
 
-<p>La Barra de Escritorio es el pequeño panel situado por defecto en la esquina superior derecha de la pantalla. Es la versión que tiene Haiku de la Barra de Tareas de Windows con su botón "Inicio". Contiene el menú "Deskbar" , desde el que se pueden iniciar aplicaciones, acceder a la configuración de preferencias, a la bandeja del sistema con un reloj y otras herramientas debajo, y una lista de las programas actualmente en ejecución debajo.</p>
+<p>La Barra de Escritorio es el pequeño panel situado por defecto en la esquina superior derecha de la pantalla. Es la versión de Haiku de la Barra de Tareas de Windows con su botón "Inicio". Contiene el menú "Deskbar" , desde el que se pueden iniciar aplicaciones y acceder a las preferencias, una bandeja del sistema con un reloj y otras herramientas debajo de este, y debajo una lista de las programas actualmente en ejecución.</p>
 <img src="images/deskbar-images/positions.png" alt="positions" />
-<p>Se puede mover la Barra de Escritorio a cualquier esquina o a lo largo del borde superior o inferior de la pantalla tomando la zona resaltada por una lado de la bandeja del sistema y arrastándola/ajustándola a la nueva posición. Se puede plegar también en una disposición más compacta arrastrándola y modificando su tamaño; soltando la zona resaltada sobre el menú "Barra de Escritorio"</p>
-<p>By gripping the other knobbly widget of the tray, you can change the width of the Deskbar by dragging the mouse left or right:</p>
+<p>You can move the Deskbar to any corner or as a bar along the upper or lower border of the screen by gripping the knobbly area on one side of the tray (see arrows above) and drag &amp; drop it into the new position.<br />
+You can also fold it into a more compact layout by drag &amp; dropping the knobbly area onto Deskbar's Leaf menu. Being only the height of a regular window tab, even windows that take up the whole screen won't obscure the Deskbar tray with its clock and icons.</p>
+<p>Puede cambiar el ancho de la Barra de Escritorio, agarrando el widget de puntitos que está a la derecha de la bandeja, y luego arrastrándola a la izquierda o la derecha:</p>
 <img src="images/deskbar-images/width.png" alt="width" />
-<p>A wider Deskbar allows for more icons in the tray on a single row. It also truncates longer application names in the list of running programs less often, especially if you use larger icons.</p>
+<p>Con una Barra de Escritorio más ancha, puede acomodar una mayor cantidad de íconos en la bandeja en una sola fila. También reducirá la ocurrencia que los nombres largos en la lista de aplicaciones salgan recortados, especialmente si tiene activada la opción de usar íconos grandes.</p>
 
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -89,7 +93,7 @@
 <ul>
 <li><p><b>Acerca del Sistema...</b> - Muestra algo de información básica del sistema, de las licencias y créditos del proyecto Haiku.</p></li>
 
-<li><p><b>Encontrar...</b> - Abre el <a href="queries.html">Cuadro de Consultas</a>.</p></li>
+<li><p><b>Buscar...</b> - Abre el <a href="queries.html">Cuadro de Consultas</a>.</p></li>
 <li><p><b>Mostrar Replicantes</b> - Muestra/esconde el pequeño widget <a href="gui.html#replicants">Replicante</a>  que se usa para trasladarlo, removerlo o accesar a su menú contextual.</p></li>
 <li><p><b>Montar</b> - Ofrece las mismas opciones que cuando se invoca al dar clic derecho en el Escritorio (vea <a href="tracker.html#mounting-volumes">Montar Volúmenes</a>).</p></li>
 <li><p><b>Preferencias del Deskbar (Barra de Escritorio)</b> - Abre un panel para configurar el Deskbar (mirar abajo).</p></li>
@@ -128,8 +132,8 @@ Debe crear un enlace de la carpeta <span class="path">menu</span> en <span class
 <h4>Ventana</h4>
 <p>Finalmente, la ventana de preferencias del Deskbar.</p>
 <table summary="layout" border="0" cellpadding="2" cellspacing="0">
-<tr><td><span class="menu">Siempre encima</span></td><td> </td><td>El Deskbar siempre permanece encima de las demás ventanas.</td></tr>
-<tr><td><span class="menu">Auto-elevar</span></td><td> </td><td>El Deskbar salta a primer plano si el puntero del ratón lo toca.</td></tr>
+<tr><td class="onelinetop"><span class="menu">Siempre encima</span></td><td> </td><td>El Deskbar siempre permanece encima de las demás ventanas.</td></tr>
+<tr><td><span class="menu">Auto-elevar</span></td><td> </td><td>The Deskbar pops to the front when the mouse pointer touches where the Deskbar meets the screen edge, and is lowered when it leaves the Deskbar area.</td></tr>
 <tr><td><span class="menu">Auto-esconder</span></td><td> </td><td>El Deskbar se reduce a unos pocos pixeles y solamente se muestra si el puntero del mouse le toca.</td></tr>
 </table>
 
@@ -146,6 +150,8 @@ Debe crear un enlace de la carpeta <span class="path">menu</span> en <span class
 <img src="images/deskbar-images/list-of-apps.png" alt="list-of-apps.png" />
 <p>Se puede cambiar a una aplicación concreta en ejecución haciendo clic en su entrada en el Deskbar y seleccionando una de sus ventanas desde el submenú. Dando clic con el botón derecho puede <span class="menu">Esconder/Mostrar todas</span> las ventanas o <span class="menu">Cerrar</span> todas.</p>
 <p>Un clic junto a <span class="key">SHIFT</span> <span class="key">CTRL</span> sobre cualquier aplicación esconde todas sus ventanas, un clic y <span class="key">CTRL</span> las muestra de nuevo.</p>
+<p>When using the "expander" setting to show all windows of an application, you can middle-click on a window or app to start a new instance. For example, middle-clicking a running StyledEdit will open a new document window.<br />
+Maybe more useful: while holding <span class="key">SHIFT</span>, a middle-click on a window closes it. Handy when you'd like to close some of many open Tracker windows, for example.</p>
 <div class="box-info">A veces una aplicación se podría colgar y aunque ya no tenga ventanas abiertas, la entrada en el listado de aplicaciones en ejecución del Deskbar no desaparece. En una situación así, utilice la Llave Mortal Vulcana para eliminarla: mantenga presionadas <span class="key">SHIFT</span> <span class="key">CTRL</span> <span class="key">ALT</span> y haga clic en la entrada infractora en el Deskbar. Fascinante!</div>
 <p>Si se activaron los Expanders en las selecciones del Deskbar, se puede expandir/colapsar la lista de ventanas directamente bajo una entrada de aplicación.</p>
 <p>Enfrente de cada ventana de aplicación hay un símbolo que proporciona información sobre su estado. Un símbolo brillante significa que una ventana está visible, uno oscuro, que está minimizado. Tres líneas enfrente a un símbolo muestra que no está en el espacio de trabajo actual.</p>
@@ -155,7 +161,7 @@ Debe crear un enlace de la carpeta <span class="path">menu</span> en <span class
 
 <div class="nav">
 <div class="inner"><span>
- «  <a href="tracker-add-ons.html">Agregados de Tracker</a> 
+ «  <a href="tracker-add-ons.html">Tracker Add-Ons</a> 
 ::  <a href="contents.html" class="uplink">Contents</a> 
 ::  <a href="filetypes.html">Tipos de archivo</a>  »
 </span></div>

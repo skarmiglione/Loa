@@ -1,12 +1,16 @@
-// DataContainer.h
-
+/*
+ * Copyright 2007, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2019, Haiku, Inc.
+ * All rights reserved. Distributed under the terms of the MIT license.
+ */
 #ifndef DATA_CONTAINER_H
 #define DATA_CONTAINER_H
 
-#include "List.h"
+#include <OS.h>
 
+struct vm_page;
+class VMCache;
 class AllocationInfo;
-class BlockReference;
 class Volume;
 
 // Size of the DataContainer's small buffer. If it contains data up to this
@@ -14,7 +18,7 @@ class Volume;
 // 16 bytes are for free, since they are shared with the block list.
 // (actually even more, since the list has an initial size).
 // I ran a test analyzing what sizes the attributes in my system have:
-//     size   percentage   bytes used in average 
+//     size   percentage   bytes used in average
 //   <=   0         0.00                   93.45
 //   <=   4        25.46                   75.48
 //   <=   8        30.54                   73.02
@@ -42,43 +46,32 @@ public:
 	status_t Resize(off_t newSize);
 	off_t GetSize() const { return fSize; }
 
+	VMCache* GetCache();
+
 	virtual status_t ReadAt(off_t offset, void *buffer, size_t size,
 							size_t *bytesRead);
 	virtual status_t WriteAt(off_t offset, const void *buffer, size_t size,
 							 size_t *bytesWritten);
 
-	void GetFirstDataBlock(const uint8 **data, size_t *length);
-
 	// debugging
 	void GetAllocationInfo(AllocationInfo &info);
 
 private:
-	typedef List<BlockReference*>	BlockList;
+	inline bool _RequiresCacheMode(size_t size);
+	inline bool _IsCacheMode() const;
+	status_t _SwitchToCacheMode();
+	void _GetPages(off_t offset, off_t length, bool isWrite, vm_page** pages);
+	void _PutPages(off_t offset, off_t length, vm_page** pages, bool success);
+	status_t _DoCacheIO(const off_t offset, uint8* buffer, ssize_t length,
+		size_t* bytesProcessed, bool isWrite);
 
-private:
-	static inline bool _RequiresBlockMode(size_t size);
-	inline bool _IsBlockMode() const;
-
-	inline BlockList *_GetBlockList();
-	inline const BlockList *_GetBlockList() const;
 	inline int32 _CountBlocks() const;
-	inline void *_GetBlockDataAt(int32 index, size_t offset, size_t size);
-
-	void _ClearArea(off_t offset, off_t size);
-
-	status_t _Resize(off_t newSize);
-	status_t _ResizeLastBlock(size_t newSize);
-
-	status_t _SwitchToBlockMode(size_t newBlockSize);
-	void _SwitchToSmallBufferMode(size_t newSize);
 
 private:
-	Volume					*fVolume;
-	off_t					fSize;
-	union {
-		uint8				fBlocks[sizeof(BlockList)];
-		uint8				fSmallBuffer[kSmallDataContainerSize];
-	};
+	Volume				*fVolume;
+	off_t				fSize;
+	VMCache*			fCache;
+	uint8				fSmallBuffer[kSmallDataContainerSize];
 };
 
 #endif	// DATA_CONTAINER_H

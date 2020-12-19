@@ -99,10 +99,11 @@ status_t elf64_verify_header(void *header, size_t length);
 #endif	// _COMPAT_MODE
 void rldelf_init(void);
 void rldexport_init(void);
-void set_abi_version(int abi_version);
-status_t elf_reinit_after_fork(void);
+void set_abi_api_version(int abi_version, int api_version);
+status_t elf_reinit_after_fork();
 
-status_t heap_init(void);
+status_t heap_init();
+status_t heap_reinit_after_fork();
 
 // arch dependent prototypes
 status_t arch_relocate_image(image_t* rootImage, image_t* image,

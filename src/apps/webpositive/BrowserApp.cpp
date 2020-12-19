@@ -84,6 +84,21 @@ BrowserApp::BrowserApp()
 	fConsoleWindow(NULL),
 	fCookieWindow(NULL)
 {
+#ifdef __i386__
+	// First let's check SSE2 is available
+	cpuid_info info;
+	get_cpuid(&info, 1, 0);
+
+	if ((info.eax_1.features & (1 << 26)) == 0) {
+		BAlert alert(B_TRANSLATE("No SSE2 support"), B_TRANSLATE("Your CPU is "
+			"too old and does not support the SSE2 extensions, without which "
+			"WebPositive cannot run. We recommend installing NetSurf instead."),
+			B_TRANSLATE("Darn!"));
+		alert.Go();
+		exit(-1);
+	}
+#endif
+
 #if ENABLE_NATIVE_COOKIES
 	BString cookieStorePath = kApplicationName;
 	cookieStorePath << "/Cookies";
@@ -118,13 +133,15 @@ BrowserApp::AboutRequested()
 {
 	BAboutWindow* window = new BAboutWindow(kApplicationName,
 		kApplicationSignature);
-	
+
 	// create the about window
 
 	const char* authors[] = {
 		"Andrea Anzani",
 		"Stephan Aßmus",
 		"Alexandre Deckner",
+		"Adrien Destugues",
+		"Rajagopalan Gangadharan",
 		"Rene Gollent",
 		"Ryan Leavengood",
 		"Michael Lotz",
@@ -219,7 +236,7 @@ BrowserApp::ReadyToRun()
 	fSettingsWindow = new SettingsWindow(settingsWindowFrame, fSettings);
 
 	BWebPage::SetDownloadListener(BMessenger(fDownloadWindow));
-	
+
 	fConsoleWindow = new ConsoleWindow(consoleWindowFrame);
 	fCookieWindow = new CookieWindow(cookieWindowFrame, fContext->GetCookieJar());
 
@@ -233,26 +250,34 @@ BrowserApp::ReadyToRun()
 		fLaunchRefsMessage = NULL;
 	}
 
-	// If no refs led to a new open page, restore previous session.
+	// If no refs led to a new open page, open new session if set
 	if (fSession->InitCheck() == B_OK && pagesCreated == 0) {
-		BMessage archivedWindow;
-		for (int i = 0; fSession->FindMessage("window", i, &archivedWindow) == B_OK;
-			i++) {
-			BRect frame = archivedWindow.FindRect("window frame");
-			BString url;
-			archivedWindow.FindString("tab", 0, &url);
-			BrowserWindow* window = new(std::nothrow) BrowserWindow(frame,
-				fSettings, url, fContext);
+		const char* kSettingsKeyStartUpPolicy = "start up policy";
+		uint32 fStartUpPolicy = fSettings->GetValue(kSettingsKeyStartUpPolicy,
+			(uint32)ResumePriorSession);
+		if (fStartUpPolicy == StartNewSession) {
+			PostMessage(NEW_WINDOW);
+		} else {
+			// otherwise, restore previous session
+			BMessage archivedWindow;
+			for (int i = 0; fSession->FindMessage("window", i, &archivedWindow)
+				== B_OK; i++) {
+				BRect frame = archivedWindow.FindRect("window frame");
+				BString url;
+				archivedWindow.FindString("tab", 0, &url);
+				BrowserWindow* window = new(std::nothrow) BrowserWindow(frame,
+					fSettings, url, fContext);
 
-			if (window != NULL) {
-				window->Show();
-				pagesCreated++;
-
-				for (int j = 1; archivedWindow.FindString("tab", j, &url) == B_OK;
-					j++) {
-					printf("Create %d:%d\n", i, j);
-					_CreateNewTab(window, url, false);
+				if (window != NULL) {
+					window->Show();
 					pagesCreated++;
+
+					for (int j = 1; archivedWindow.FindString("tab", j, &url)
+						== B_OK; j++) {
+						printf("Create %d:%d\n", i, j);
+						_CreateNewTab(window, url, false);
+						pagesCreated++;
+					}
 				}
 			}
 		}
@@ -378,7 +403,7 @@ BrowserApp::QuitRequested()
 	 * In that case we only need to save that one, which is already archived */
 	BMessage* message = CurrentMessage();
 	BMessage windowMessage;
-	
+
 	status_t ret = message->FindMessage("window", &windowMessage);
 	if (ret == B_OK) {
 		fSession->AddMessage("window", &windowMessage);

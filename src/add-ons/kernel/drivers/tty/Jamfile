@@ -3,6 +3,8 @@ SubDir HAIKU_TOP src add-ons kernel drivers tty ;
 UsePrivateKernelHeaders ;
 UsePrivateHeaders drivers ;
 
+UseHeaders [ FDirName $(HAIKU_TOP) src add-ons kernel generic tty ] ;
+
 KernelAddon <driver>tty :
 	driver.cpp
 	tty.cpp
@@ -10,4 +12,7 @@ KernelAddon <driver>tty :
 	master.cpp
 	slave.cpp
 ;
+
+SEARCH on [ FGristFiles line_buffer.cpp ]
+	+= [ FDirName $(HAIKU_TOP) src add-ons kernel generic tty ] ;
 

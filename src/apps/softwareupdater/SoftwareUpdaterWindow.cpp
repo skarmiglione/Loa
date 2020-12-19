@@ -1,10 +1,11 @@
 /*
- * Copyright 2016-2017 Haiku, Inc. All rights reserved.
+ * Copyright 2016-2019 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT license
  *
  * Authors:
  *		Alexander von Gluck IV <kallisti5@unixzen.com>
  *		Brian Hill <supernova@tycho.email>
+ *		Jacob Secunda
  */
 
 
@@ -20,6 +21,7 @@
 #include <LayoutUtils.h>
 #include <Message.h>
 #include <Roster.h>
+#include <RosterPrivate.h>
 #include <Screen.h>
 #include <String.h>
 
@@ -53,13 +55,15 @@ SoftwareUpdaterWindow::SoftwareUpdaterWindow()
 {
 	// Layout
 	BBitmap icon = GetIcon(32 * icon_layout_scale());
-	fStripeView = new StripeView(icon);
+	fStripeView = new BStripeView(icon);
 
 	fUpdateButton = new BButton(B_TRANSLATE("Update now"),
 		new BMessage(kMsgUpdateConfirmed));
 	fUpdateButton->MakeDefault(true);
 	fCancelButton = new BButton(B_TRANSLATE("Cancel"),
 		new BMessage(kMsgCancel));
+	fRebootButton = new BButton(B_TRANSLATE("Reboot"),
+		new BMessage(kMsgReboot));
 
 	fHeaderView = new BStringView("header",
 		B_TRANSLATE("Checking for updates"), B_WILL_DRAW);
@@ -71,7 +75,7 @@ SoftwareUpdaterWindow::SoftwareUpdaterWindow()
 	fDetailView->SetExplicitAlignment(BAlignment(B_ALIGN_LEFT, B_ALIGN_TOP));
 	fStatusBar = new BStatusBar("progress");
 	fStatusBar->SetMaxValue(100);
-	
+
 	fListView = new PackageListView();
 	fScrollView = new BScrollView("scrollview", fListView, B_WILL_DRAW,
 		false, true);
@@ -86,7 +90,7 @@ SoftwareUpdaterWindow::SoftwareUpdaterWindow()
 	font.SetSize(font.Size() * 1.5);
 	fHeaderView->SetFont(&font,
 		B_FONT_FAMILY_AND_STYLE | B_FONT_SIZE | B_FONT_FLAGS);
-	
+
 	BLayoutBuilder::Group<>(this, B_HORIZONTAL, B_USE_ITEM_SPACING)
 		.Add(fStripeView)
 		.AddGroup(B_VERTICAL, 0)
@@ -104,26 +108,28 @@ SoftwareUpdaterWindow::SoftwareUpdaterWindow()
 				.AddGlue()
 				.Add(fCancelButton)
 				.Add(fUpdateButton)
+				.Add(fRebootButton)
 			.End()
 		.End()
 	.End();
-	
+
 	fDetailsLayoutItem = layout_item_for(fDetailView);
 	fProgressLayoutItem = layout_item_for(fStatusBar);
 	fPackagesLayoutItem = layout_item_for(fScrollView);
 	fCancelButtonLayoutItem = layout_item_for(fCancelButton);
 	fUpdateButtonLayoutItem = layout_item_for(fUpdateButton);
+	fRebootButtonLayoutItem = layout_item_for(fRebootButton);
 	fDetailsCheckboxLayoutItem = layout_item_for(fDetailsCheckbox);
-	
+
 	_SetState(STATE_DISPLAY_STATUS);
 	CenterOnScreen();
 	SetFlags(Flags() ^ B_AUTO_UPDATE_SIZE_LIMITS);
-	
+
 	// Prevent resizing for now
 	fDefaultRect = Bounds();
 	SetSizeLimits(fDefaultRect.Width(), fDefaultRect.Width(),
 		fDefaultRect.Height(), fDefaultRect.Height());
-	
+
 	// Read settings file
 	status_t status = find_directory(B_USER_SETTINGS_DIRECTORY, &fSettingsPath);
 	if (status == B_OK) {
@@ -141,16 +147,16 @@ SoftwareUpdaterWindow::SoftwareUpdaterWindow()
 		}
 	}
 	Show();
-	
+
 	BMessage registerMessage(kMsgRegister);
 	registerMessage.AddMessenger(kKeyMessenger, BMessenger(this));
 	be_app->PostMessage(&registerMessage);
-	
+
 	fCancelAlertResponse.SetMessage(new BMessage(kMsgCancelResponse));
 	fCancelAlertResponse.SetTarget(this);
 	fWarningAlertDismissed.SetMessage(new BMessage(kMsgWarningDismissed));
 	fWarningAlertDismissed.SetTarget(this);
-	
+
 	// Common elements used for the zoom height and width calculations
 	fZoomHeightBaseline = 6
 		+ be_control_look->ComposeSpacing(B_USE_SMALL_SPACING)
@@ -217,14 +223,14 @@ void
 SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
-		
+
 		case kMsgTextUpdate:
 		{
 			if (fCurrentState == STATE_DISPLAY_PROGRESS)
 				_SetState(STATE_DISPLAY_STATUS);
 			else if (fCurrentState != STATE_DISPLAY_STATUS)
 				break;
-			
+
 			BString header;
 			BString detail;
 			Lock();
@@ -237,14 +243,14 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			Unlock();
 			break;
 		}
-		
+
 		case kMsgProgressUpdate:
 		{
 			if (fCurrentState == STATE_DISPLAY_STATUS)
 				_SetState(STATE_DISPLAY_PROGRESS);
 			else if (fCurrentState != STATE_DISPLAY_PROGRESS)
 				break;
-			
+
 			BString packageName;
 			status_t result = message->FindString(kKeyPackageName,
 				&packageName);
@@ -258,7 +264,7 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			result = message->FindFloat(kKeyPercentage, &percent);
 			if (result != B_OK)
 				break;
-			
+
 			BString header;
 			Lock();
 			result = message->FindString(kKeyHeader, &header);
@@ -267,11 +273,11 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			fStatusBar->SetTo(percent, packageName.String(),
 				packageCount.String());
 			Unlock();
-			
+
 			fListView->UpdatePackageProgress(packageName.String(), percent);
 			break;
 		}
-		
+
 		case kMsgCancel:
 		{
 			if (_GetState() == STATE_FINAL_MESSAGE) {
@@ -284,10 +290,11 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 				Lock();
 				fHeaderView->SetText(B_TRANSLATE("Cancelling updates"));
 				fDetailView->SetText(
-					B_TRANSLATE("Attempting to cancel the updates..."));
+					B_TRANSLATE("Attempting to cancel the updates"
+						B_UTF8_ELLIPSIS));
 				Unlock();
 				fUserCancelRequested = true;
-				
+
 				if (fWaitingForButton) {
 					fButtonResult = message->what;
 					delete_sem(fWaitingSem);
@@ -295,7 +302,7 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 				}
 				break;
 			}
-			
+
 			// Confirm with the user to cancel
 			BAlert* alert = new BAlert("cancel request", B_TRANSLATE("Updates"
 				" have not been completed, are you sure you want to quit?"),
@@ -305,7 +312,34 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			alert->Go(&fCancelAlertResponse);
 			break;
 		}
-		
+
+		case kMsgShowReboot:
+		{
+			fRebootButtonLayoutItem->SetVisible(true);
+			fRebootButton->SetLabel(B_TRANSLATE_COMMENT("Reboot",
+				"Button label"));
+			fRebootButton->MakeDefault(true);
+			break;
+		}
+
+		case kMsgReboot:
+		{
+			if (_GetState() != STATE_FINAL_MESSAGE)
+				break;
+
+			BRoster roster;
+			BRoster::Private rosterPrivate(roster);
+			status_t error = rosterPrivate.ShutDown(true, false, false);
+			if (error != B_OK) {
+				BAlert* alert = new BAlert("reboot request", B_TRANSLATE(
+					"For some reason, we could not reboot your computer."),
+					B_TRANSLATE("OK"), NULL, NULL,
+					B_WIDTH_AS_USUAL, B_STOP_ALERT);
+				alert->Go();
+			}
+			break;
+		}
+
 		case kMsgCancelResponse:
 		{
 			// Verify whether the cancel alert was confirmed
@@ -313,14 +347,15 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			message->FindInt32("which", &selection);
 			if (selection != 0)
 				break;
-				
+
 			Lock();
 			fHeaderView->SetText(B_TRANSLATE("Cancelling updates"));
 			fDetailView->SetText(
-				B_TRANSLATE("Attempting to cancel the updates..."));
+				B_TRANSLATE("Attempting to cancel the updates"
+					B_UTF8_ELLIPSIS));
 			Unlock();
 			fUserCancelRequested = true;
-			
+
 			if (fWaitingForButton) {
 				fButtonResult = message->what;
 				delete_sem(fWaitingSem);
@@ -328,7 +363,7 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			}
 			break;
 		}
-		
+
 		case kMsgUpdateConfirmed:
 		{
 			if (fWaitingForButton) {
@@ -339,7 +374,7 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			}
 			break;
 		}
-		
+
 		case kMsgMoreDetailsToggle:
 			fListView->SetMoreDetails(fDetailsCheckbox->Value() != 0);
 			PostMessage(kMsgSetZoomLimits);
@@ -367,17 +402,17 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			SetZoomLimits(zoomWidth, zoomHeight);
 			break;
 		}
-		
+
 		case kMsgWarningDismissed:
 			fWarningAlertCount--;
 			break;
-		
+
 		case kMsgWindowFrameChanged:
 			delete fMessageRunner;
 			fMessageRunner = NULL;
 			_WriteSettings();
 			break;
-		
+
 		case kMsgGetUpdateType:
 		{
 			BString text(
@@ -399,11 +434,11 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 				case 0:
 					action = CANCEL_UPDATE;
 					break;
-				
+
 				case 1:
 					action = FULLSYNC;
 					break;
-				
+
 				case 2:
 					action = UPDATE;
 					break;
@@ -413,7 +448,7 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			message->SendReply(&reply);
 			break;
 		}
-		
+
 		case kMsgNoRepositories:
 		{
 			BString text(
@@ -431,7 +466,7 @@ SoftwareUpdaterWindow::MessageReceived(BMessage* message)
 			message->SendReply(&reply);
 			break;
 		}
-		
+
 		default:
 			BWindow::MessageReceived(message);
 	}
@@ -446,10 +481,10 @@ SoftwareUpdaterWindow::ConfirmUpdates()
 	fDetailView->SetText(B_TRANSLATE("The following changes will be made:"));
 	fListView->SortItems();
 	Unlock();
-	
+
 	uint32 priorState = _GetState();
 	_SetState(STATE_GET_CONFIRMATION);
-	
+
 	_WaitForButtonClick();
 	_SetState(priorState);
 	return fButtonResult == kMsgUpdateConfirmed;
@@ -472,7 +507,7 @@ SoftwareUpdaterWindow::UserCancelRequested()
 {
 	if (_GetState() > STATE_GET_CONFIRMATION)
 		return false;
-	
+
 	return fUserCancelRequested;
 }
 
@@ -520,7 +555,7 @@ SoftwareUpdaterWindow::FinalUpdate(const char* header, const char* detail)
 {
 	if (_GetState() == STATE_FINAL_MESSAGE)
 		return;
-	
+
 	_SetState(STATE_FINAL_MESSAGE);
 	Lock();
 	fHeaderView->SetText(header);
@@ -556,25 +591,26 @@ SoftwareUpdaterWindow::_SetState(uint32 state)
 {
 	if (state <= STATE_HEAD || state >= STATE_MAX)
 		return;
-	
+
 	Lock();
-	
+
 	// Initial settings
 	if (fCurrentState == STATE_HEAD) {
 		fProgressLayoutItem->SetVisible(false);
 		fPackagesLayoutItem->SetVisible(false);
 		fDetailsCheckboxLayoutItem->SetVisible(false);
 		fCancelButtonLayoutItem->SetVisible(false);
+		fRebootButtonLayoutItem->SetVisible(false);
 	}
 	fCurrentState = state;
-		
+
 	// Update confirmation button
 	// Show only when asking for confirmation to update
-	if (fCurrentState == STATE_GET_CONFIRMATION) 
+	if (fCurrentState == STATE_GET_CONFIRMATION)
 		fUpdateButtonLayoutItem->SetVisible(true);
 	else
 		fUpdateButtonLayoutItem->SetVisible(false);
-	
+
 	// View package info view and checkbox
 	// Show at confirmation prompt, hide at final update
 	if (fCurrentState == STATE_GET_CONFIRMATION) {
@@ -593,7 +629,7 @@ SoftwareUpdaterWindow::_SetState(uint32 state)
 		fPackagesLayoutItem->SetVisible(false);
 		fDetailsCheckboxLayoutItem->SetVisible(false);
 	}
-	
+
 	// Progress bar and string view
 	// Hide detail text while showing status bar
 	if (fCurrentState == STATE_DISPLAY_PROGRESS) {
@@ -603,7 +639,7 @@ SoftwareUpdaterWindow::_SetState(uint32 state)
 		fProgressLayoutItem->SetVisible(false);
 		fDetailsLayoutItem->SetVisible(true);
 	}
-	
+
 	// Resizing and zooming
 	if (fCurrentState == STATE_GET_CONFIRMATION) {
 		// Enable resizing and zooming
@@ -648,14 +684,14 @@ SoftwareUpdaterWindow::_SetState(uint32 state)
 		SetFlags(Flags() | B_AUTO_UPDATE_SIZE_LIMITS | B_NOT_RESIZABLE
 			| B_NOT_ZOOMABLE);
 	}
-	
+
 	// Quit button
 	if (fCurrentState == STATE_FINAL_MESSAGE) {
 		fCancelButtonLayoutItem->SetVisible(true);
  		fCancelButton->SetLabel(B_TRANSLATE_COMMENT("Quit", "Button label"));
- 		fCancelButton->MakeDefault(true);
+		fCancelButton->MakeDefault(true);
 	}
-	
+
 	Unlock();
 }
 
@@ -729,7 +765,7 @@ void
 SuperItem::DrawItem(BView* owner, BRect item_rect, bool complete)
 {
 	owner->PushState();
-	
+
 	float width;
 	owner->GetPreferredSize(&width, NULL);
 	BString text(fItemText);
@@ -738,7 +774,7 @@ SuperItem::DrawItem(BView* owner, BRect item_rect, bool complete)
 	owner->TruncateString(&text, B_TRUNCATE_END, width);
 	owner->DrawString(text.String(), BPoint(item_rect.left,
 		item_rect.bottom - fBoldFontHeight.descent));
-	
+
 	owner->PopState();
 }
 
@@ -861,12 +897,12 @@ void
 PackageItem::DrawItem(BView* owner, BRect item_rect, bool complete)
 {
 	owner->PushState();
-	
+
 	float width = owner->Frame().Width();
-    float nameWidth = width / 2.0;
-    float offsetWidth = 0;
-    bool showMoreDetails = fSuperItem->GetDetailLevel();
-	
+	float nameWidth = width / 2.0;
+	float offsetWidth = 0;
+	bool showMoreDetails = fSuperItem->GetDetailLevel();
+
 	BBitmap* icon = fSuperItem->GetIcon(showMoreDetails);
 	if (icon != NULL && icon->IsValid()) {
 		float iconSize = icon->Bounds().Height();
@@ -877,28 +913,28 @@ PackageItem::DrawItem(BView* owner, BRect item_rect, bool complete)
 		owner->DrawBitmap(icon, location);
 		owner->SetDrawingMode(B_OP_COPY);
 		offsetWidth = iconSize + fLabelOffset;
-		
+
 		if (fDrawBarFlag)
 			_DrawBar(location, owner, icon_size(iconSize));
 	}
-	
+
 	owner->SetFont(be_plain_font);
 	owner->SetHighColor(ui_color(B_LIST_ITEM_TEXT_COLOR));
-	
+
 	// Package name
-    BString name(fName);
-    owner->TruncateString(&name, B_TRUNCATE_END, nameWidth);
+	BString name(fName);
+	owner->TruncateString(&name, B_TRUNCATE_END, nameWidth);
 	BPoint cursor(item_rect.left + offsetWidth,
 		item_rect.bottom - fSmallTotalHeight - fSmallFontHeight.descent - 2);
 	if (showMoreDetails)
 		cursor.y -= fSmallTotalHeight + 1;
 	owner->DrawString(name.String(), cursor);
 	cursor.x += owner->StringWidth(name.String()) + fLabelOffset;
-	
+
 	// Change font and color
 	owner->SetFont(&fSmallFont);
 	owner->SetHighColor(tint_color(ui_color(B_LIST_ITEM_TEXT_COLOR), 0.7));
-	
+
 	// Simple version or repository
 	BString versionOrRepo;
 	if (showMoreDetails)
@@ -907,14 +943,14 @@ PackageItem::DrawItem(BView* owner, BRect item_rect, bool complete)
 		versionOrRepo.SetTo(fSimpleVersion);
 	owner->TruncateString(&versionOrRepo, B_TRUNCATE_END, width - cursor.x);
 	owner->DrawString(versionOrRepo.String(), cursor);
-	
+
 	// Summary
 	BString summary(fSummary);
 	cursor.x = item_rect.left + offsetWidth;
 	cursor.y += fSmallTotalHeight;
 	owner->TruncateString(&summary, B_TRUNCATE_END, width - cursor.x);
 	owner->DrawString(summary.String(), cursor);
-	
+
 	// Detailed version
 	if (showMoreDetails) {
 		BString version(fDetailedVersion);
@@ -922,7 +958,7 @@ PackageItem::DrawItem(BView* owner, BRect item_rect, bool complete)
 		owner->TruncateString(&version, B_TRUNCATE_END, width - cursor.x);
 		owner->DrawString(version.String(), cursor);
 	}
-	
+
 	owner->PopState();
 }
 
@@ -940,7 +976,7 @@ PackageItem::_DrawBar(BPoint where, BView* view, icon_size which)
 	} else
 		yOffset = 2;
 	int32 barHeight = size - 3 - 2 * yOffset;
-	
+
 
 	// the black shadowed line
 	view->SetHighColor(32, 32, 32, 92);
@@ -993,7 +1029,7 @@ void
 PackageItem::CalculateZoomWidths(BView *owner)
 {
 	owner->PushState();
-	
+
 	// More details
 	float offsetWidth = 2 * be_control_look->DefaultItemSpacing()
 		+ be_plain_font->Size()
@@ -1012,7 +1048,7 @@ PackageItem::CalculateZoomWidths(BView *owner)
 	if (versionWidth > stringWidth)
 		stringWidth = versionWidth;
 	fMoreDetailsWidth = offsetWidth + stringWidth;
-	
+
 	// Less details
 	offsetWidth = 2 * be_control_look->DefaultItemSpacing()
 		+ be_plain_font->Size()
@@ -1026,7 +1062,7 @@ PackageItem::CalculateZoomWidths(BView *owner)
 	if (summaryWidth > stringWidth)
 		stringWidth = summaryWidth;
 	fLessDetailsWidth = offsetWidth + stringWidth;
-	
+
 	owner->PopState();
 }
 
@@ -1097,7 +1133,7 @@ PackageListView::AddPackage(uint32 install_type, const char* name,
 	BString repositoryText(B_TRANSLATE_COMMENT("from repository",
 		"List item text"));
 	repositoryText.Append(" ").Append(repository);
-	
+
 	switch (install_type) {
 		case PACKAGE_UPDATE:
 		{
@@ -1107,7 +1143,7 @@ PackageListView::AddPackage(uint32 install_type, const char* name,
 				AddItem(fSuperUpdateItem);
 			}
 			super = fSuperUpdateItem;
-			
+
 			simpleVersion.SetTo(new_ver);
 			detailedVersion.Append(B_TRANSLATE_COMMENT("Updating version",
 					"List item text"))
@@ -1117,7 +1153,7 @@ PackageListView::AddPackage(uint32 install_type, const char* name,
 				.Append(" ").Append(new_ver);
 			break;
 		}
-		
+
 		case PACKAGE_INSTALL:
 		{
 			if (fSuperInstallItem == NULL) {
@@ -1126,14 +1162,14 @@ PackageListView::AddPackage(uint32 install_type, const char* name,
 				AddItem(fSuperInstallItem);
 			}
 			super = fSuperInstallItem;
-			
+
 			simpleVersion.SetTo(new_ver);
 			detailedVersion.Append(B_TRANSLATE_COMMENT("Installing version",
 					"List item text"))
 				.Append(" ").Append(new_ver);
 			break;
 		}
-		
+
 		case PACKAGE_UNINSTALL:
 		{
 			if (fSuperUninstallItem == NULL) {
@@ -1142,17 +1178,17 @@ PackageListView::AddPackage(uint32 install_type, const char* name,
 				AddItem(fSuperUninstallItem);
 			}
 			super = fSuperUninstallItem;
-			
+
 			simpleVersion.SetTo("");
 			detailedVersion.Append(B_TRANSLATE_COMMENT("Uninstalling version",
 					"List item text"))
 				.Append(" ").Append(cur_ver);
 			break;
 		}
-		
+
 		default:
 			return;
-	
+
 	}
 	PackageItem* item = new PackageItem(name, simpleVersion.String(),
 		detailedVersion.String(), repositoryText.String(), summary, file_name,
@@ -1171,7 +1207,7 @@ PackageListView::UpdatePackageProgress(const char* packageName, float percent)
 	if (wholePercent == fLastProgressValue)
 		return;
 	fLastProgressValue = wholePercent;
-	
+
 	// A new package started downloading, find the PackageItem by name
 	if (percent == 0) {
 		fLastProgressItem = NULL;
@@ -1185,14 +1221,14 @@ PackageListView::UpdatePackageProgress(const char* packageName, float percent)
 			}
 		}
 	}
-	
+
 	if (fLastProgressItem != NULL) {
 		fLastProgressItem->SetDownloadProgress(percent);
 		Invalidate();
 	}
 }
 
-									
+
 void
 PackageListView::SortItems()
 {
@@ -1280,7 +1316,7 @@ PackageListView::_SetItemHeights()
 			item = ItemUnderAt(fSuperInstallItem, true, i);
 			item->SetHeight(itemHeight);
 		}
-		
+
 	}
 	if (fSuperUninstallItem != NULL) {
 		fSuperUninstallItem->SetDetailLevel(fShowMoreDetails);
@@ -1290,6 +1326,6 @@ PackageListView::_SetItemHeights()
 			item = ItemUnderAt(fSuperUninstallItem, true, i);
 			item->SetHeight(itemHeight);
 		}
-		
+
 	}
 }

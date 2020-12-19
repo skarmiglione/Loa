@@ -168,8 +168,8 @@ platform_add_boot_device(struct stage2_args *args, NodeList *devicesList)
 
 
 status_t
-platform_get_boot_partitions(struct stage2_args *args, Node *bootDevice,
-	NodeList *list, NodeList *partitions)
+platform_get_boot_partition(struct stage2_args *args, Node *bootDevice,
+	NodeList *list, boot::Partition **_partition)
 {
 
 //TODO
@@ -194,3 +194,8 @@ platform_register_boot_device(Node *device)
 	return B_OK;
 }
 
+
+void
+platform_cleanup_devices()
+{
+}

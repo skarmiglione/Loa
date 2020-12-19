@@ -10,8 +10,8 @@
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		Pengphei Han
  *		dill
+ *		Pengphei Han
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -30,24 +30,27 @@
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../../images/flags/zh_CN.png" alt="" />  中文 ［中文］</li>
-<li><a href="../../ca/applications/installer.html"><img src="../../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../../de/applications/installer.html"><img src="../../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../../en/applications/installer.html"><img src="../../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../../es/applications/installer.html"><img src="../../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../../fr/applications/installer.html"><img src="../../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../../it/applications/installer.html"><img src="../../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../../hu/applications/installer.html"><img src="../../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../../pl/applications/installer.html"><img src="../../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../../pt_PT/applications/installer.html"><img src="../../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../../pt_BR/applications/installer.html"><img src="../../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../../ro/applications/installer.html"><img src="../../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../../sk/applications/installer.html"><img src="../../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../../fi/applications/installer.html"><img src="../../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../../sv_SE/applications/installer.html"><img src="../../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../../ru/applications/installer.html"><img src="../../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../../uk/applications/installer.html"><img src="../../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../../jp/applications/installer.html"><img src="../../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now"> 中文 ［中文］&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../../id/applications/installer.html">Bahasa Indonesia</a></li>
+<li><a href="../../ca/applications/installer.html">Català</a></li>
+<li><a href="../../de/applications/installer.html">Deutsch</a></li>
+<li><a href="../../en/applications/installer.html">English</a></li>
+<li><a href="../../es/applications/installer.html">Español</a></li>
+<li><a href="../../fr/applications/installer.html">Français</a></li>
+<li><a href="../../fur/applications/installer.html">Furlan</a></li>
+<li><a href="../../it/applications/installer.html">Italiano</a></li>
+<li><a href="../../hu/applications/installer.html">Magyar</a></li>
+<li><a href="../../pl/applications/installer.html">Polski</a></li>
+<li><a href="../../pt_PT/applications/installer.html">Português</a></li>
+<li><a href="../../pt_BR/applications/installer.html">Português (Brazil)</a></li>
+<li><a href="../../ro/applications/installer.html">Română</a></li>
+<li><a href="../../sk/applications/installer.html">Slovenčina</a></li>
+<li><a href="../../fi/applications/installer.html">Suomi</a></li>
+<li><a href="../../sv_SE/applications/installer.html">Svenska</a></li>
+<li><a href="../../tr/applications/installer.html">Türkçe</a></li>
+<li><a href="../../ru/applications/installer.html">Русский</a></li>
+<li><a href="../../uk/applications/installer.html">Українська</a></li>
+<li><a href="../../jp/applications/installer.html">日本語</a></li>
 </ul>
 <span>
  «  <a href="icon-o-matic.html">图标套件</a> 
@@ -59,19 +62,20 @@
 
 <div id="content">
 <div>
+<div class="box-info">本节的翻译还未完成。在未完成之前，所有的未完成部分都将使用英语原文。</div>
 
 <h2><img src="../../images/apps-images/installer-icon_64.png" alt="installer-icon_64.png" width="64" height="64" />安装器</h2>
 <table summary="layout" border="0" cellspacing="0" cellpadding="2">
-<tr><td>桌面栏：</td><td style="width:15px;"></td><td><span class="menu">应用程序</span></td></tr>
-<tr><td>位置：</td><td></td><td><span class="path">/boot/system/apps/Installer</span></td></tr>
-<tr><td>设置：</td><td></td><td><i>none</i></td></tr>
+<tr><td>桌面栏:</td><td style="width:15px;"></td><td><span class="menu">应用程序</span></td></tr>
+<tr><td>位置:</td><td></td><td><span class="path">/boot/system/apps/Installer</span></td></tr>
+<tr><td>设置:</td><td></td><td><i>none</i></td></tr>
 </table>
 <p><br /></p>
 <p>安装器用于将 Haiku 拷贝到其他的磁卷。<br />
 在开始拷贝之前，会弹出一个显示重要信息的开始窗口。它不是毫无意义的你可以忽略的最终用户许可协议（EULA），它包括了如下的声明：</p>
 <ul>
-<li><p>这是测试质量的软件。一定要做好备份，否则要遭受无法预计的后果。</p></li>
-<li><p>安装器需要一个预备的分区。在 Haiku 的 DriveSetup 足够成熟之前，您可能需要使用 <a href="http://gparted.sourceforge.net/livecd.php">GParted LiveCD</a> 或者一个类似的工具来处理分区任务。</p></li>
+<li><p>This is beta-quality software. Make backups or suffer the consequences!</p></li>
+<li><p>The Installer needs a prepared partition. You can use <a href="drivesetup.html">DriveSetup</a> to create and format a partition, but cannot yet resize existing partitions. For that you'll have to use a <a href="http://gparted.sourceforge.net/livecd.php">GParted LiveCD</a> or a similar tool for now.</p></li>
 <li>Haiku可以手动添加到 <a href="http://www.gnu.org/software/grub/manual/grub.html">GRUB</a> 启动管理器。具体的操作方法，请查阅 <a href="http://www.haiku-os.org/get-haiku/installation-guide">在线手册</a>。</li>
 </ul>
 <p><br /><br /></p>

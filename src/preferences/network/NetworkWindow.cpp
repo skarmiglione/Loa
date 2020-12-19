@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2015 Haiku Inc. All rights reserved.
+ * Copyright 2004-2019 Haiku Inc., All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  *	Authors:
@@ -91,8 +91,9 @@ public:
 
 NetworkWindow::NetworkWindow()
 	:
-	BWindow(BRect(100, 100, 400, 400), B_TRANSLATE("Network"), B_TITLED_WINDOW,
-		B_ASYNCHRONOUS_CONTROLS | B_NOT_ZOOMABLE | B_AUTO_UPDATE_SIZE_LIMITS),
+	BWindow(BRect(100, 100, 400, 400), B_TRANSLATE_SYSTEM_NAME("Network"),
+		B_TITLED_WINDOW, B_ASYNCHRONOUS_CONTROLS | B_NOT_ZOOMABLE
+			| B_AUTO_UPDATE_SIZE_LIMITS),
 	fServicesItem(NULL),
 	fDialUpItem(NULL),
 	fVPNItem(NULL),
@@ -449,8 +450,6 @@ NetworkWindow::_ScanAddOns()
 		}
 
 		_SortItemsUnder(fServicesItem);
-		_SortItemsUnder(fDialUpItem);
-		_SortItemsUnder(fVPNItem);
 		_SortItemsUnder(fOtherItem);
 	}
 
@@ -486,16 +485,6 @@ NetworkWindow::_ListItemFor(BNetworkSettingsType type)
 			if (fServicesItem == NULL)
 				fServicesItem = _CreateItem(B_TRANSLATE("Services"));
 			return fServicesItem;
-
-		case B_NETWORK_SETTINGS_TYPE_DIAL_UP:
-			if (fDialUpItem == NULL)
-				fDialUpItem = _CreateItem(B_TRANSLATE("Dial Up"));
-			return fDialUpItem;
-
-		case B_NETWORK_SETTINGS_TYPE_VPN:
-			if (fVPNItem == NULL)
-				fVPNItem = _CreateItem(B_TRANSLATE("VPN"));
-			return fVPNItem;
 
 		case B_NETWORK_SETTINGS_TYPE_OTHER:
 			if (fOtherItem == NULL)
@@ -612,7 +601,7 @@ NetworkWindow::_ShowReplicant(bool show)
 				B_TRANSLATE("Installing NetworkStatus in Deskbar failed: %s"),
 				strerror(status));
 			BAlert* alert = new BAlert(B_TRANSLATE("launch error"),
-				errorMessage, B_TRANSLATE("Ok"));
+				errorMessage, B_TRANSLATE("OK"));
 			alert->Go(NULL);
 		}
 	} else {

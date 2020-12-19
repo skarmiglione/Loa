@@ -272,7 +272,7 @@ get_partition_offset(int deviceFD, off_t deviceStart, off_t deviceSize,
 		EFI::Header gptHeader(deviceFD, deviceSize, blockSize);
 		error = gptHeader.InitCheck();
 		if (error == B_OK && partitionIndex < gptHeader.EntryCount()) {
-			efi_partition_entry partition = gptHeader.EntryAt(partitionIndex - 1);
+			gpt_partition_entry partition = gptHeader.EntryAt(partitionIndex - 1);
 
 			static_guid bfs_uuid = {0x42465331, 0x3BA3, 0x10F1,
 				0x802A4861696B7521LL};
@@ -614,7 +614,7 @@ main(int argc, const char *const *argv)
 				}
 			}
 
-		#endif	// __BEOS__
+		#endif	// HAIKU_TARGET_PLATFORM_HAIKU
 
 		// adjust the partition offset in the boot code data
 		// hard coded sector size: 512 bytes
@@ -671,6 +671,8 @@ main(int argc, const char *const *argv)
 
 		close(fd);
 	}
+
+	delete[] files;
 
 	return 0;
 }

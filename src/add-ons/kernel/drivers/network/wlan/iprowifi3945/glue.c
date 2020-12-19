@@ -14,6 +14,7 @@
 #include <net/if_media.h>
 
 #include <net80211/ieee80211_var.h>
+#include <net80211/ieee80211_ratectl.h>
 
 #include <dev/wpi/if_wpireg.h>
 #include <dev/wpi/if_wpivar.h>
@@ -24,7 +25,7 @@ NO_HAIKU_FBSD_MII_DRIVER();
 NO_HAIKU_REENABLE_INTERRUPTS();
 HAIKU_DRIVER_REQUIREMENTS(FBSD_TASKQUEUES | FBSD_WLAN);
 HAIKU_FIRMWARE_VERSION(2144);
-HAIKU_FIRMWARE_NAME_MAP(1) = {{"wpifw", "iwlwifi-3945-2.ucode"}};
+HAIKU_FIRMWARE_NAME_MAP({{"wpifw", "iwlwifi-3945-2.ucode"}});
 
 
 int

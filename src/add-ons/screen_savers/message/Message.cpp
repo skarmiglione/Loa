@@ -30,7 +30,8 @@
 
 
 // Double brackets to satisfy a compiler warning
-const pattern kCheckered = { { 0xcc, 0xcc, 0x33, 0x33, 0xcc, 0xcc, 0x33, 0x33 } };
+const pattern kCheckered =
+	{ { 0xcc, 0xcc, 0x33, 0x33, 0xcc, 0xcc, 0x33, 0x33 } };
 
 // Get a clever message from fortune
 BString *get_message()
@@ -88,18 +89,21 @@ class Message : public BScreenSaver
 		void		Draw(BView *view, int32 frame);
 		void		StartConfig(BView *view);
 		status_t	StartSaver(BView *view, bool preview);
-		
+
 	private:
-		BObjectList<font_family>	fFontFamilies;
+		struct font_family_wrapper {
+			font_family val;
+		};
+		BObjectList<font_family_wrapper>	fFontFamilies;
 		float						fScaleFactor;
 		bool						fPreview;
 };
 
 
-BScreenSaver *instantiate_screen_saver(BMessage *msg, image_id image) 
-{ 
+BScreenSaver *instantiate_screen_saver(BMessage *msg, image_id image)
+{
 	return new Message(msg, image);
-} 
+}
 
 
 Message::Message(BMessage *archive, image_id id)
@@ -117,15 +121,15 @@ Message::~Message()
 }
 
 
-void 
-Message::StartConfig(BView *view) 
-{ 
+void
+Message::StartConfig(BView *view)
+{
 	BPrivate::BuildDefaultSettingsView(view, "Message",
 		B_TRANSLATE("by Ryan Leavengood"));
-} 
+}
 
 
-status_t 
+status_t
 Message::StartSaver(BView *view, bool preview)
 {
 	fPreview = preview;
@@ -136,14 +140,14 @@ Message::StartSaver(BView *view, bool preview)
 	// Get font families
 	int numFamilies = count_font_families();
 	for (int32 i = 0; i < numFamilies; i++) {
-		font_family* family = new font_family[1];
+		font_family_wrapper* family = new font_family_wrapper;
 		uint32 flags;
-		if (get_font_family(i, family, &flags) == B_OK
+		if (get_font_family(i, &(family->val), &flags) == B_OK
 			&& (flags & B_IS_FIXED) == 0) {
 			// Do not add fixed fonts
 			fFontFamilies.AddItem(family);
 		} else
-			delete[] family;
+			delete family;
 	}
 
 	// Seed the random number generator
@@ -151,12 +155,12 @@ Message::StartSaver(BView *view, bool preview)
 
 	// Set tick size to 30,000,000 microseconds = 30 seconds
 	SetTickSize(30000000);
-	
+
 	return B_OK;
 }
 
 
-void 
+void
 Message::Draw(BView *view, int32 frame)
 {
 	if (view == NULL || view->Window() == NULL || !view->Window()->IsLocked())
@@ -178,7 +182,7 @@ Message::Draw(BView *view, int32 frame)
 	// Set up the colors
 	rgb_color base_color = {(uint8)(rand() % 25), (uint8)(rand() % 25),
 		(uint8)(rand() % 25)};
-	offscreen.SetHighColor(base_color); 
+	offscreen.SetHighColor(base_color);
 	offscreen.SetLowColor(tint_color(base_color, 0.815F));
 	offscreen.FillRect(offscreen.Bounds(), kCheckered);
 	rgb_color colors[8] = {
@@ -198,7 +202,8 @@ Message::Draw(BView *view, int32 frame)
 	BFont font;
 	offscreen.GetFont(&font);
 	font.SetFace(B_BOLD_FACE);
-	font.SetFamilyAndStyle(*(fFontFamilies.ItemAt(rand() % fFontFamilies.CountItems())), NULL);
+	font.SetFamilyAndStyle(
+		fFontFamilies.ItemAt(rand() % fFontFamilies.CountItems())->val, NULL);
 	offscreen.SetFont(&font);
 
 	// Get the message
@@ -252,18 +257,19 @@ Message::Draw(BView *view, int32 frame)
 	// if this isn't preview mode
 	if (!fPreview) {
 		BFont font(be_fixed_font);
-		font.SetSize(14.0); 
+		font.SetSize(14.0);
 		offscreen.SetFont(&font);
 		font_height fontHeight;
 		font.GetHeight(&fontHeight);
 		float lineHeight = fontHeight.ascent + fontHeight.descent
 			+ fontHeight.leading;
-		
+
 		BStringList lines;
 		int longestLine = 0;
 		int32 count = get_lines(origMessage, lines, &longestLine);
 
-		float stringWidth = font.StringWidth(lines.StringAt(longestLine).String());
+		float stringWidth =
+			font.StringWidth(lines.StringAt(longestLine).String());
 		BRect box(0, 0, stringWidth + 20, (lineHeight * count) + 20);
 		box.OffsetTo((width - box.Width()) / 2, height - box.Height() - 40);
 
@@ -289,4 +295,3 @@ Message::Draw(BView *view, int32 frame)
 	view->DrawBitmap(&buffer);
 	buffer.RemoveChild(&offscreen);
 }
-

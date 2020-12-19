@@ -22,6 +22,9 @@
 #include <unicode/tblcoll.h>
 
 
+U_NAMESPACE_USE
+
+
 BCollator::BCollator()
 	:
 	fIgnorePunctuation(true)
@@ -142,9 +145,14 @@ BCollator::GetSortKey(const char* string, BString* key) const
 	int requiredSize = fICUCollator->getSortKey(UnicodeString(string, length,
 		NULL, error), buffer, length * 2);
 	if (requiredSize > length * 2) {
-		buffer = (uint8_t*)realloc(buffer, requiredSize);
-		if (buffer == NULL)
+		uint8_t* tmpBuffer = (uint8_t*)realloc(buffer, requiredSize);
+		if (tmpBuffer == NULL) {
+			free(buffer);
+			buffer = NULL;
 			return B_NO_MEMORY;
+		} else {
+			buffer = tmpBuffer;
+		}
 
 		error = U_ZERO_ERROR;
 		fICUCollator->getSortKey(UnicodeString(string, length, NULL, error),

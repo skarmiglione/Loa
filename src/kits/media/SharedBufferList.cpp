@@ -21,7 +21,7 @@
 #include <Buffer.h>
 #include <Locker.h>
 
-#include <debug.h>
+#include <MediaDebug.h>
 #include <DataExchange.h>
 
 
@@ -44,7 +44,8 @@ SharedBufferList::Create(SharedBufferList** _list)
 	SharedBufferList* list;
 
 	area_id area = create_area("shared buffer list", (void**)&list,
-		B_ANY_ADDRESS, size, B_LAZY_LOCK, B_READ_AREA | B_WRITE_AREA);
+		B_ANY_ADDRESS, size, B_LAZY_LOCK,
+		B_READ_AREA | B_WRITE_AREA | B_CLONEABLE_AREA);
 	if (area < 0)
 		return area;
 
@@ -375,6 +376,48 @@ SharedBufferList::RecycleBuffer(BBuffer* buffer)
 
 	return B_OK;
 }
+
+
+status_t
+SharedBufferList::RemoveBuffer(BBuffer* buffer)
+{
+	CALLED();
+
+	media_buffer_id id = buffer->ID();
+
+	if (Lock() != B_OK)
+		return B_ERROR;
+
+	int32 notRemovedCount = 0;
+
+	for (int32 i = 0; i < fCount; i++) {
+		// find the buffer id, and remove it in all groups it belongs to
+		if (fInfos[i].id == id) {
+			if (!fInfos[i].reclaimed) {
+				notRemovedCount++;
+				ERROR("SharedBufferList::RequestBuffer, BBuffer %p, id = %"
+					B_PRId32 " not reclaimed\n", buffer, id);
+				DEBUG_ONLY(debugger("buffer not reclaimed"));
+				continue;
+			}
+			fInfos[i].buffer = NULL;
+			fInfos[i].id = -1;
+			fInfos[i].reclaim_sem = -1;
+		}
+	}
+
+	if (Unlock() != B_OK)
+		return B_ERROR;
+
+	if (notRemovedCount != 0) {
+		ERROR("SharedBufferList::RemoveBuffer, BBuffer %p, id = %" B_PRId32
+			" not reclaimed\n", buffer, id);
+		return B_ERROR;
+	}
+
+	return B_OK;
+}
+
 
 
 /*!	Returns exactly \a bufferCount buffers from the group specified via its

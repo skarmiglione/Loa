@@ -1,6 +1,5 @@
 SubDir HAIKU_TOP src kits textencoding ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 AddResources libtextencoding.so : libtextencoding.rdef ;
@@ -19,7 +18,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			:
 			be
 			[ MultiArchDefaultGristFiles libiconv.a ]
-			[ TargetLibsupc++ ] localestub ;
+			[ TargetLibstdc++ ] [ TargetLibsupc++ ] localestub ;
 	}
 }
 

@@ -1,7 +1,9 @@
 /*
+ * Copyright 2019, Les De Ridder, les@lesderid.net
  * Copyright 2017, Chế Vũ Gia Hy, cvghy116@gmail.com.
  * Copyright 2011, Jérôme Duval, korli@users.berlios.de.
  * Copyright 2008-2010, Axel Dörfler, axeld@pinc-software.de.
+ *
  * This file may be used under the terms of the MIT License.
  */
 
@@ -13,10 +15,18 @@
 #include "BTree.h"
 #include "CachedBlock.h"
 #include "Chunk.h"
+#include "CRCTable.h"
+#include "DeviceOpener.h"
+#include "ExtentAllocator.h"
 #include "Inode.h"
 #include "Journal.h"
-#include "ExtentAllocator.h"
+#include "Utility.h"
 
+#ifdef FS_SHELL
+#define RETURN_ERROR return
+#else
+#include "DebugSupport.h"
+#endif
 
 //#define TRACE_BTRFS
 #ifdef TRACE_BTRFS
@@ -24,180 +34,46 @@
 #else
 #	define TRACE(x...) ;
 #endif
-#	define ERROR(x...) dprintf("\33[34mbtrfs:\33[0m " x)
-
-
-class DeviceOpener {
-public:
-								DeviceOpener(int fd, int mode);
-								DeviceOpener(const char* device, int mode);
-								~DeviceOpener();
-
-			int					Open(const char* device, int mode);
-			int					Open(int fd, int mode);
-			void*				InitCache(off_t numBlocks, uint32 blockSize);
-			void				RemoveCache(bool allowWrites);
-
-			void				Keep();
-
-			int					Device() const { return fDevice; }
-			int					Mode() const { return fMode; }
-			bool				IsReadOnly() const
-									{ return _IsReadOnly(fMode); }
-
-			status_t			GetSize(off_t* _size, uint32* _blockSize = NULL);
-
-private:
-	static	bool				_IsReadOnly(int mode)
-									{ return (mode & O_RWMASK) == O_RDONLY;}
-	static	bool				_IsReadWrite(int mode)
-									{ return (mode & O_RWMASK) == O_RDWR;}
-
-			int					fDevice;
-			int					fMode;
-			void*				fBlockCache;
-};
-
-
-DeviceOpener::DeviceOpener(const char* device, int mode)
-	:
-	fBlockCache(NULL)
-{
-	Open(device, mode);
-}
-
-
-DeviceOpener::DeviceOpener(int fd, int mode)
-	:
-	fBlockCache(NULL)
-{
-	Open(fd, mode);
-}
-
-
-DeviceOpener::~DeviceOpener()
-{
-	if (fDevice >= 0) {
-		RemoveCache(false);
-		close(fDevice);
-	}
-}
-
-
-int
-DeviceOpener::Open(const char* device, int mode)
-{
-	fDevice = open(device, mode | O_NOCACHE);
-	if (fDevice < 0)
-		fDevice = errno;
-
-	if (fDevice < 0 && _IsReadWrite(mode)) {
-		// try again to open read-only (don't rely on a specific error code)
-		return Open(device, O_RDONLY | O_NOCACHE);
-	}
-
-	if (fDevice >= 0) {
-		// opening succeeded
-		fMode = mode;
-		if (_IsReadWrite(mode)) {
-			// check out if the device really allows for read/write access
-			device_geometry geometry;
-			if (!ioctl(fDevice, B_GET_GEOMETRY, &geometry)) {
-				if (geometry.read_only) {
-					// reopen device read-only
-					close(fDevice);
-					return Open(device, O_RDONLY | O_NOCACHE);
-				}
-			}
-		}
-	}
-
-	return fDevice;
-}
-
-
-int
-DeviceOpener::Open(int fd, int mode)
-{
-	fDevice = dup(fd);
-	if (fDevice < 0)
-		return errno;
-
-	fMode = mode;
-
-	return fDevice;
-}
-
-
-void*
-DeviceOpener::InitCache(off_t numBlocks, uint32 blockSize)
-{
-	return fBlockCache = block_cache_create(fDevice, numBlocks, blockSize,
-		IsReadOnly());
-}
-
-
-void
-DeviceOpener::RemoveCache(bool allowWrites)
-{
-	if (fBlockCache == NULL)
-		return;
-
-	block_cache_delete(fBlockCache, allowWrites);
-	fBlockCache = NULL;
-}
-
-
-void
-DeviceOpener::Keep()
-{
-	fDevice = -1;
-}
-
-
-/*!	Returns the size of the device in bytes. It uses B_GET_GEOMETRY
-	to compute the size, or fstat() if that failed.
-*/
-status_t
-DeviceOpener::GetSize(off_t* _size, uint32* _blockSize)
-{
-	device_geometry geometry;
-	if (ioctl(fDevice, B_GET_GEOMETRY, &geometry) < 0) {
-		// maybe it's just a file
-		struct stat stat;
-		if (fstat(fDevice, &stat) < 0)
-			return B_ERROR;
-
-		if (_size)
-			*_size = stat.st_size;
-		if (_blockSize)	// that shouldn't cause us any problems
-			*_blockSize = 512;
-
-		return B_OK;
-	}
-
-	if (_size) {
-		*_size = 1ULL * geometry.head_count * geometry.cylinder_count
-			* geometry.sectors_per_track * geometry.bytes_per_sector;
-	}
-	if (_blockSize)
-		*_blockSize = geometry.bytes_per_sector;
-
-	return B_OK;
-}
 
 
 //	#pragma mark -
 
 
 bool
-btrfs_super_block::IsValid()
+btrfs_super_block::IsValid() const
 {
 	// TODO: check some more values!
 	if (strncmp(magic, BTRFS_SUPER_BLOCK_MAGIC, sizeof(magic)) != 0)
 		return false;
 
 	return true;
+}
+
+
+void
+btrfs_super_block::Initialize(const char* name, off_t numBlocks,
+		uint32 blockSize, uint32 sectorSize)
+{
+	memset(this, 0, sizeof(btrfs_super_block));
+
+	uuid_generate(fsid);
+	blocknum = B_HOST_TO_LENDIAN_INT64(BTRFS_SUPER_BLOCK_OFFSET);
+	num_devices = B_HOST_TO_LENDIAN_INT64(1);
+	strncpy(magic, BTRFS_SUPER_BLOCK_MAGIC_TEMPORARY, sizeof(magic));
+	generation = B_HOST_TO_LENDIAN_INT64(1);
+	root = B_HOST_TO_LENDIAN_INT64(BTRFS_RESERVED_SPACE_OFFSET + blockSize);
+	chunk_root = B_HOST_TO_LENDIAN_INT64(Root() + blockSize);
+	total_size = B_HOST_TO_LENDIAN_INT64(numBlocks * blockSize);
+	used_size = B_HOST_TO_LENDIAN_INT64(6 * blockSize);
+	sector_size = B_HOST_TO_LENDIAN_INT32(sectorSize);
+	leaf_size = B_HOST_TO_LENDIAN_INT32(blockSize);
+	node_size = B_HOST_TO_LENDIAN_INT32(blockSize);
+	stripe_size = B_HOST_TO_LENDIAN_INT32(blockSize);
+	checksum_type = B_HOST_TO_LENDIAN_INT32(BTRFS_CSUM_TYPE_CRC32);
+	chunk_root_generation = B_HOST_TO_LENDIAN_INT64(1);
+	// TODO(lesderid): Support configurable filesystem features
+	incompat_flags = B_HOST_TO_LENDIAN_INT64(0);
+	strlcpy(label, name, BTRFS_LABEL_SIZE);
 }
 
 
@@ -400,19 +276,24 @@ Volume::Mount(const char* deviceName, uint32 flags)
 	TRACE("Volume::Mount() Find larget inode id % " B_PRIu64 "\n",
 		fLargestInodeID);
 
-	// Initialize Journal
-	fJournal = new(std::nothrow) Journal(this);
-	if (fJournal == NULL)
-		return B_NO_MEMORY;
+	if ((flags & B_MOUNT_READ_ONLY) != 0) {
+		fJournal = NULL;
+		fExtentAllocator = NULL;
+	} else {
+		// Initialize Journal
+		fJournal = new(std::nothrow) Journal(this);
+		if (fJournal == NULL)
+			return B_NO_MEMORY;
 
-	// Initialize ExtentAllocator;
-	fExtentAllocator = new(std::nothrow) ExtentAllocator(this);
-	if (fExtentAllocator == NULL)
-		return B_NO_MEMORY;
-	status = fExtentAllocator->Initialize();
-	if (status != B_OK) {
-		ERROR("could not initalize extent allocator!\n");
-		return status;
+		// Initialize ExtentAllocator;
+		fExtentAllocator = new(std::nothrow) ExtentAllocator(this);
+		if (fExtentAllocator == NULL)
+			return B_NO_MEMORY;
+		status = fExtentAllocator->Initialize();
+		if (status != B_OK) {
+			ERROR("could not initalize extent allocator!\n");
+			return status;
+		}
 	}
 
 	// ready
@@ -449,6 +330,78 @@ Volume::Mount(const char* deviceName, uint32 flags)
 			size / 10, unit);
 	}
 
+	return B_OK;
+}
+
+
+status_t
+Volume::Initialize(int fd, const char* label, uint32 blockSize,
+	uint32 sectorSize)
+{
+	TRACE("Volume::Initialize()\n");
+
+	// label must != NULL and may not contain '/' or '\\'
+	if (label == NULL
+		|| strchr(label, '/') != NULL || strchr(label, '\\') != NULL) {
+		return B_BAD_VALUE;
+	}
+
+	if ((blockSize != 1024 && blockSize != 2048 && blockSize != 4096
+		&& blockSize != 8192 && blockSize != 16384)
+		|| blockSize % sectorSize != 0) {
+		return B_BAD_VALUE;
+	}
+
+	DeviceOpener opener(fd, O_RDWR);
+	if (opener.Device() < B_OK)
+		return B_BAD_VALUE;
+
+	if (opener.IsReadOnly())
+		return B_READ_ONLY_DEVICE;
+
+	fDevice = opener.Device();
+
+	uint32 deviceBlockSize;
+	off_t deviceSize;
+	if (opener.GetSize(&deviceSize, &deviceBlockSize) < B_OK)
+		return B_ERROR;
+	off_t numBlocks = deviceSize / sectorSize;
+
+	// create valid superblock
+
+	fSuperBlock.Initialize(label, numBlocks, blockSize, sectorSize);
+
+	fBlockSize = fSuperBlock.BlockSize();
+	fSectorSize = fSuperBlock.SectorSize();
+
+	// TODO(lesderid):	Initialize remaining core structures
+	//					(extent tree, chunk tree, fs tree, etc.)
+
+	status_t status = WriteSuperBlock();
+	if (status < B_OK)
+		return status;
+
+	fBlockCache = opener.InitCache(fSuperBlock.TotalSize() / fBlockSize,
+		fBlockSize);
+	if (fBlockCache == NULL)
+		return B_ERROR;
+
+	fJournal = new(std::nothrow) Journal(this);
+	if (fJournal == NULL)
+		RETURN_ERROR(B_ERROR);
+
+	// TODO(lesderid):	Perform secondary initialization (in transactions)
+	//					(add block groups to extent tree, create root dir, etc.)
+	Transaction transaction(this);
+
+	// TODO(lesderid): Write all superblocks when transactions are committed
+	status = transaction.Done();
+	if (status < B_OK)
+		return status;
+
+	opener.RemoveCache(true);
+
+	TRACE("Volume::Initialize(): Done\n");
 	return B_OK;
 }
 
@@ -542,6 +495,27 @@ Volume::FindBlock(off_t logical, off_t& physical)
 			return status;
 	TRACE("Volume::FindBlock(): logical: %" B_PRIdOFF ", physical: %" B_PRIdOFF
 		"\n", logical, physical);
+	return B_OK;
+}
+
+
+status_t
+Volume::WriteSuperBlock()
+{
+	uint32 checksum = calculate_crc((uint32)~1,
+			(uint8 *)(&fSuperBlock + sizeof(fSuperBlock.checksum)),
+			sizeof(fSuperBlock) - sizeof(fSuperBlock.checksum));
+
+	fSuperBlock.checksum[0] = (checksum >>  0) & 0xFF;
+	fSuperBlock.checksum[1] = (checksum >>  8) & 0xFF;
+	fSuperBlock.checksum[2] = (checksum >> 16) & 0xFF;
+	fSuperBlock.checksum[3] = (checksum >> 24) & 0xFF;
+
+	if (write_pos(fDevice, BTRFS_SUPER_BLOCK_OFFSET, &fSuperBlock,
+			sizeof(btrfs_super_block))
+		!= sizeof(btrfs_super_block))
+		return B_IO_ERROR;
+
 	return B_OK;
 }
 

@@ -54,13 +54,14 @@ status_t Radeon_MapDevice( device_info *di, bool mmio_only )
 	// also, enable bus mastering (some BIOSes seem to
 	// disable that, like mine)
 	tmp = get_pci( PCI_command, 2 );
-	SHOW_FLOW( 3, "old PCI command state: 0x%08lx", tmp );
+	SHOW_FLOW( 3, "old PCI command state: 0x%08" B_PRIx32, tmp );
 	tmp |= PCI_command_io | PCI_command_memory | PCI_command_master;
 	set_pci( PCI_command, 2, tmp );
 
 	// registers cannot be accessed directly by user apps,
 	// they need to clone area for safety reasons
-	SHOW_INFO( 1, "physical address of memory-mapped I/O: 0x%8lx-0x%8lx",
+	SHOW_INFO( 1,
+		"physical address of memory-mapped I/O: 0x%8" B_PRIx32 "-0x%8" B_PRIx32,
 		di->pcii.u.h0.base_registers[regs],
 		di->pcii.u.h0.base_registers[regs] + di->pcii.u.h0.base_register_sizes[regs] - 1 );
 
@@ -75,7 +76,7 @@ status_t Radeon_MapDevice( device_info *di, bool mmio_only )
 		B_ANY_KERNEL_ADDRESS,
 		/*// for "poke" debugging
 		B_READ_AREA + B_WRITE_AREA*/
-		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_USER_CLONEABLE_AREA,
+		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_CLONEABLE_AREA,
 		(void **)&(di->regs));
 	if( si->regs_area < 0 )
 		return si->regs_area;
@@ -105,7 +106,9 @@ status_t Radeon_MapDevice( device_info *di, bool mmio_only )
 	if( di->pcii.u.h0.base_register_sizes[fb] > di->local_mem_size ) {
 		// Radeons allocate more address range then really needed ->
 		// only map the area that contains physical memory
-		SHOW_INFO( 1, "restrict frame buffer from 0x%8lx to 0x%8lx bytes",
+		SHOW_INFO( 1,
+			"restrict frame buffer from 0x%8" B_PRIx32
+			" to 0x%8" B_PRIx32 " bytes",
 			di->pcii.u.h0.base_register_sizes[fb],
 			di->local_mem_size
 		);
@@ -117,7 +120,8 @@ status_t Radeon_MapDevice( device_info *di, bool mmio_only )
 	// those areas owned by an application are mapped into
 	// its address space
 	// (this hack is needed by BeOS to write something onto screen in KDL)
-	SHOW_INFO( 1, "physical address of framebuffer: 0x%8lx-0x%8lx",
+	SHOW_INFO( 1,
+		"physical address of framebuffer: 0x%8" B_PRIx32 "-0x%8" B_PRIx32,
 		di->pcii.u.h0.base_registers[fb],
 		di->pcii.u.h0.base_registers[fb] + di->pcii.u.h0.base_register_sizes[fb] - 1 );
 
@@ -130,7 +134,7 @@ status_t Radeon_MapDevice( device_info *di, bool mmio_only )
 		di->pcii.u.h0.base_registers[fb],
 		di->pcii.u.h0.base_register_sizes[fb],
 		B_ANY_KERNEL_BLOCK_ADDRESS | B_MTR_WC,
-		B_READ_AREA + B_WRITE_AREA,
+		B_READ_AREA | B_WRITE_AREA | B_CLONEABLE_AREA,
 		(void **)&(si->local_mem));
 
 	if( si->memory[mt_local].area < 0 ) {
@@ -140,7 +144,7 @@ status_t Radeon_MapDevice( device_info *di, bool mmio_only )
 			di->pcii.u.h0.base_registers[fb],
 			di->pcii.u.h0.base_register_sizes[fb],
 			B_ANY_KERNEL_BLOCK_ADDRESS,
-			B_READ_AREA + B_WRITE_AREA,
+			B_READ_AREA | B_WRITE_AREA | B_CLONEABLE_AREA,
 			(void **)&(si->local_mem));
 	}
 
@@ -213,7 +217,7 @@ status_t Radeon_FirstOpen( device_info *di )
 		B_ANY_KERNEL_ADDRESS,
 		(sizeof(shared_info) + (B_PAGE_SIZE - 1)) & ~(B_PAGE_SIZE - 1),
 		B_FULL_LOCK,
-		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_USER_CLONEABLE_AREA);
+		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_CLONEABLE_AREA);
 	if (di->shared_area < 0) {
 		result = di->shared_area;
 		goto err8;
@@ -280,7 +284,7 @@ status_t Radeon_FirstOpen( device_info *di )
 		B_ANY_KERNEL_ADDRESS,
 		(sizeof(virtual_card) + (B_PAGE_SIZE - 1)) & ~(B_PAGE_SIZE - 1),
 		B_FULL_LOCK,
-		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_USER_CLONEABLE_AREA);
+		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_CLONEABLE_AREA);
 	if (di->virtual_card_area < 0) {
 		result = di->virtual_card_area;
 		goto err7;
@@ -315,13 +319,20 @@ status_t Radeon_FirstOpen( device_info *di )
 	// print these out to capture bios status...
 //	if ( di->is_mobility ) {
 		SHOW_INFO0( 2, "Copy of Laptop Display Regs for Reference:");
-		SHOW_INFO( 2, "LVDS GEN = %8lx", INREG( di->regs, RADEON_LVDS_GEN_CNTL ));
-		SHOW_INFO( 2, "LVDS PLL = %8lx", INREG( di->regs, RADEON_LVDS_PLL_CNTL ));
-		SHOW_INFO( 2, "TMDS PLL = %8lx", INREG( di->regs, RADEON_TMDS_PLL_CNTL ));
-		SHOW_INFO( 2, "TMDS TRANS = %8lx", INREG( di->regs, RADEON_TMDS_TRANSMITTER_CNTL ));
-		SHOW_INFO( 2, "FP1 GEN = %8lx", INREG( di->regs, RADEON_FP_GEN_CNTL ));
-		SHOW_INFO( 2, "FP2 GEN = %8lx", INREG( di->regs, RADEON_FP2_GEN_CNTL ));
-		SHOW_INFO( 2, "TV DAC = %8lx", INREG( di->regs, RADEON_TV_DAC_CNTL )); //not setup right when ext dvi
+		SHOW_INFO( 2, "LVDS GEN = %8" B_PRIx32,
+			INREG( di->regs, RADEON_LVDS_GEN_CNTL ));
+		SHOW_INFO( 2, "LVDS PLL = %8" B_PRIx32,
+			INREG( di->regs, RADEON_LVDS_PLL_CNTL ));
+		SHOW_INFO( 2, "TMDS PLL = %8" B_PRIx32,
+			INREG( di->regs, RADEON_TMDS_PLL_CNTL ));
+		SHOW_INFO( 2, "TMDS TRANS = %8" B_PRIx32,
+			INREG( di->regs, RADEON_TMDS_TRANSMITTER_CNTL ));
+		SHOW_INFO( 2, "FP1 GEN = %8" B_PRIx32,
+			INREG( di->regs, RADEON_FP_GEN_CNTL ));
+		SHOW_INFO( 2, "FP2 GEN = %8" B_PRIx32 ,
+			INREG( di->regs, RADEON_FP2_GEN_CNTL ));
+		SHOW_INFO( 2, "TV DAC = %8" B_PRIx32 ,
+			INREG( di->regs, RADEON_TV_DAC_CNTL )); //not setup right when ext dvi
 //	}
 
 	result = Radeon_InitPCIGART( di );

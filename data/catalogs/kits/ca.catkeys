@@ -1,39 +1,49 @@
-1	catalan; valencian	x-vnd.Haiku-libbe	297520911
-gamma	AboutWindow		gamma
-beta	AboutWindow		beta
-%3.2f GiB	StringForSize		%3.2f GiB
-Written by:	AboutWindow		Escrit per:
-About %app%	AboutMenuItem		Quant a %app%
-Cut	TextView		Retalla
-Version	AboutWindow		Versió
-Cannot create the replicant for \"%description\".\n%error	ZombieReplicantView		No es possible replicar \"%description\".\n%error
-Copy	TextView		Copia
-%3.2f KiB	StringForSize		%3.2f KiB
-alpha	AboutWindow		alfa
-Error	PrintJob		S'ha produït un error
+1	catalan; valencian	x-vnd.Haiku-libbe	2914417806
+{0, plural, one{# byte} other{# bytes}}	StringForSize		{0, plural, one{# byte} other{# bytes}}
+%.2f TiB/s	StringForRate		%.2f TiB/s
 All Rights Reserved.	AboutWindow		Tots els drets reservats.
-About %app%	AboutWindow		Quant a %app%
-OK	Dragger		D'acord
-OK	PrintJob		D'acord
-Green:	ColorControl		Verd:
-Version history:	AboutWindow		Historial de versions:
-Remove replicant	Dragger		Suprimeix la replica
-OK	AboutWindow		D'acord
-OK	ZombieReplicantView		D'acord
-Print Server is not responding.	PrintJob		El servidor d'impressió no respon.
-Paste	TextView		Enganxa
-Special Thanks:	AboutWindow		Agraïments especials:
-%.2f TiB	StringForSize		%.2f TiB
-Cannot locate the application for the replicant. No application signature supplied.\n%error	ZombieReplicantView		No eś troba l'aplicació del replicant. No s'ha facilitat cap firma de l'aplicació.\n%error
-Redo	TextView		Refés
-<empty>	Menu		<buit>
-Warning	Dragger		Avís
+gold master	AboutWindow		candidat
 Undo	TextView		Desfés
-Red:	ColorControl		Vermell:
-%3.2f MiB	StringForSize		%3.2f MiB
-About %app…	Dragger		Quan a %app…
+OK	PrintJob		D'acord
+gamma	AboutWindow		gamma
 development	AboutWindow		desenvolupament
+OK	Dragger		D'acord
+%3.2f GiB/s	StringForRate		%3.2f GiB/s
+Print Server is not responding.	PrintJob		El servidor d'impressió no respon.
+About %app%	AboutMenuItem		Quant a %app%
+Warning	Dragger		Avís
+Green:	ColorControl		Verd:
+%3.2f KiB/s	StringForRate		%3.2f KiB/s
+Redo	TextView		Refés
+No pages to print!	PrintJob		No hi ha cap pàgina per imprimir!
+beta	AboutWindow		beta
+OK	ZombieReplicantView		D'acord
+Cut	TextView		Retalla
+%3.2f GiB	StringForSize		%3.2f GiB
+Default	Default decorator about box		Per defecte
+Can't delete this replicant from its original application. Life goes on.	Dragger		No s'ha pogut suprimir aquest replicant de la seva aplicació original. La vida continua.
 Error	ZombieReplicantView		Error
+Paste	TextView		Enganxa
+OK	AboutWindow		D'acord
+{0, plural, one{# byte/s} other{# bytes/s}}	StringForRate		{0, plural, one{# byte/s} other{# bytes/s}}
+Special Thanks:	AboutWindow		Agraïments especials:
+Default Haiku window decorator.	Default decorator about box		Decorador de finestres per defecte del Haiku
+%.2f TiB	StringForSize		%.2f TiB
+Remove replicant	Dragger		Suprimeix el replicant
+Version	AboutWindow		Versió
+Red:	ColorControl		Vermell:
+<empty>	Menu		<buit>
+Copy	TextView		Copia
+Select all	TextView		Selecciona-ho tot
+alpha	AboutWindow		alfa
+%3.2f MiB	StringForSize		%3.2f MiB
+%3.2f MiB/s	StringForRate		%3.2f MiB/s
+Error	PrintJob		Error
+About %app%	AboutWindow		Quant a %app%
+About %app…	Dragger		Quant a %app…
+Version history:	AboutWindow		Historial de versions:
+Cannot locate the application for the replicant. No application signature supplied.\n%error	ZombieReplicantView		No es pot trobar l'aplicació del replicant. No s'ha proporcionat cap signatura de l'aplicació.\n%error
+%3.2f KiB	StringForSize		%3.2f KiB
 Blue:	ColorControl		Blau:
-gold master	AboutWindow		mestre daurat
-Can't delete this replicant from its original application. Life goes on.	Dragger		No ha estat possible suprimir aquest replicant de la seva aplicació original. Continuem.
+Cannot create the replicant for \"%description\".\n%error	ZombieReplicantView		No es pot crear el replicant per a \"%description\".\n%error
+Written by:	AboutWindow		Escrit per:

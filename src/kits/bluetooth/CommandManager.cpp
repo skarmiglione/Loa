@@ -4,34 +4,27 @@
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
-#include "CommandManager.h"
 
+#include "CommandManager.h"
 
 #include <bluetooth/bluetooth_error.h>
 #include <bluetooth/debug.h>
 
-inline void* buildCommand(uint8 ogf, uint8 ocf, void** param, size_t psize,
+#include "CompanyIdentifiers.h"
+
+
+inline void*
+buildCommand(uint8 ogf, uint8 ocf, void** param, size_t psize,
 	size_t* outsize)
 {
 	CALLED();
 	struct hci_command_header* header;
 
-#ifdef BT_IOCTLS_PASS_SIZE
 	header = (struct hci_command_header*) malloc(psize
 		+ sizeof(struct hci_command_header));
 	*outsize = psize + sizeof(struct hci_command_header);
-#else
-	size_t* size = (size_t*)malloc(psize + sizeof(struct hci_command_header)
-		+ sizeof(size_t));
-	*outsize = psize + sizeof(struct hci_command_header) + sizeof(size_t);
-
-	*size = psize + sizeof(struct hci_command_header);
-	header = (struct hci_command_header*) (((uint8*)size)+4);
-#endif
-
 
 	if (header != NULL) {
-
 		header->opcode = B_HOST_TO_LENDIAN_INT16(PACK_OPCODE(ogf, ocf));
 		header->clen = psize;
 
@@ -39,11 +32,7 @@ inline void* buildCommand(uint8 ogf, uint8 ocf, void** param, size_t psize,
 			*param = ((uint8*)header) + sizeof(struct hci_command_header);
 		}
 	}
-#ifdef BT_IOCTLS_PASS_SIZE
 	return header;
-#else
-	return (void*)size;
-#endif
 }
 
 
@@ -88,7 +77,8 @@ NonParameterCommandRequest(uint8 ofg, uint8 ocf, int32* result, hci_id hId,
 #endif
 
 
-void* buildReset(size_t* outsize)
+void*
+buildReset(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_CONTROL_BASEBAND, OCF_RESET,
@@ -96,7 +86,8 @@ void* buildReset(size_t* outsize)
 }
 
 
-void* buildReadLocalName(size_t* outsize)
+void*
+buildReadLocalName(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_CONTROL_BASEBAND, OCF_READ_LOCAL_NAME,
@@ -104,7 +95,8 @@ void* buildReadLocalName(size_t* outsize)
 }
 
 
-void* buildReadClassOfDevice(size_t* outsize)
+void*
+buildReadClassOfDevice(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_CONTROL_BASEBAND, OCF_READ_CLASS_OF_DEV,
@@ -112,7 +104,8 @@ void* buildReadClassOfDevice(size_t* outsize)
 }
 
 
-void* buildReadScan(size_t* outsize)
+void*
+buildReadScan(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_CONTROL_BASEBAND, OCF_READ_SCAN_ENABLE,
@@ -120,7 +113,8 @@ void* buildReadScan(size_t* outsize)
 }
 
 
-void* buildWriteScan(uint8 scanmode, size_t* outsize)
+void*
+buildWriteScan(uint8 scanmode, size_t* outsize)
 {
 	CALLED();
 	struct hci_write_scan_enable* param;
@@ -141,7 +135,8 @@ void* buildWriteScan(uint8 scanmode, size_t* outsize)
 #endif
 
 
-void* buildRemoteNameRequest(bdaddr_t bdaddr, uint8 pscan_rep_mode,
+void*
+buildRemoteNameRequest(bdaddr_t bdaddr, uint8 pscan_rep_mode,
 	uint16 clock_offset, size_t* outsize)
 {
 	CALLED();
@@ -159,7 +154,8 @@ void* buildRemoteNameRequest(bdaddr_t bdaddr, uint8 pscan_rep_mode,
 }
 
 
-void* buildInquiry(uint32 lap, uint8 length, uint8 num_rsp, size_t* outsize)
+void*
+buildInquiry(uint32 lap, uint8 length, uint8 num_rsp, size_t* outsize)
 {
 	CALLED();
 	struct hci_cp_inquiry* param;
@@ -179,14 +175,16 @@ void* buildInquiry(uint32 lap, uint8 length, uint8 num_rsp, size_t* outsize)
 }
 
 
-void* buildInquiryCancel(size_t* outsize)
+void*
+buildInquiryCancel(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_LINK_CONTROL, OCF_INQUIRY_CANCEL, NULL, 0, outsize);
 }
 
 
-void* buildPinCodeRequestReply(bdaddr_t bdaddr, uint8 length, char pincode[16],
+void*
+buildPinCodeRequestReply(bdaddr_t bdaddr, uint8 length, char pincode[16],
 	size_t* outsize)
 {
 	CALLED();
@@ -208,7 +206,8 @@ void* buildPinCodeRequestReply(bdaddr_t bdaddr, uint8 length, char pincode[16],
 }
 
 
-void* buildPinCodeRequestNegativeReply(bdaddr_t bdaddr, size_t* outsize)
+void*
+buildPinCodeRequestNegativeReply(bdaddr_t bdaddr, size_t* outsize)
 {
 	CALLED();
 	struct hci_cp_pin_code_neg_reply* param;
@@ -226,13 +225,14 @@ void* buildPinCodeRequestNegativeReply(bdaddr_t bdaddr, size_t* outsize)
 }
 
 
-void* buildAcceptConnectionRequest(bdaddr_t bdaddr, uint8 role, size_t* outsize)
+void*
+buildAcceptConnectionRequest(bdaddr_t bdaddr, uint8 role, size_t* outsize)
 {
 	CALLED();
 	struct hci_cp_accept_conn_req* param;
 
 	void* command = buildCommand(OGF_LINK_CONTROL, OCF_ACCEPT_CONN_REQ,
-					(void**) &param, sizeof(struct hci_cp_accept_conn_req), outsize);
+		(void**) &param, sizeof(struct hci_cp_accept_conn_req), outsize);
 
 	if (command != NULL) {
 		param->bdaddr = bdaddr;
@@ -243,14 +243,15 @@ void* buildAcceptConnectionRequest(bdaddr_t bdaddr, uint8 role, size_t* outsize)
 }
 
 
-void* buildRejectConnectionRequest(bdaddr_t bdaddr, size_t* outsize)
+void*
+buildRejectConnectionRequest(bdaddr_t bdaddr, size_t* outsize)
 {
 	CALLED();
 	struct hci_cp_reject_conn_req* param;
 
 	void* command = buildCommand(OGF_LINK_CONTROL, OCF_REJECT_CONN_REQ,
-					(void**)&param, sizeof(struct hci_cp_reject_conn_req),
-					outsize);
+		(void**)&param, sizeof(struct hci_cp_reject_conn_req),
+		outsize);
 
 	if (command != NULL) {
 		param->bdaddr = bdaddr;
@@ -264,7 +265,9 @@ void* buildRejectConnectionRequest(bdaddr_t bdaddr, size_t* outsize)
 #pragma mark - INFORMATIONAL_PARAM -
 #endif
 
-void* buildReadLocalVersionInformation(size_t* outsize)
+
+void*
+buildReadLocalVersionInformation(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_INFORMATIONAL_PARAM, OCF_READ_LOCAL_VERSION,
@@ -272,7 +275,8 @@ void* buildReadLocalVersionInformation(size_t* outsize)
 }
 
 
-void* buildReadBufferSize(size_t* outsize)
+void*
+buildReadBufferSize(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_INFORMATIONAL_PARAM, OCF_READ_BUFFER_SIZE,
@@ -280,94 +284,13 @@ void* buildReadBufferSize(size_t* outsize)
 }
 
 
-void* buildReadBdAddr(size_t* outsize)
+void*
+buildReadBdAddr(size_t* outsize)
 {
 	CALLED();
 	return buildCommand(OGF_INFORMATIONAL_PARAM, OCF_READ_BD_ADDR,
 		NULL, 0, outsize);
 }
-
-
-const char* bluetoothManufacturers[] = {
-	"Ericsson Technology Licensing",
-	"Nokia Mobile Phones",
-	"Intel Corp.",
-	"IBM Corp.",
-	"Toshiba Corp.",
-	"3Com",
-	"Microsoft",
-	"Lucent",
-	"Motorola",
-	"Infineon Technologies AG",
-	"Cambridge Silicon Radio",
-	"Silicon Wave",
-	"Digianswer A/S",
-	"Texas Instruments Inc.",
-	"Parthus Technologies Inc.",
-	"Broadcom Corporation",
-	"Mitel Semiconductor",
-	"Widcomm, Inc.",
-	"Zeevo, Inc.",
-	"Atmel Corporation",
-	"Mitsubishi Electric Corporation",
-	"RTX Telecom A/S",
-	"KC Technology Inc.",
-	"Newlogic",
-	"Transilica, Inc.",
-	"Rohde & Schwartz GmbH & Co. KG",
-	"TTPCom Limited",
-	"Signia Technologies, Inc.",
-	"Conexant Systems Inc.",
-	"Qualcomm",
-	"Inventel",
-	"AVM Berlin",
-	"BandSpeed, Inc.",
-	"Mansella Ltd",
-	"NEC Corporation",
-	"WavePlus Technology Co., Ltd.",
-	"Alcatel",
-	"Philips Semiconductors",
-	"C Technologies",
-	"Open Interface",
-	"R F Micro Devices",
-	"Hitachi Ltd",
-	"Symbol Technologies, Inc.",
-	"Tenovis",
-	"Macronix International Co. Ltd.",
-	"GCT Semiconductor",
-	"Norwood Systems",
-	"MewTel Technology Inc.",
-	"ST Microelectronics",
-	"Synopsys",
-	"Red-M (Communications) Ltd",
-	"Commil Ltd",
-	"Computer Access Technology Corporation (CATC)",
-	"Eclipse (HQ España) S.L.",
-	"Renesas Technology Corp.",
-	"Mobilian Corporation",
-	"Terax",
-	"Integrated System Solution Corp.",
-	"Matsushita Electric Industrial Co., Ltd.",
-	"Gennum Corporation",
-	"Research In Motion",
-	"IPextreme, Inc.",
-	"Systems and Chips, Inc",
-	"Bluetooth SIG, Inc",
-	"Seiko Epson Corporation",
-	"Integrated Silicon Solution Taiwain, Inc.",
-	"CONWISE Technology Corporation Ltd",
-	"PARROT SA",
-	"Socket Communications",
-	"Atheros Communications, Inc.",
-	"MediaTek, Inc.",
-	"Bluegiga",	/* (tentative) */
-	"Marvell Technology Group Ltd.",
-	"3DSP Corporation",
-	"Accel Semiconductor Ltd.",
-	"Continental Automotive Systems",
-	"Apple, Inc.",
-	"Staccato Communications, Inc."
-};
 
 
 const char* linkControlCommands[] = {

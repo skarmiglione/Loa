@@ -331,7 +331,7 @@ ApplicationTypeWindow::ApplicationTypeWindow(BPoint position,
 	// Signature
 
 	fSignatureControl = new BTextControl("signature",
-		B_TRANSLATE("Signature:"), new BMessage(kMsgSignatureChanged));
+		B_TRANSLATE("Signature:"), NULL, new BMessage(kMsgSignatureChanged));
 	fSignatureControl->SetModificationMessage(
 		new BMessage(kMsgSignatureChanged));
 
@@ -483,24 +483,23 @@ ApplicationTypeWindow::ApplicationTypeWindow(BPoint position,
 	// TODO: the same does not work when applied to the layout items
 	float width = be_plain_font->StringWidth("99") + 16;
 	fMajorVersionControl->TextView()->SetExplicitMinSize(
-		BSize(width, fMajorVersionControl->MinSize().height));
+		BSize(width, B_SIZE_UNSET));
 	fMiddleVersionControl->TextView()->SetExplicitMinSize(
-		BSize(width, fMiddleVersionControl->MinSize().height));
+		BSize(width, B_SIZE_UNSET));
 	fMinorVersionControl->TextView()->SetExplicitMinSize(
-		BSize(width, fMinorVersionControl->MinSize().height));
+		BSize(width, B_SIZE_UNSET));
 	fInternalVersionControl->TextView()->SetExplicitMinSize(
-		BSize(width, fInternalVersionControl->MinSize().height));
+		BSize(width, B_SIZE_UNSET));
 
 	BLayoutBuilder::Grid<>(versionBox, padding / 2, padding / 2)
 		.SetInsets(padding, padding * 2, padding, padding)
-		.Add(fMajorVersionControl->CreateLabelLayoutItem(), 0, 0)
-		.Add(fMajorVersionControl->CreateTextViewLayoutItem(), 1, 0)
+		.AddTextControl(fMajorVersionControl, 0, 0)
 		.Add(fMiddleVersionControl, 2, 0, 2)
 		.Add(fMinorVersionControl, 4, 0, 2)
 		.Add(varietyField, 6, 0, 3)
 		.Add(fInternalVersionControl, 9, 0, 2)
-		.Add(fShortDescriptionControl->CreateLabelLayoutItem(), 0, 1)
-		.Add(fShortDescriptionControl->CreateTextViewLayoutItem(), 1, 1, 10)
+		.AddTextControl(fShortDescriptionControl, 0, 1,
+			B_ALIGN_HORIZONTAL_UNSET, 1, 10)
 		.Add(longLabel, 0, 2)
 		.Add(scrollView, 1, 2, 10, 3)
 		.SetRowWeight(3, 3);
@@ -902,14 +901,6 @@ ApplicationTypeWindow::_VersionInfo() const
 
 
 // #pragma mark -
-
-
-void
-ApplicationTypeWindow::FrameResized(float width, float height)
-{
-	// This works around a flaw of BTextView
-	fLongDescriptionView->SetTextRect(fLongDescriptionView->Bounds());
-}
 
 
 void

@@ -444,18 +444,7 @@ private:
 
 VMAnonymousCache::~VMAnonymousCache()
 {
-	// free allocated swap space and swap block
-	for (off_t offset = virtual_base, toFree = fAllocatedSwapSize;
-		offset < virtual_end && toFree > 0; offset += B_PAGE_SIZE) {
-		swap_addr_t slotIndex = _SwapBlockGetAddress(offset >> PAGE_SHIFT);
-		if (slotIndex == SWAP_SLOT_NONE)
-			continue;
-
-		swap_slot_dealloc(slotIndex, 1);
-		_SwapBlockFree(offset >> PAGE_SHIFT, 1);
-		toFree -= B_PAGE_SIZE;
-	}
-
+	_FreeSwapPageRange(virtual_base, virtual_end, false);
 	swap_space_unreserve(fCommittedSwapSize);
 	if (committed_size > fCommittedSwapSize)
 		vm_unreserve_memory(committed_size - fCommittedSwapSize);
@@ -486,62 +475,192 @@ VMAnonymousCache::Init(bool canOvercommit, int32 numPrecommittedPages,
 }
 
 
+void
+VMAnonymousCache::_FreeSwapPageRange(off_t fromOffset, off_t toOffset,
+	bool skipBusyPages)
+{
+	swap_block* swapBlock = NULL;
+	off_t toIndex = toOffset >> PAGE_SHIFT;
+	for (off_t pageIndex = fromOffset >> PAGE_SHIFT;
+		pageIndex < toIndex && fAllocatedSwapSize > 0; pageIndex++) {
+
+		WriteLocker locker(sSwapHashLock);
+
+		// Get the swap slot index for the page.
+		swap_addr_t blockIndex = pageIndex & SWAP_BLOCK_MASK;
+		if (swapBlock == NULL || blockIndex == 0) {
+			swap_hash_key key = { this, pageIndex };
+			swapBlock = sSwapHashTable.Lookup(key);
+
+			if (swapBlock == NULL) {
+				pageIndex = ROUNDUP(pageIndex + 1, SWAP_BLOCK_PAGES) - 1;
+				continue;
+			}
+		}
+
+		swap_addr_t slotIndex = swapBlock->swap_slots[blockIndex];
+		if (slotIndex == SWAP_SLOT_NONE)
+			continue;
+
+		if (skipBusyPages) {
+			vm_page* page = LookupPage(pageIndex * B_PAGE_SIZE);
+			if (page != NULL && page->busy) {
+				// TODO: We skip (i.e. leak) swap space of busy pages, since
+				// there could be I/O going on (paging in/out). Waiting is
+				// not an option as 1. unlocking the cache means that new
+				// swap pages could be added in a range we've already
+				// cleared (since the cache still has the old size) and 2.
+				// we'd risk a deadlock in case we come from the file cache
+				// and the FS holds the node's write-lock. We should mark
+				// the page invalid and let the one responsible clean up.
+				// There's just no such mechanism yet.
+				continue;
+			}
+		}
+
+		swap_slot_dealloc(slotIndex, 1);
+		fAllocatedSwapSize -= B_PAGE_SIZE;
+
+		swapBlock->swap_slots[blockIndex] = SWAP_SLOT_NONE;
+		if (--swapBlock->used == 0) {
+			// All swap pages have been freed -- we can discard the swap block.
+			sSwapHashTable.RemoveUnchecked(swapBlock);
+			object_cache_free(sSwapBlockCache, swapBlock,
+				CACHE_DONT_WAIT_FOR_MEMORY | CACHE_DONT_LOCK_KERNEL_SPACE);
+
+			// There are no swap pages for possibly remaining pages, skip to the
+			// next block.
+			pageIndex = ROUNDUP(pageIndex + 1, SWAP_BLOCK_PAGES) - 1;
+			swapBlock = NULL;
+		}
+	}
+}
+
+
 status_t
 VMAnonymousCache::Resize(off_t newSize, int priority)
 {
-	// If the cache size shrinks, drop all swap pages beyond the new size.
-	if (fAllocatedSwapSize > 0) {
-		off_t oldPageCount = (virtual_end + B_PAGE_SIZE - 1) >> PAGE_SHIFT;
-		swap_block* swapBlock = NULL;
+	_FreeSwapPageRange(newSize + B_PAGE_SIZE - 1,
+		virtual_end + B_PAGE_SIZE - 1);
+	return VMCache::Resize(newSize, priority);
+}
 
-		for (off_t pageIndex = (newSize + B_PAGE_SIZE - 1) >> PAGE_SHIFT;
-			pageIndex < oldPageCount && fAllocatedSwapSize > 0; pageIndex++) {
 
-			WriteLocker locker(sSwapHashLock);
+status_t
+VMAnonymousCache::Rebase(off_t newBase, int priority)
+{
+	_FreeSwapPageRange(virtual_base, newBase);
+	return VMCache::Rebase(newBase, priority);
+}
 
-			// Get the swap slot index for the page.
+
+status_t
+VMAnonymousCache::Discard(off_t offset, off_t size)
+{
+	_FreeSwapPageRange(offset, offset + size);
+	return VMCache::Discard(offset, size);
+}
+
+
+/*!	Moves the swap pages for the given range from the source cache into this
+	cache. Both caches must be locked.
+*/
+status_t
+VMAnonymousCache::Adopt(VMCache* _source, off_t offset, off_t size,
+	off_t newOffset)
+{
+	VMAnonymousCache* source = dynamic_cast<VMAnonymousCache*>(_source);
+	if (source == NULL) {
+		panic("VMAnonymousCache::Adopt(): adopt from incompatible cache %p "
+			"requested", _source);
+		return B_ERROR;
+	}
+
+	off_t pageIndex = newOffset >> PAGE_SHIFT;
+	off_t sourcePageIndex = offset >> PAGE_SHIFT;
+	off_t sourceEndPageIndex = (offset + size + B_PAGE_SIZE - 1) >> PAGE_SHIFT;
+	swap_block* swapBlock = NULL;
+
+	WriteLocker locker(sSwapHashLock);
+
+	while (sourcePageIndex < sourceEndPageIndex
+			&& source->fAllocatedSwapSize > 0) {
+		swap_addr_t left
+			= SWAP_BLOCK_PAGES - (sourcePageIndex & SWAP_BLOCK_MASK);
+
+		swap_hash_key sourceKey = { source, sourcePageIndex };
+		swap_block* sourceSwapBlock = sSwapHashTable.Lookup(sourceKey);
+		if (sourceSwapBlock == NULL || sourceSwapBlock->used == 0) {
+			sourcePageIndex += left;
+			pageIndex += left;
+			swapBlock = NULL;
+			continue;
+		}
+
+		for (; left > 0 && sourceSwapBlock->used > 0;
+				left--, sourcePageIndex++, pageIndex++) {
+
 			swap_addr_t blockIndex = pageIndex & SWAP_BLOCK_MASK;
 			if (swapBlock == NULL || blockIndex == 0) {
 				swap_hash_key key = { this, pageIndex };
 				swapBlock = sSwapHashTable.Lookup(key);
 
 				if (swapBlock == NULL) {
-					pageIndex = ROUNDUP(pageIndex + 1, SWAP_BLOCK_PAGES);
-					continue;
-				}
-			}
-
-			swap_addr_t slotIndex = swapBlock->swap_slots[blockIndex];
-			vm_page* page;
-			if (slotIndex != SWAP_SLOT_NONE
-				&& ((page = LookupPage((off_t)pageIndex * B_PAGE_SIZE)) == NULL
-					|| !page->busy)) {
-					// TODO: We skip (i.e. leak) swap space of busy pages, since
-					// there could be I/O going on (paging in/out). Waiting is
-					// not an option as 1. unlocking the cache means that new
-					// swap pages could be added in a range we've already
-					// cleared (since the cache still has the old size) and 2.
-					// we'd risk a deadlock in case we come from the file cache
-					// and the FS holds the node's write-lock. We should mark
-					// the page invalid and let the one responsible clean up.
-					// There's just no such mechanism yet.
-				swap_slot_dealloc(slotIndex, 1);
-				fAllocatedSwapSize -= B_PAGE_SIZE;
-
-				swapBlock->swap_slots[blockIndex] = SWAP_SLOT_NONE;
-				if (--swapBlock->used == 0) {
-					// All swap pages have been freed -- we can discard the swap
-					// block.
-					sSwapHashTable.RemoveUnchecked(swapBlock);
-					object_cache_free(sSwapBlockCache, swapBlock,
+					swapBlock = (swap_block*)object_cache_alloc(sSwapBlockCache,
 						CACHE_DONT_WAIT_FOR_MEMORY
 							| CACHE_DONT_LOCK_KERNEL_SPACE);
+					if (swapBlock == NULL)
+						return B_NO_MEMORY;
+
+					swapBlock->key.cache = this;
+					swapBlock->key.page_index
+						= pageIndex & ~(off_t)SWAP_BLOCK_MASK;
+					swapBlock->used = 0;
+					for (uint32 i = 0; i < SWAP_BLOCK_PAGES; i++)
+						swapBlock->swap_slots[i] = SWAP_SLOT_NONE;
+
+					sSwapHashTable.InsertUnchecked(swapBlock);
 				}
 			}
+
+			swap_addr_t sourceBlockIndex = sourcePageIndex & SWAP_BLOCK_MASK;
+			swap_addr_t slotIndex
+				= sourceSwapBlock->swap_slots[sourceBlockIndex];
+			if (slotIndex == SWAP_SLOT_NONE)
+				continue;
+
+			ASSERT(swapBlock->swap_slots[blockIndex] == SWAP_SLOT_NONE);
+
+			swapBlock->swap_slots[blockIndex] = slotIndex;
+			swapBlock->used++;
+			fAllocatedSwapSize += B_PAGE_SIZE;
+
+			sourceSwapBlock->swap_slots[sourceBlockIndex] = SWAP_SLOT_NONE;
+			sourceSwapBlock->used--;
+			source->fAllocatedSwapSize -= B_PAGE_SIZE;
+
+			TRACE("adopted slot %#" B_PRIx32 " from %p at page %" B_PRIdOFF
+				" to %p at page %" B_PRIdOFF "\n", slotIndex, source,
+				sourcePageIndex, this, pageIndex);
+		}
+
+		if (left > 0) {
+			sourcePageIndex += left;
+			pageIndex += left;
+			swapBlock = NULL;
+		}
+
+		if (sourceSwapBlock->used == 0) {
+			// All swap pages have been adopted, we can discard the swap block.
+			sSwapHashTable.RemoveUnchecked(sourceSwapBlock);
+			object_cache_free(sSwapBlockCache, sourceSwapBlock,
+				CACHE_DONT_WAIT_FOR_MEMORY | CACHE_DONT_LOCK_KERNEL_SPACE);
 		}
 	}
 
-	return VMCache::Resize(newSize, priority);
+	locker.Unlock();
+
+	return VMCache::Adopt(source, offset, size, newOffset);
 }
 
 
@@ -839,7 +958,7 @@ VMAnonymousCache::Merge(VMCache* _source)
 {
 	VMAnonymousCache* source = dynamic_cast<VMAnonymousCache*>(_source);
 	if (source == NULL) {
-		panic("VMAnonymousCache::MergeStore(): merge with incompatible cache "
+		panic("VMAnonymousCache::Merge(): merge with incompatible cache "
 			"%p requested", _source);
 		return;
 	}
@@ -1641,11 +1760,15 @@ void
 swap_get_info(system_info* info)
 {
 #if ENABLE_SWAP_SUPPORT
-	info->max_swap_pages = swap_total_swap_pages();
-	info->free_swap_pages = swap_available_pages();
+	MutexLocker locker(sSwapFileListLock);
+	for (SwapFileList::Iterator it = sSwapFileList.GetIterator();
+		swap_file* swapFile = it.Next();) {
+		info->max_swap_pages += swapFile->last_slot - swapFile->first_slot;
+		info->free_swap_pages += swapFile->bmp->free_slots;
+	}
 #else
-	info->max_swap_space = 0;
-	info->free_swap_space = 0;
+	info->max_swap_pages = 0;
+	info->free_swap_pages = 0;
 #endif
 }
 

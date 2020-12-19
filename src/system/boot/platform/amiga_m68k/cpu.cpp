@@ -1,9 +1,6 @@
 /*
  * Copyright 2004-2005, Axel Dörfler, axeld@pinc-software.de. All rights reserved.
  * Distributed under the terms of the MIT License.
- *
- * calculate_cpu_conversion_factor() was written by Travis Geiselbrecht and
- * licensed under the NewOS license.
  */
 
 
@@ -106,5 +103,11 @@ cpu_init()
 	gKernelArgs.num_cpus = 1;
 		// this will eventually be corrected later on
 		// ...or not!
+}
+
+
+extern "C" void
+platform_load_ucode(BootVolume& volume)
+{
 }
 

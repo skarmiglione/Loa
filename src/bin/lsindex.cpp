@@ -1,10 +1,13 @@
-//	lsindex - for Haiku
-//
-//	authors, in order of contribution:
-//	jonas.sundstrom@kirilla.com
-//	revol@free.fr
-//	axeld@pinc-software.de
-//
+/*
+ * Copyright 2002-2020, Haiku, Inc. All Rights Reserved.
+ * Distributed under the terms of the MIT License.
+ *
+ * Authors:
+ *		jonas.sundstrom@kirilla.com
+ *		revol@free.fr
+ *		Axel Dörfler, axeld@pinc-software.de
+ */
+
 
 #include <TypeConstants.h>
 #include <fs_info.h>
@@ -18,7 +21,7 @@
 static void
 print_help(void)
 {
-	fprintf (stderr, 
+	fprintf (stderr,
 		"Usage: lsindex [--help | -v | --verbose | --mkindex | -l | --long] [volume path]\n"
 		"   -l --long\t outputs long listing\n"
 		"   -v --verbose\t gives index type, dates and owner\n"
@@ -46,7 +49,10 @@ print_index_type(const index_info &info, bool mkindexOutput)
 			return mkindexOutput ? "double" : "Double";
 
 		default:
-			sprintf(buffer, mkindexOutput ? "0x%08lx" : "Unknown type (0x%lx)", info.type);
+			sprintf(buffer, mkindexOutput
+				 ? "0x%08" B_PRIx32
+				 : "Unknown type (0x%" B_PRIx32 ")",
+					info.type);
 			return buffer;
 	}
 }
@@ -110,8 +116,10 @@ static void
 print_index_long_stat(const index_info &info, char *name)
 {
 	char modified[30];
-	strftime(modified, 30, "%m/%d/%Y %I:%M %p", localtime(&info.modification_time));
-	printf("%16s  %s  %8Ld %s\n", print_index_type(info, false), modified, info.size, name);
+	strftime(modified, 30, "%m/%d/%Y %I:%M %p",
+		localtime(&info.modification_time));
+	printf("%16s  %s  %8" B_PRIdOFF " %s\n",
+		print_index_type(info, false), modified, info.size, name);
 }
 
 
@@ -125,18 +133,20 @@ print_index_verbose_stat(const index_info &info, char *name)
 	if (typeString != NULL)
 		printf("%-10s\t", typeString);
 	else
-		printf("%ld\t", info.type);
+		printf("%" B_PRIu32 "\t", info.type);
 
 	// Size
-	printf("%10Ld  ", info.size);
+	printf("%10" B_PRIdOFF "  ", info.size);
 
 	// Created
 	char string[30];
-	strftime(string, sizeof(string), "%Y-%m-%d %H:%M", localtime(&info.creation_time)); 
+	strftime(string, sizeof(string), "%Y-%m-%d %H:%M",
+		localtime(&info.creation_time));
 	printf("%s  ", string);
 
 	// Modified
-	strftime(string, sizeof(string), "%Y-%m-%d %H:%M", localtime(&info.modification_time)); 
+	strftime(string, sizeof(string), "%Y-%m-%d %H:%M",
+		localtime(&info.modification_time));
 	printf("%s", string);
 
 	// User
@@ -161,20 +171,23 @@ main(int argc, char **argv)
 			if (!strcmp(argv[i], "--help")) {
 				print_help();
 				return 0;
-			} else if (!strcmp(argv[i], "--verbose") || !strcmp(argv[i], "-v"))
+			}
+			if (!strcmp(argv[i], "--verbose") || !strcmp(argv[i], "-v"))
 				verbose = true;
 			else if (!strcmp(argv[i], "--long") || !strcmp(argv[i], "-l"))
 				longListing = true;
 			else if (!strcmp(argv[i], "--mkindex"))
 				mkindexOutput = true;
 			else {
-				fprintf(stderr, "%s: option %s is not understood (use --help for help)\n", argv[0], argv[i]);
+				fprintf(stderr, "%s: option %s is not understood (use --help "
+					"for help)\n", argv[0], argv[i]);
 				return -1;
 			}
 		} else {
 			device = dev_for_path(argv[i]);
 			if (device < 0) {
-				fprintf(stderr, "%s: can't get information about volume: %s\n", argv[0], argv[i]);
+				fprintf(stderr, "%s: can't get information about volume: %s\n",
+					argv[0], argv[i]);
 				return -1;
 			}
 		}
@@ -182,7 +195,8 @@ main(int argc, char **argv)
 
 	indices = fs_open_index_dir(device);
 	if (indices == NULL) {
-		fprintf(stderr, "%s: can't open index dir of device %ld\n", argv[0], device);
+		fprintf(stderr, "%s: can't open index dir of device %" B_PRIdDEV "\n",
+			argv[0], device);
 		return -1;
 	}
 
@@ -192,10 +206,13 @@ main(int argc, char **argv)
 	}
 
 	while (1) {
+		// We have to reset errno before calling fs_read_index_dir().
+		errno = 0;
 		dirent *index = fs_read_index_dir(indices);
 		if (index == NULL) {
 			if (errno != B_ENTRY_NOT_FOUND && errno != B_OK) {
-				printf("%s: fs_read_index_dir: (%d) %s\n", argv[0], errno, strerror(errno));
+				printf("%s: fs_read_index_dir: (%d) %s\n", argv[0], errno,
+					strerror(errno));
 				return errno;
 			}
 			break;
@@ -205,7 +222,8 @@ main(int argc, char **argv)
 			index_info info;
 
 			if (fs_stat_index(device, index->d_name, &info) != B_OK) {
-				printf("%s: fs_stat_index(): (%d) %s\n", argv[0], errno, strerror(errno));
+				printf("%s: fs_stat_index(): (%d) %s\n", argv[0], errno,
+					strerror(errno));
 				return errno;
 			}
 
@@ -213,8 +231,11 @@ main(int argc, char **argv)
 				print_index_verbose_stat(info, index->d_name);
 			else if (longListing)
 				print_index_long_stat(info, index->d_name);
-			else /* mkindexOutput */
-				printf("mkindex -t %s '%s'\n", print_index_type(info, true), index->d_name);
+			else {
+				// mkindex output
+				printf("mkindex -t %s '%s'\n", print_index_type(info, true),
+					index->d_name);
+			}
 		} else
 			printf("%s\n", index->d_name);
 	}

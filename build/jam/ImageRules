@@ -142,8 +142,8 @@ rule AddDirectoryToContainer container : directoryTokens : attributeFiles
 
 	if $(attributeFiles) {
 		SEARCH on $(attributeFiles)
-			+= [ FDirName $(HAIKU_TOP) data image_directories ] ;
-		ATTRIBUTE_FILES on $(dir) += $(attributeFiles) ;
+			+= [ FDirName $(HAIKU_TOP) src data directory_attrs ] ;
+		ATTRIBUTE_FILES on $(directory) += $(attributeFiles) ;
 	}
 
 	return $(directory) ;
@@ -887,13 +887,20 @@ rule AddPackagesAndRepositoryVariablesToContainerScript script : container
 		: $(HAIKU_UPDATE_ALL_PACKAGES) ;
 
 	# Add variable "systemPackages" with the packages copied/updated.
-	local allPackages = [ on $(container) return $(HAIKU_PACKAGES_IN_IMAGE) ] ;
+	local systemPackages = [ on $(container) return $(HAIKU_SYSTEM_PACKAGES_IN_IMAGE) ] ;
 	if $(updateOnly) && ! [ IncludeAllTargetsInContainer $(container) ] {
-		allPackages = [ FilterContainerUpdateTargets $(allPackages)
+		systemPackages = [ FilterContainerUpdateTargets $(systemPackages)
 			: [ on $(container) return $(HAIKU_INCLUDE_IN_CONTAINER_VAR) ] ] ;
 	}
+	AddTargetVariableToScript $(script) : $(systemPackages) : systemPackages ;
 
-	AddTargetVariableToScript $(script) : $(allPackages) : systemPackages ;
+	# Add variable "otherPackages" with the packages copied/updated.
+	local otherPackages = [ on $(container) return $(HAIKU_OTHER_PACKAGES_IN_IMAGE) ] ;
+	if $(updateOnly) && ! [ IncludeAllTargetsInContainer $(container) ] {
+		otherPackages = [ FilterContainerUpdateTargets $(otherPackages)
+			: [ on $(container) return $(HAIKU_INCLUDE_IN_CONTAINER_VAR) ] ] ;
+	}
+	AddTargetVariableToScript $(script) : $(otherPackages) : otherPackages ;
 
 	# Generate the repository package lists and add variables for the
 	# repositories.
@@ -1036,16 +1043,22 @@ rule AddPackageFilesToHaikuImage location : packages : flags
 	#		info
 
 	packages = [ FFilterByBuildFeatures $(packages) ] ;
-	HAIKU_PACKAGES_IN_IMAGE on $(HAIKU_IMAGE_CONTAINER_NAME)
-		= [ on $(HAIKU_IMAGE_CONTAINER_NAME) return $(HAIKU_PACKAGES_IN_IMAGE) ]
-			$(packages) ;
-	HAIKU_PACKAGE_INSTALLATION_LOCATION on $(packages) = $(location) ;
+
+	if $(location[1]) = system && $(location[2]) = packages && ! $(location[3]) {
+		HAIKU_SYSTEM_PACKAGES_IN_IMAGE on $(HAIKU_IMAGE_CONTAINER_NAME)
+			= [ on $(HAIKU_IMAGE_CONTAINER_NAME) return $(HAIKU_SYSTEM_PACKAGES_IN_IMAGE) ]
+				$(packages) ;
+	} else {
+		HAIKU_OTHER_PACKAGES_IN_IMAGE on $(HAIKU_IMAGE_CONTAINER_NAME)
+			= [ on $(HAIKU_IMAGE_CONTAINER_NAME) return $(HAIKU_OTHER_PACKAGES_IN_IMAGE) ]
+				$(packages) ;
+	}
 
 	if nameFromMetaInfo in $(flags) {
-		AddFilesToHaikuImage $(location) packages : $(packages)
+		AddFilesToHaikuImage $(location) : $(packages)
 			: packageFileName : computeName ;
 	} else {
-		AddFilesToHaikuImage $(location) packages : $(packages) ;
+		AddFilesToHaikuImage $(location) : $(packages) ;
 	}
 }
 
@@ -1097,10 +1110,10 @@ rule OptionalPackageDependencies package : dependencies
 }
 
 
-rule AddHaikuImagePackages packages
+rule AddHaikuImagePackages packages : directory
 {
-	# AddHaikuImagePackages <packages> ;
-	# Adds the given packages <packages> to the image.
+	# AddHaikuImagePackages <packages> : <directory> ;
+	# Adds the given packages <packages> to the image in the given directory.
 
 	packages = [ FFilterByBuildFeatures $(packages) ] ;
 
@@ -1124,7 +1137,7 @@ rule AddHaikuImagePackages packages
 				HAIKU_INCLUDE_IN_IMAGE on $(file) = 1 ;
 			}
 
-			AddPackageFilesToHaikuImage system : $(file) ;
+			AddPackageFilesToHaikuImage $(directory) : $(file) ;
 		}
 	}
 }
@@ -1135,8 +1148,26 @@ rule AddHaikuImageSourcePackages packages
 	# Adds the given source packages for <packages> to the image.
 
 	if $(HAIKU_INCLUDE_SOURCES) = 1 {
-		AddHaikuImagePackages $(packages)_source ;
+		AddHaikuImagePackages $(packages)_source : _sources_ ;
 	}
+}
+
+rule AddHaikuImageSystemPackages packages
+{
+	# AddHaikuImageSystemPackages <packages> ;
+	# Adds the given packages for <packages> to the image, in the system
+	# directory, so they will be activated on first boot.
+
+	AddHaikuImagePackages $(packages) : system packages ;
+}
+
+rule AddHaikuImageDisabledPackages packages
+{
+	# AddHaikuImageDisabledPackages <packages> ;
+	# Adds the given packages for <packages> to the image, in the _packages_
+	# directory, so they can be later enabled in Installer.
+
+	AddHaikuImagePackages $(packages) : _packages_ ;
 }
 
 rule IsHaikuImagePackageAdded package
@@ -1274,7 +1305,8 @@ rule BuildHaikuImage haikuImage : scripts : isImage : isVMwareImage
 	SEARCH on $(mainScript) = [ FDirName $(HAIKU_TOP) build scripts ] ;
 
 	Depends $(haikuImage) : $(mainScript) $(scripts) ;
-	BuildHaikuImage1 $(haikuImage) : $(mainScript) $(scripts) ;
+	BuildHaikuImage1 $(haikuImage) : $(mainScript)
+		$(scripts:R=$(HAIKU_ABSOLUTE_OUTPUT_DIR)) ;
 }
 
 actions BuildHaikuImage1
@@ -1383,7 +1415,8 @@ rule BuildNetBootArchive archive : scripts
 	SEARCH on $(mainScript) = [ FDirName $(HAIKU_TOP) build scripts ] ;
 
 	Depends $(archive) : $(mainScript) $(scripts) ;
-	BuildNetBootArchive1 $(archive) : $(mainScript) $(scripts) ;
+	BuildNetBootArchive1 $(archive) : $(mainScript)
+		$(scripts:R=$(HAIKU_ABSOLUTE_OUTPUT_DIR)) ;
 }
 
 actions BuildNetBootArchive1
@@ -1474,7 +1507,8 @@ rule BuildFloppyBootArchive archive : scripts
 	SEARCH on $(mainScript) = [ FDirName $(HAIKU_TOP) build scripts ] ;
 
 	Depends $(archive) : $(mainScript) $(scripts) ;
-	BuildFloppyBootArchive1 $(archive) : $(mainScript) $(scripts) ;
+	BuildFloppyBootArchive1 $(archive) : $(mainScript)
+		$(scripts:R=$(HAIKU_ABSOLUTE_OUTPUT_DIR)) ;
 }
 
 actions BuildFloppyBootArchive1
@@ -1492,12 +1526,12 @@ rule BuildFloppyBootImage image : haikuLoader : archive
 	FLOPPY_IMAGE_SIZE on $(image) = $(HAIKU_BOOT_FLOPPY_IMAGE_SIZE) ;
 	ARCHIVE_IMAGE_OFFSET on $(image) = $(HAIKU_BOOT_ARCHIVE_IMAGE_OFFSET) ;
 	BuildFloppyBootImage1 $(image) : $(haikuLoader) $(archive) ;
-	if $(HAIKU_BOOT_PLATFORM) = atari_m68k {
+	if $(HAIKU_KERNEL_PLATFORM) = atari_m68k {
 		Depends $(image) : <build>fixup_tos_boot_checksum ;
 		BuildFloppyBootImageFixupM68K $(image)
 			: <build>fixup_tos_boot_checksum ;
 	}
-	if $(HAIKU_BOOT_PLATFORM) = amiga_m68k {
+	if $(HAIKU_KERNEL_PLATFORM) = amiga_m68k {
 		Depends $(image) : <build>fixup_amiga_boot_checksum ;
 		BuildFloppyBootImageFixupM68K $(image)
 			: <build>fixup_amiga_boot_checksum ;
@@ -1544,20 +1578,38 @@ actions BuildFloppyBootImageFixupM68K
 
 #pragma mark - CD Boot Image rules
 
-rule BuildCDBootImage image : bootfloppy : extrafiles
+rule BuildCDBootImage image : bootfloppy : bootefi : extrafiles
 {
 	Depends $(image) : $(bootfloppy) ;
+	Depends $(image) : $(bootefi) ;
 	Depends $(image) : $(extrafiles) ;
 	BOOTIMG on $(image) = $(bootfloppy) ;
 
-	BuildCDBootImage1 $(image) : $(bootfloppy) $(extrafiles) ;
+	if $(HAIKU_NIGHTLY_BUILD) = 1 {
+		VOLID on $(image) = haiku-nightly-$(TARGET_ARCH) ;
+	} else {
+		VOLID on $(image) = haiku-$(HAIKU_VERSION)-$(TARGET_ARCH) ;
+	}
+
+	if $(HAIKU_ANYBOOT_LEGACY) = 1 {
+		BuildCDBootImageMBR $(image) : $(bootfloppy) $(extrafiles) ;
+	} else {
+		BOOTEFI on $(image) = $(bootefi) ;
+		BuildCDBootImageEFI $(image) : $(bootfloppy) $(bootefi) $(extrafiles) ;
+	}
 }
 
-actions BuildCDBootImage1
+actions BuildCDBootImageMBR
 {
 	$(RM) $(<)
-	mkisofs -b $(BOOTIMG) -r -J -V bootimg -o $(<) $(>[1]) $(>[2-]) \
-		|| genisoimage -b $(BOOTIMG) -r -J -V bootimg -o $(<) $(>[1]) $(>[2-])
+	xorriso -as mkisofs -b $(BOOTIMG) -r -J -V $(VOLID) -o $(<) $(>[1]) $(>[2-])
+}
+
+actions BuildCDBootImageEFI
+{
+	$(RM) $(<)
+	xorriso -as mkisofs -b $(BOOTIMG) -eltorito-alt-boot -no-emul-boot -e $(BOOTEFI) \
+		-r -J -V $(VOLID) -o $(<) $(>[1]) $(>[2]) $(>[3-])
 }
 
 
@@ -1572,6 +1624,12 @@ rule BuildCDBootPPCImage image : hfsmaps : elfloader : coffloader : chrpscript
 	Depends $(image) : $(extrafiles) ;
 	Depends $(image) : $(hfsmaps) ;
 	MAPS on $(image) = $(hfsmaps) ;
+
+	if $(HAIKU_NIGHTLY_BUILD) = 1 {
+		VOLID on $(image) = haiku-nightly-$(TARGET_ARCH) ;
+	} else {
+		VOLID on $(image) = haiku-$(HAIKU_VERSION)-$(TARGET_ARCH) ;
+	}
 
 	BuildCDBootPPCImage1 $(image) : $(elfloader) $(coffloader) $(chrpscript)
 		$(extrafiles) ;
@@ -1591,12 +1649,53 @@ actions BuildCDBootPPCImage1 bind MAPS
 	# Extras (readme files, etc)
 	cp $(>[4]) $(HAIKU_OUTPUT_DIR)/cd/
 
-	mkisofs -v -hfs -part -map $(MAPS) -no-desktop -hfs-volid bootimg \
-		-V bootimg -hfs-bless $(HAIKU_OUTPUT_DIR)/cd/boot -prep-boot \
-		boot/haikuloader.xcf -r -o $(<) $(HAIKU_OUTPUT_DIR)/cd \
-	|| \
-	genisoimage -v -hfs -part -map $(MAPS) -no-desktop -hfs-volid bootimg \
-		-V bootimg -hfs-bless $(HAIKU_OUTPUT_DIR)/cd/boot -prep-boot \
-		boot/haikuloader.xcf -r -o $(<) $(HAIKU_OUTPUT_DIR)/cd
+	# Xorriso doesn't have map and some other required tools
+	# to make bootable PowerPC images
+	genisoimage -v -hfsplus -map $(MAPS) \
+		-hfs-bless $(HAIKU_OUTPUT_DIR)/cd/boot -part -no-desktop \
+		-hfs-parms MAX_XTCSIZE=2656248 -hfs-volid Haiku \
+		--chrp-boot -r -J -o $(<) $(HAIKU_OUTPUT_DIR)/cd
+
 	$(RM) -r $(HAIKU_OUTPUT_DIR)/cd
+}
+
+#pragma mark - EFI System Partition rules
+
+rule BuildEfiSystemPartition image : efiLoader
+{
+	local macVolumeIcon = [ FDirName
+		$(HAIKU_TOP) data artwork VolumeIcon.icns ] ;
+
+	Depends $(image) : $(efiLoader) ;
+	Depends $(image) : $(macVolumeIcon) ;
+
+	switch $(TARGET_ARCH) {
+		case x86_64 :
+			EFINAME on $(image) = "BOOTX64.EFI" ;
+		case arm :
+			EFINAME on $(image) = "BOOTARM.EFI" ;
+		case arm64 :
+			EFINAME on $(image) = "BOOTAA64.EFI" ;
+		case riscv32 :
+			EFINAME on $(image) = "BOOTRISCV32.EFI" ;
+		case riscv64 :
+			EFINAME on $(image) = "BOOTRISCV64.EFI" ;
+		case * :
+			Exit "Error: Unknown EFI architecture!" ;
+	}
+
+	EFIICON on $(image) = $(macVolumeIcon) ;
+
+	BuildEfiSystemPartition1 $(image) : $(efiLoader) ;
+}
+
+actions BuildEfiSystemPartition1
+{
+	$(RM) $(<)
+	dd if=/dev/zero of=$(<) bs=1024 count=2880
+	mformat -i $(<) -f 2880
+	mmd -D s -i $(<) ::/EFI
+	mmd -D s -i $(<) ::/EFI/BOOT
+	mcopy -D o -i $(<) $(EFIICON) ::/.VolumeIcon.icns
+	mcopy -D o -i $(<) $(>) ::/EFI/BOOT/$(EFINAME)
 }

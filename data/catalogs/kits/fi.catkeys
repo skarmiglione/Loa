@@ -1,42 +1,49 @@
-1	finnish	x-vnd.Haiku-libbe	3337473349
-gamma	AboutWindow		gamma
-beta	AboutWindow		beeta
-%3.2f GiB	StringForSize		%3.2f gibitavua
-Written by:	AboutWindow		Tekijä:
-About %app%	AboutMenuItem		Ohjelmasta %app%
-Cut	TextView		Leikkaa
-Version	AboutWindow		Versio
-Cannot create the replicant for \"%description\".\n%error	ZombieReplicantView		Kohteen ”%description” kopion luominen epäonnistui.\n%error
-Copy	TextView		Kopioi
-%3.2f KiB	StringForSize		%3.2f kibitavua
-alpha	AboutWindow		alfa
-Error	PrintJob		Virhe
-All Rights Reserved.	AboutWindow		All Rights Reserved.
+1	finnish	x-vnd.Haiku-libbe	2914417806
 {0, plural, one{# byte} other{# bytes}}	StringForSize		{0, plural, one{# merkki} other{# merkkiä}
-About %app%	AboutWindow		Ohjelmasta %app%
-No pages to print!	PrintJob		Ei ole tulostettavia sivuja!
-OK	Dragger		Valmis
-OK	PrintJob		Valmis
-Green:	ColorControl		Vihreä:
-Version history:	AboutWindow		Versiohistoria:
-Remove replicant	Dragger		Poista kopio
-Select all	TextView		Valitse kaikki
-OK	AboutWindow		Valmis
-OK	ZombieReplicantView		Valmis
-Print Server is not responding.	PrintJob		Tulostuspalvelin ei vastaa.
-Paste	TextView		Liitä
-Special Thanks:	AboutWindow		Erityiskiitokset:
-%.2f TiB	StringForSize		%.2f tebitavua
-Cannot locate the application for the replicant. No application signature supplied.\n%error	ZombieReplicantView		Kopion sovelluksen paikantaminen epäonnistui. Sovellusallekirjoitusta ei ole tarjottu.\n%error
-Redo	TextView		Tee uudelleen
-<empty>	Menu		<tyhjä>
-Warning	Dragger		Varoitus
-Undo	TextView		Peru
-Red:	ColorControl		Punainen:
-%3.2f MiB	StringForSize		%3.2f mebitavua
-About %app…	Dragger		Ohjelmasta %app...
-development	AboutWindow		ohjelmakehitys
-Error	ZombieReplicantView		Virhe
-Blue:	ColorControl		Sininen:
+%.2f TiB/s	StringForRate		%.2f TiB/s
+All Rights Reserved.	AboutWindow		All Rights Reserved.
 gold master	AboutWindow		gold master
+Undo	TextView		Peru
+OK	PrintJob		Valmis
+gamma	AboutWindow		gamma
+development	AboutWindow		ohjelmakehitys
+OK	Dragger		Valmis
+%3.2f GiB/s	StringForRate		%3.2f GiB/s
+Print Server is not responding.	PrintJob		Tulostuspalvelin ei vastaa.
+About %app%	AboutMenuItem		Ohjelmasta %app%
+Warning	Dragger		Varoitus
+Green:	ColorControl		Vihreä:
+%3.2f KiB/s	StringForRate		%3.2f KiB/s
+Redo	TextView		Tee uudelleen
+No pages to print!	PrintJob		Ei ole tulostettavia sivuja!
+beta	AboutWindow		beeta
+OK	ZombieReplicantView		Valmis
+Cut	TextView		Leikkaa
+%3.2f GiB	StringForSize		%3.2f gibitavua
+Default	Default decorator about box		Oletus
 Can't delete this replicant from its original application. Life goes on.	Dragger		Alkuperäisen sovelluksen tämän kopion poistaminen epäonnistui. Elämä jatkuu.
+Error	ZombieReplicantView		Virhe
+Paste	TextView		Liitä
+OK	AboutWindow		Valmis
+{0, plural, one{# byte/s} other{# bytes/s}}	StringForRate		{0, plural, one{# tavu/s} other{# tavua/s}}
+Special Thanks:	AboutWindow		Erityiskiitokset:
+Default Haiku window decorator.	Default decorator about box		Oletus Haiku-ikkunakoristemaalari.
+%.2f TiB	StringForSize		%.2f tebitavua
+Remove replicant	Dragger		Poista kopio
+Version	AboutWindow		Versio
+Red:	ColorControl		Punainen:
+<empty>	Menu		<tyhjä>
+Copy	TextView		Kopioi
+Select all	TextView		Valitse kaikki
+alpha	AboutWindow		alfa
+%3.2f MiB	StringForSize		%3.2f mebitavua
+%3.2f MiB/s	StringForRate		%3.2f MiB/s
+Error	PrintJob		Virhe
+About %app%	AboutWindow		Ohjelmasta %app%
+About %app…	Dragger		Ohjelmasta %app...
+Version history:	AboutWindow		Versiohistoria:
+Cannot locate the application for the replicant. No application signature supplied.\n%error	ZombieReplicantView		Kopion sovelluksen paikantaminen epäonnistui. Sovellusallekirjoitusta ei ole tarjottu.\n%error
+%3.2f KiB	StringForSize		%3.2f kibitavua
+Blue:	ColorControl		Sininen:
+Cannot create the replicant for \"%description\".\n%error	ZombieReplicantView		Kohteen ”%description” kopion luominen epäonnistui.\n%error
+Written by:	AboutWindow		Tekijä:

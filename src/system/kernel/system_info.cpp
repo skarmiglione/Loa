@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2014, Haiku, Inc.
+ * Copyright (c) 2004-2020, Haiku, Inc.
  * Distributed under the terms of the MIT license.
  *
  * Authors:
@@ -49,8 +49,8 @@ const static char *kKernelName = "kernel_" HAIKU_ARCH;
 static int
 dump_info(int argc, char **argv)
 {
-	kprintf("kernel build: %s %s (gcc%d %s)\n", __DATE__, __TIME__, __GNUC__,
-		__VERSION__);
+	kprintf("kernel build: %s %s (gcc%d %s), debug level %d\n", __DATE__,
+		__TIME__, __GNUC__, __VERSION__, KDEBUG_LEVEL);
 	kprintf("revision: %s\n\n", get_haiku_revision());
 
 	kprintf("cpu count: %" B_PRId32 "\n", smp_get_num_cpus());
@@ -493,17 +493,33 @@ get_system_info(system_info* info)
 status_t
 get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* info)
 {
-	if (firstCPU >= (uint32)smp_get_num_cpus())
-		return B_BAD_VALUE;
 	if (cpuCount == 0)
 		return B_OK;
+	if (firstCPU >= (uint32)smp_get_num_cpus())
+		return B_BAD_VALUE;
 
 	uint32 count = std::min(cpuCount, smp_get_num_cpus() - firstCPU);
 
-	memset(info, 0, sizeof(cpu_info) * count);
+	// This function is called very often from userland by applications
+	// that display CPU usage information, so we want to keep this as
+	// optimized and touch as little as possible. Hence, no use of
+	// a temporary buffer.
+
+	if (IS_USER_ADDRESS(info)) {
+		if (user_memset(info, 0, sizeof(cpu_info) * count) != B_OK)
+			return B_BAD_ADDRESS;
+		set_ac();
+	} else {
+		memset(info, 0, sizeof(cpu_info) * count);
+	}
+
 	for (uint32 i = 0; i < count; i++) {
 		info[i].active_time = cpu_get_active_time(firstCPU + i);
 		info[i].enabled = !gCPU[firstCPU + i].disabled;
+	}
+
+	if (IS_USER_ADDRESS(info)) {
+		clear_ac();
 	}
 
 	return B_OK;
@@ -561,23 +577,8 @@ _user_get_cpu_info(uint32 firstCPU, uint32 cpuCount, cpu_info* userInfo)
 {
 	if (userInfo == NULL || !IS_USER_ADDRESS(userInfo))
 		return B_BAD_ADDRESS;
-	if (firstCPU >= (uint32)smp_get_num_cpus())
-		return B_BAD_VALUE;
-	if (cpuCount == 0)
-		return B_OK;
 
-	uint32 count = std::min(cpuCount, smp_get_num_cpus() - firstCPU);
-
-	cpu_info* cpuInfos = new(std::nothrow) cpu_info[count];
-	if (cpuInfos == NULL)
-		return B_NO_MEMORY;
-	ArrayDeleter<cpu_info> _(cpuInfos);
-
-	status_t error = get_cpu_info(firstCPU, count, cpuInfos);
-	if (error != B_OK)
-		return error;
-
-	return user_memcpy(userInfo, cpuInfos, sizeof(cpu_info) * count);
+	return get_cpu_info(firstCPU, cpuCount, userInfo);
 }
 
 

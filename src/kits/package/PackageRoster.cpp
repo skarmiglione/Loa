@@ -52,6 +52,27 @@ BPackageRoster::~BPackageRoster()
 }
 
 
+bool
+BPackageRoster::IsRebootNeeded()
+{
+	BInstallationLocationInfo info;
+
+	// We get information on the system package installation location.
+	// If we fail, we just have to assume a reboot is not needed.
+	if (GetInstallationLocationInfo(B_PACKAGE_INSTALLATION_LOCATION_SYSTEM,
+		info) != B_OK)
+		return false;
+
+	// CurrentlyActivePackageInfos() will return 0 if no packages need to be
+	// activated with a reboot. Otherwise, the method will return the total
+	// number of packages in the system package directory.
+	if (info.CurrentlyActivePackageInfos().CountInfos() != 0)
+		return true;
+
+	return false;
+}
+
+
 status_t
 BPackageRoster::GetCommonRepositoryConfigPath(BPath* path, bool create) const
 {
@@ -160,7 +181,9 @@ BPackageRoster::GetRepositoryCache(const BString& name,
 		return result;
 	path.Append(name.String());
 
-	repoCacheEntry.SetTo(path.Path());
+	result = repoCacheEntry.SetTo(path.Path());
+	if (result != B_OK)
+		return result;
 	return repositoryCache->SetTo(repoCacheEntry);
 }
 
@@ -187,7 +210,9 @@ BPackageRoster::GetRepositoryConfig(const BString& name,
 		return result;
 	path.Append(name.String());
 
-	repoConfigEntry.SetTo(path.Path());
+	result = repoConfigEntry.SetTo(path.Path());
+	if (result != B_OK)
+		return result;
 	return repositoryConfig->SetTo(repoConfigEntry);
 }
 
@@ -220,6 +245,34 @@ BPackageRoster::GetActivePackages(BPackageInstallationLocation location,
 		return error;
 
 	packageInfos = info.LatestActivePackageInfos();
+	return B_OK;
+#else
+	return B_NOT_SUPPORTED;
+#endif
+}
+
+
+status_t
+BPackageRoster::IsPackageActive(BPackageInstallationLocation location,
+	const BPackageInfo info, bool* active)
+{
+// This method makes sense only on an installed Haiku, but not for the build
+// tools.
+#if defined(__HAIKU__) && !defined(HAIKU_HOST_PLATFORM_HAIKU)
+	BPackageInfoSet packageInfos;
+	status_t error = GetActivePackages(location, packageInfos);
+	if (error != B_OK)
+		return error;
+
+	BRepositoryCache::Iterator it = packageInfos.GetIterator();
+	while (const BPackageInfo* packageInfo = it.Next()) {
+		if (info.Name() == packageInfo->Name() &&
+			info.Version().Compare(packageInfo->Version()) == 0) {
+			*active = true;
+			break;
+		}
+	}
+
 	return B_OK;
 #else
 	return B_NOT_SUPPORTED;

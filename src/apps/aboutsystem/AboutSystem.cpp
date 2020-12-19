@@ -51,6 +51,7 @@
 
 #include <AppMisc.h>
 #include <AutoDeleter.h>
+#include <AutoDeleterPosix.h>
 #include <cpu_type.h>
 #include <parsedate.h>
 #include <system_revision.h>
@@ -84,13 +85,11 @@ static const char* MemUsageToString(char string[], size_t size,
 	system_info* info);
 
 
-static const rgb_color kDarkGrey = { 100, 100, 100, 255 };
-static const rgb_color kHaikuGreen = { 42, 131, 36, 255 };
-static const rgb_color kHaikuOrange = { 255, 69, 0, 255 };
-static const rgb_color kHaikuYellow = { 255, 176, 0, 255 };
-static const rgb_color kLinkBlue = { 80, 80, 200, 255 };
-static const rgb_color kBeOSBlue = { 0, 0, 200, 255 };
-static const rgb_color kBeOSRed = { 200, 0, 0, 255 };
+static const rgb_color kIdealHaikuGreen = { 42, 131, 36, 255 };
+static const rgb_color kIdealHaikuOrange = { 255, 69, 0, 255 };
+static const rgb_color kIdealHaikuYellow = { 255, 176, 0, 255 };
+static const rgb_color kIdealBeOSBlue = { 0, 0, 200, 255 };
+static const rgb_color kIdealBeOSRed = { 200, 0, 0, 255 };
 
 static const char* kBSDTwoClause = B_TRANSLATE_MARK("BSD (2-clause)");
 static const char* kBSDThreeClause = B_TRANSLATE_MARK("BSD (3-clause)");
@@ -102,7 +101,7 @@ static const char* kLGPLv21 = B_TRANSLATE_MARK("GNU LGPL v2.1");
 #if 0
 static const char* kPublicDomain = B_TRANSLATE_MARK("Public Domain");
 #endif
-#ifdef __INTEL__
+#ifdef __i386__
 static const char* kIntel2xxxFirmware = B_TRANSLATE_MARK("Intel (2xxx firmware)");
 static const char* kIntelFirmware = B_TRANSLATE_MARK("Intel (firmware)");
 static const char* kMarvellFirmware = B_TRANSLATE_MARK("Marvell (firmware)");
@@ -241,6 +240,15 @@ private:
 			bigtime_t		fLastActionTime;
 			BMessageRunner*	fScrollRunner;
 			PackageCreditMap fPackageCredits;
+
+private:
+			rgb_color		fTextColor;
+			rgb_color		fLinkColor;
+			rgb_color		fHaikuOrangeColor;
+			rgb_color		fHaikuGreenColor;
+			rgb_color		fHaikuYellowColor;
+			rgb_color		fBeOSRedColor;
+			rgb_color		fBeOSBlueColor;
 };
 
 
@@ -423,6 +431,15 @@ AboutView::AboutView()
 	fLastActionTime(system_time()),
 	fScrollRunner(NULL)
 {
+	// Assign the colors, sadly this does not respect live color updates
+	fTextColor = ui_color(B_DOCUMENT_TEXT_COLOR);
+	fLinkColor = ui_color(B_LINK_TEXT_COLOR);
+	fHaikuOrangeColor = mix_color(fTextColor, kIdealHaikuOrange, 191);
+	fHaikuGreenColor = mix_color(fTextColor, kIdealHaikuGreen, 191);
+	fHaikuYellowColor = mix_color(fTextColor, kIdealHaikuYellow, 191);
+	fBeOSRedColor = mix_color(fTextColor, kIdealBeOSRed, 191);
+	fBeOSBlueColor = mix_color(fTextColor, kIdealBeOSBlue, 191);
+
 	// Begin Construction of System Information controls
 	system_info systemInfo;
 	get_system_info(&systemInfo);
@@ -594,6 +611,7 @@ AboutView::AboutView()
 				.Add(_CreateLabel("uptimelabel",
 					B_TRANSLATE("Time running:")))
 				.Add(fUptimeView)
+				.AddGlue()
 				.SetInsets(5, 5, 5, 5)
 			.End()
 			// TODO: investigate: adding this causes the time to be cut
@@ -602,7 +620,7 @@ AboutView::AboutView()
 		.Add(_CreateCreditsView());
 
 	float min = fMemView->MinSize().width * 1.1f;
-	fCreditsView->SetExplicitMinSize(BSize(min, min));
+	fCreditsView->SetExplicitMinSize(BSize(min * 3, min));
 }
 
 
@@ -723,10 +741,10 @@ AboutView::AddCopyrightEntry(const char* name, const char* text,
 	//font.SetSize(be_bold_font->Size());
 	font.SetFace(B_BOLD_FACE | B_ITALIC_FACE);
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuYellow);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuYellowColor);
 	fCreditsView->Insert(name);
 	fCreditsView->Insert("\n");
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(text);
 	fCreditsView->Insert("\n");
 
@@ -771,7 +789,7 @@ AboutView::AddCopyrightEntry(const char* name, const char* text,
 			parse_named_url(source, urlName, urlAddress);
 
 			fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL,
-				&kLinkBlue);
+				&fLinkColor);
 			fCreditsView->InsertHyperText(urlName,
 				new URLAction(urlAddress));
 		}
@@ -785,7 +803,7 @@ AboutView::AddCopyrightEntry(const char* name, const char* text,
 		parse_named_url(url, urlName, urlAddress);
 
 		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL,
-			&kLinkBlue);
+			&fLinkColor);
 		fCreditsView->InsertHyperText(urlName,
 			new URLAction(urlAddress));
 		fCreditsView->Insert("\n");
@@ -838,7 +856,7 @@ AboutView::PickRandomHaiku()
 	font.SetFace(B_BOLD_FACE | B_ITALIC_FACE);
 	fCreditsView->SelectAll();
 	fCreditsView->Delete();
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(s->String());
 	fCreditsView->Insert("\n");
 	while ((s = (BString*)haikuList.RemoveItem((int32)0))) {
@@ -901,7 +919,7 @@ AboutView::_CreateCreditsView()
 	BFont font(be_bold_font);
 	font.SetSize(font.Size() + 4);
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuGreen);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuGreenColor);
 	fCreditsView->Insert("Haiku\n");
 
 	char string[1024];
@@ -911,12 +929,13 @@ AboutView::_CreateCreditsView()
 	if (year < 2008)
 		year = 2008;
 	snprintf(string, sizeof(string),
-		COPYRIGHT_STRING "2001-%" B_PRId32 " The Haiku project. ", year);
+		B_TRANSLATE(COPYRIGHT_STRING "2001-%" B_PRId32 " The Haiku project. "),
+		year);
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(string);
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(B_TRANSLATE("The copyright to the Haiku code is "
 		"property of Haiku, Inc. or of the respective authors where expressly "
 		"noted in the source. Haiku" B_UTF8_REGISTERED
@@ -924,7 +943,7 @@ AboutView::_CreateCreditsView()
 		" are registered trademarks of Haiku, Inc."
 		"\n\n"));
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kLinkBlue);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fLinkColor);
 	fCreditsView->InsertHyperText("https://www.haiku-os.org",
 		new URLAction("https://www.haiku-os.org"));
 	fCreditsView->Insert("\n\n");
@@ -932,41 +951,47 @@ AboutView::_CreateCreditsView()
 	font.SetSize(be_bold_font->Size());
 	font.SetFace(B_BOLD_FACE | B_ITALIC_FACE);
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuOrange);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
 	fCreditsView->Insert(B_TRANSLATE("Current maintainers:\n"));
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(kCurrentMaintainers);
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuOrange);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
 	fCreditsView->Insert(B_TRANSLATE("Past maintainers:\n"));
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(kPastMaintainers);
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuOrange);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
 	fCreditsView->Insert(B_TRANSLATE("Website & marketing:\n"));
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(kWebsiteTeam);
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuOrange);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
 	fCreditsView->Insert(B_TRANSLATE("Past website & marketing:\n"));
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(kPastWebsiteTeam);
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuOrange);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
+	fCreditsView->Insert(B_TRANSLATE("Testing and bug triaging:\n"));
+
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
+	fCreditsView->Insert(kTestingTeam);
+
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
 	fCreditsView->Insert(B_TRANSLATE("Contributors:\n"));
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(kContributors);
 	fCreditsView->Insert(
 		B_TRANSLATE("\n" B_UTF8_ELLIPSIS
 			"and probably some more we forgot to mention (sorry!)"
 			"\n\n"));
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuOrange);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
 	fCreditsView->Insert(B_TRANSLATE("Translations:\n"));
 
 	BLanguage* lang;
@@ -994,29 +1019,29 @@ AboutView::_CreateCreditsView()
 			langName.Append(translation.languageCode);
 		}
 
-		fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuGreen);
+		fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuGreenColor);
 		fCreditsView->Insert("\n");
 		fCreditsView->Insert(langName);
 		fCreditsView->Insert("\n");
-		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 		fCreditsView->Insert(translation.names);
 	}
 
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuOrange);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuOrangeColor);
 	fCreditsView->Insert(B_TRANSLATE("\n\nSpecial thanks to:\n"));
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	BString beosCredits(B_TRANSLATE(
 		"Be Inc. and its developer team, for having created BeOS!\n\n"));
 	int32 beosOffset = beosCredits.FindFirst("BeOS");
 	fCreditsView->Insert(beosCredits.String(),
 		(beosOffset < 0) ? beosCredits.Length() : beosOffset);
 	if (beosOffset > -1) {
-		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kBeOSBlue);
+		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fBeOSBlueColor);
 		fCreditsView->Insert("B");
-		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kBeOSRed);
+		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fBeOSRedColor);
 		fCreditsView->Insert("e");
-		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
+		fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 		beosCredits.Remove(0, beosOffset + 2);
 		fCreditsView->Insert(beosCredits.String(), beosCredits.Length());
 	}
@@ -1047,12 +1072,9 @@ AboutView::_CreateCreditsView()
 
 	font.SetSize(be_bold_font->Size() + 4);
 	font.SetFace(B_BOLD_FACE);
-	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &kHaikuGreen);
+	fCreditsView->SetFontAndColor(&font, B_FONT_ALL, &fHaikuGreenColor);
 	fCreditsView->Insert(B_TRANSLATE("\nCopyrights\n\n"));
 
-	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &kDarkGrey);
-	fCreditsView->Insert(B_TRANSLATE("[Click a license name to read the "
-		"respective license.]\n\n"));
 
 	// Haiku license
 	BString haikuLicense = B_TRANSLATE_COMMENT("The code that is unique to "
@@ -1069,26 +1091,31 @@ AboutView::_CreateCreditsView()
 	int32 licensePart4 = haikuLicense.FindLast(">");
 	BString part;
 	haikuLicense.CopyInto(part, 0, licensePart1);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(part);
 
 	part.Truncate(0);
 	haikuLicense.CopyInto(part, licensePart1 + 1, licensePart2 - 1
 		- licensePart1);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fLinkColor);
 	fCreditsView->InsertHyperText(part, new OpenFileAction(mitPath.Path()));
 
 	part.Truncate(0);
 	haikuLicense.CopyInto(part, licensePart2 + 1, licensePart3 - 1
 		- licensePart2);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(part);
 
 	part.Truncate(0);
 	haikuLicense.CopyInto(part, licensePart3 + 1, licensePart4 - 1
 		- licensePart3);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fLinkColor);
 	fCreditsView->InsertHyperText(part, new OpenFileAction(lgplPath.Path()));
 
 	part.Truncate(0);
 	haikuLicense.CopyInto(part, licensePart4 + 1, haikuLicense.Length() - 1
 		- licensePart4);
+	fCreditsView->SetFontAndColor(be_plain_font, B_FONT_ALL, &fTextColor);
 	fCreditsView->Insert(part);
 
 	// GNU copyrights
@@ -1117,19 +1144,9 @@ AboutView::_CreateCreditsView()
 		StringVector(),
 		"https://www.freebsd.org");
 
-	// NetBSD copyrights
-	AddCopyrightEntry("The NetBSD Project",
-		B_TRANSLATE("Contains software developed by the NetBSD "
-		"Foundation, Inc. and its contributors:\n"
-		"ftp, tput\n"
-		COPYRIGHT_STRING "1996-2008 The NetBSD Foundation, Inc. "
-		"All rights reserved."),
-		"https://www.netbsd.org");
-			// TODO: License!
-
 	// FFmpeg copyrights
 	_AddPackageCredit(PackageCredit("FFmpeg")
-		.SetCopyright(B_TRANSLATE(COPYRIGHT_STRING "2000-2014 Fabrice "
+		.SetCopyright(B_TRANSLATE(COPYRIGHT_STRING "2000-2019 Fabrice "
 			"Bellard, et al."))
 		.SetLicenses(kLGPLv21, kLGPLv2, NULL)
 		.SetURL("https://www.ffmpeg.org"));
@@ -1182,8 +1199,8 @@ AboutView::_CreateCreditsView()
 			"Corporation, Maynard, Massachusetts.\n"
 			"All rights reserved."),
 			NULL)
-		.SetLicenses("OpenGroup", "DEC", NULL));
-			// TODO: URL
+		.SetLicenses("OpenGroup", "DEC", NULL)
+		.SetURL("https://xfree86.org"));
 
 	// Bitstream Charter font
 	_AddPackageCredit(PackageCredit("Bitstream Charter font")
@@ -1322,7 +1339,7 @@ AboutView::_CreateCreditsView()
 		.SetLicense(kBSDTwoClause)
 		.SetURL("http://www.acme.com/software/thttpd/"));
 
-#ifdef __INTEL__
+#ifdef __i386__
 	// Udis86 copyrights
 	_AddPackageCredit(PackageCredit("Udis86")
 		.SetCopyright(B_TRANSLATE(COPYRIGHT_STRING "2002-2004 "
@@ -1447,7 +1464,7 @@ AboutView::_AddCopyrightsFromAttribute()
 		close(attrFD);
 		return;
 	}
-	CObjectDeleter<FILE, int> _(attrFile, fclose);
+	FileCloser _(attrFile);
 
 	// read and parse the copyrights
 	BMessage package;

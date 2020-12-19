@@ -14,6 +14,7 @@
 
 #include <Drivers.h>
 
+#include <kernel.h>
 #include <util/kernel_cpp.h>
 #include <util/ring_buffer.h>
 
@@ -82,7 +83,6 @@ dump_acpi_namespace(acpi_ns_device_info *device, char *root, int indenting)
 	char result[255];
 	char output[320];
 	char tabs[255] = "";
-	char hid[16] = "";
 	int i;
 	size_t written = 0;
 	for (i = 0; i < indenting; i++)
@@ -98,48 +98,56 @@ dump_acpi_namespace(acpi_ns_device_info *device, char *root, int indenting)
 		snprintf(output, sizeof(output), "%s%s", tabs, result + depth);
 		switch(type) {
 			case ACPI_TYPE_INTEGER:
-				snprintf(output, sizeof(output), "%s     INTEGER", output);
+				strlcat(output, "     INTEGER", sizeof(output));
 				break;
 			case ACPI_TYPE_STRING:
-				snprintf(output, sizeof(output), "%s     STRING", output);
+				strlcat(output, "     STRING", sizeof(output));
 				break;
 			case ACPI_TYPE_BUFFER:
-				snprintf(output, sizeof(output), "%s     BUFFER", output);
+				strlcat(output, "     BUFFER", sizeof(output));
 				break;
 			case ACPI_TYPE_PACKAGE:
-				snprintf(output, sizeof(output), "%s     PACKAGE", output);
+				strlcat(output, "     PACKAGE", sizeof(output));
 				break;
 			case ACPI_TYPE_FIELD_UNIT:
-				snprintf(output, sizeof(output), "%s     FIELD UNIT", output);
+				strlcat(output, "     FIELD UNIT", sizeof(output));
 				break;
 			case ACPI_TYPE_DEVICE:
-				hid[0] = 0; /* zero-terminate string; get_device_hid can (and will) fail! */
-				device->acpi->get_device_hid(result, hid, sizeof(hid));
-				snprintf(output, sizeof(output), "%s     DEVICE (%s)", output, hid);
+			{
+				char* hid = NULL;
+				device->acpi->get_device_info(result, &hid, NULL, 0, NULL);
+				strlcat(output, "     DEVICE (", sizeof(output));
+				if (hid != NULL) {
+					strlcat(output, hid, sizeof(output));
+					free(hid);
+				} else
+					strlcat(output, "none", sizeof(output));
+				strlcat(output, ")", sizeof(output));
 				break;
+			}
 			case ACPI_TYPE_EVENT:
-				snprintf(output, sizeof(output), "%s     EVENT", output);
+				strlcat(output, "     EVENT", sizeof(output));
 				break;
 			case ACPI_TYPE_METHOD:
-				snprintf(output, sizeof(output), "%s     METHOD", output);
+				strlcat(output, "     METHOD", sizeof(output));
 				break;
 			case ACPI_TYPE_MUTEX:
-				snprintf(output, sizeof(output), "%s     MUTEX", output);
+				strlcat(output, "     MUTEX", sizeof(output));
 				break;
 			case ACPI_TYPE_REGION:
-				snprintf(output, sizeof(output), "%s     REGION", output);
+				strlcat(output, "     REGION", sizeof(output));
 				break;
 			case ACPI_TYPE_POWER:
-				snprintf(output, sizeof(output), "%s     POWER", output);
+				strlcat(output, "     POWER", sizeof(output));
 				break;
 			case ACPI_TYPE_PROCESSOR:
-				snprintf(output, sizeof(output), "%s     PROCESSOR", output);
+				strlcat(output, "     PROCESSOR", sizeof(output));
 				break;
 			case ACPI_TYPE_THERMAL:
-				snprintf(output, sizeof(output), "%s     THERMAL", output);
+				strlcat(output, "     THERMAL", sizeof(output));
 				break;
 			case ACPI_TYPE_BUFFER_FIELD:
-				snprintf(output, sizeof(output), "%s     BUFFER_FIELD", output);
+				strlcat(output, "     BUFFER_FIELD", sizeof(output));
 				break;
 			case ACPI_TYPE_ANY:
 			default:
@@ -387,7 +395,10 @@ RingBuffer::~RingBuffer()
 size_t
 RingBuffer::Read(void *buffer, ssize_t size)
 {
-	return ring_buffer_read(fBuffer, (uint8*)buffer, size);
+	if (IS_USER_ADDRESS(buffer))
+		return ring_buffer_user_read(fBuffer, (uint8*)buffer, size);
+	else
+		return ring_buffer_read(fBuffer, (uint8*)buffer, size);
 }
 
 

@@ -23,41 +23,44 @@
 <body>
 
 <div id="banner">
-<div><span>User guide</span></div>
+<div><span>Guia do Usuário</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/pt_BR.png" alt="" /> Português (Brazil)</li>
-<li><a href="../ca/gui.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/gui.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/gui.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/gui.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../fr/gui.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../it/gui.html"><img src="../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../hu/gui.html"><img src="../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../pl/gui.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/gui.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../ro/gui.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/gui.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/gui.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/gui.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/gui.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/gui.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/gui.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/gui.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Português (Brazil)&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/gui.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/gui.html">Català</a></li>
+<li><a href="../de/gui.html">Deutsch</a></li>
+<li><a href="../en/gui.html">English</a></li>
+<li><a href="../es/gui.html">Español</a></li>
+<li><a href="../fr/gui.html">Français</a></li>
+<li><a href="../fur/gui.html">Furlan</a></li>
+<li><a href="../it/gui.html">Italiano</a></li>
+<li><a href="../hu/gui.html">Magyar</a></li>
+<li><a href="../pl/gui.html">Polski</a></li>
+<li><a href="../pt_PT/gui.html">Português</a></li>
+<li><a href="../ro/gui.html">Română</a></li>
+<li><a href="../sk/gui.html">Slovenčina</a></li>
+<li><a href="../fi/gui.html">Suomi</a></li>
+<li><a href="../sv_SE/gui.html">Svenska</a></li>
+<li><a href="../tr/gui.html">Türkçe</a></li>
+<li><a href="../zh_CN/gui.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/gui.html">Русский</a></li>
+<li><a href="../uk/gui.html">Українська</a></li>
+<li><a href="../jp/gui.html">日本語</a></li>
 </ul>
 <span>
- «  <a href="filesystem-layout.html">Filesystem layout</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
-::  <a href="workspaces.html">Workspaces</a>  »
+ «  <a href="filesystem-layout.html">Disposição do sistema de arquivos</a> 
+::  <a href="contents.html" class="uplink">Conteúdo</a> 
+::  <a href="workspaces.html">Espaços de Trabalho</a>  »
 </span></div>
 </div>
 
 <div id="content">
 <div>
-<div class="box-info">The translation of this page isn't yet complete. Until it is, unfinished parts use the English original.</div>
+<div class="box-info">A tradução desta página ainda não está completa. Até lá, partes incompletas mostrarão o original em inglês.</div>
 
 <table class="index" id="index" summary="index">
 <tr class="heading"><td>Índice</td></tr>
@@ -70,7 +73,7 @@
 
 <h1>Interface Gráfica de Usuário (GUI) do Haiku</h1>
 
-<p>A interface gráfica de usuário do Haiku é uma parte integrante do sistema. Diferentemente dos sistemas operacionais baseados em Unix, não existe um gerenciador de janelas separado e inicializar apenas dentro de um console de linha de comendo não é possível. Estando o foco do Haiku no usuário final, isto não é considerado necessário.</p>
+<p>Haiku's graphical user interface is an integral part of the system. Unlike other Unix-like operating systems, there is no separate window manager and booting just into a command-line shell is not possible. Haiku's focus being on the desktop user, this is just not considered necessary.</p>
 <p>Como você provavelmente tem experiência com outros ambientes gráficos, vamos pular o básico como menus, menus de contexto com clique no botão direito do mouse, arrastar e soltar, etc. Ao invés disso, vamos ter uma visão sobre alguns aspectos únicos da GUI do Haiku.</p>
 <img src="images/gui-images/gui.png" alt="gui.png" />
 <p>Existem apenas umas poucas coisas na GUI do Haiku que não são óbvias e fazem jus a uma explanação.</p>
@@ -81,7 +84,7 @@
 <li>Pode-se minimizar uma janela com um clique duplo em sua guia (ou com <span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">M</span>). Essa janela oculta pode ser acessada por sua entrada no <a href="deskbar.html">Deskbar</a> ou <a href="twitcher.html">Twitcher</a>.</li>
 <li>Pode-se enviar uma janela para trás com um clique no botão direito do mouse em sua guia (ou seu contorno).</li></ul></li>
 <li><p>O botão fechar.</p></li>
-<li><p>O botão "zoom" (ou <span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">Z</span>). Na maioria dos aplicativos, isto expande uma janela para o tamanho máximo. Entretanto, isso não é obrigatório. A janela do Rastreador (Tracker), por exemplo, irá redimensionar para melhor ajustar os conteúdos.</p></li>
+<li><p>The "zoom" button (or <span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">Z</span>). In most applications, this will expand a window to maximum size without obscuring the Deskbar (hold <span class="key">SHIFT</span> to cover the Deskbar as well). It doesn't have to, however. Tracker windows, for example, will resize to best fit the contents.</p></li>
 <li><p>O contorna da janela. Arrastando com o botão esquerdo do mouse move a janela, com o botão direito redimensiona.</p></li>
 <li><p>O canto de redimensionamento.</p></li>
 </ol>
@@ -159,9 +162,9 @@ Um clique com o botão direito do mouse em uma alça Replicante oferece um menu 
 
 <div class="nav">
 <div class="inner"><span>
- «  <a href="filesystem-layout.html">Filesystem layout</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
-::  <a href="workspaces.html">Workspaces</a>  »
+ «  <a href="filesystem-layout.html">Disposição do sistema de arquivos</a> 
+::  <a href="contents.html" class="uplink">Conteúdo</a> 
+::  <a href="workspaces.html">Espaços de Trabalho</a>  »
 </span></div>
 </div>
 

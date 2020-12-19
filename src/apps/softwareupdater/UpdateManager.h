@@ -1,11 +1,12 @@
 /*
- * Copyright 2013-2017, Haiku, Inc. All Rights Reserved.
+ * Copyright 2013-2019, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Ingo Weinhold <ingo_weinhold@gmx.de>
  *		Rene Gollent <rene@gollent.com>
  *		Brian Hill <supernova@tycho.email>
+ *		Jacob Secunda
  */
 #ifndef UPDATE_MANAGER_H
 #define UPDATE_MANAGER_H
@@ -85,9 +86,11 @@ private:
 private:
 			BPackageManager::ClientInstallationInterface
 									fClientInstallationInterface;
-			
+
 			SoftwareUpdaterWindow*	fStatusWindow;
+			BMessenger				fStatusWindowMessenger;
 			ProblemWindow*			fProblemWindow;
+			BMessenger				fProblemWindowMessenger;
 			uint32					fCurrentStep;
 			bool					fChangesConfirmed;
 			bool					fNewDownloadStarted;
@@ -97,4 +100,4 @@ private:
 };
 
 
-#endif	// UPDATE_MANAGER_H 
+#endif	// UPDATE_MANAGER_H

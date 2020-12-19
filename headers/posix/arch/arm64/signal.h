@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 Jaroslaw Pelczar <jarek@jpelczar.com>
+ * Copyright 2019 Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  */
 
@@ -11,7 +11,7 @@
  * Architecture-specific structure passed to signal handlers
  */
 
-#if defined(__arm64__)
+#if defined(__aarch64__)
 struct vregs
 {
 	ulong		x[30];
@@ -23,7 +23,7 @@ struct vregs
 	u_int		fpsr;
 	u_int		fpcr;
 };
-#endif /* defined(__arm64__) */
+#endif /* defined(__aarch64__) */
 
 
 #endif /* _ARCH_SIGNAL_H_ */

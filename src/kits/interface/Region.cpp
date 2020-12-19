@@ -22,7 +22,6 @@
 const static int32 kDataBlockSize = 8;
 
 
-// Initializes an empty region.
 BRegion::BRegion()
 	:
 	fCount(0),
@@ -34,7 +33,6 @@ BRegion::BRegion()
 }
 
 
-// Initializes a region to be a copy of another.
 BRegion::BRegion(const BRegion& other)
 	:
 	fCount(0),
@@ -46,7 +44,6 @@ BRegion::BRegion(const BRegion& other)
 }
 
 
-// Initializes a region to contain a BRect.
 BRegion::BRegion(const BRect rect)
 	:
 	fCount(0),
@@ -62,7 +59,6 @@ BRegion::BRegion(const BRect rect)
 }
 
 
-// Initializes a region to contain a clipping_rect.
 // NOTE: private constructor
 BRegion::BRegion(const clipping_rect& clipping)
 	:
@@ -81,15 +77,13 @@ BRegion::~BRegion()
 }
 
 
-// Modifies the region to be a copy of the given BRegion.
 BRegion&
 BRegion::operator=(const BRegion& other)
 {
 	if (&other == this)
 		return *this;
 
-	// handle reallocation if we're too small to contain
-	// the other other
+	// handle reallocation if we're too small to contain the other's data
 	if (_SetSize(other.fDataSize)) {
 		memcpy(fData, other.fData, other.fCount * sizeof(clipping_rect));
 
@@ -101,7 +95,6 @@ BRegion::operator=(const BRegion& other)
 }
 
 
-// Compares this region to another (by value).
 bool
 BRegion::operator==(const BRegion& other) const
 {
@@ -115,7 +108,6 @@ BRegion::operator==(const BRegion& other) const
 }
 
 
-// Set the region to contain just the given BRect.
 void
 BRegion::Set(BRect rect)
 {
@@ -123,7 +115,6 @@ BRegion::Set(BRect rect)
 }
 
 
-//Set the region to contain just the given clipping_rect.
 void
 BRegion::Set(clipping_rect clipping)
 {
@@ -131,16 +122,12 @@ BRegion::Set(clipping_rect clipping)
 
 	if (valid_rect(clipping) && fData != NULL) {
 		fCount = 1;
-		// cheap convert to internal rect format
-		clipping.right++;
-		clipping.bottom++;
-		fData[0] = fBounds = clipping;
+		fData[0] = fBounds = _ConvertToInternal(clipping);
 	} else
 		MakeEmpty();
 }
 
 
-// Returns the bounds of the region.
 BRect
 BRegion::Frame() const
 {
@@ -149,8 +136,6 @@ BRegion::Frame() const
 }
 
 
-// Returns the bounds of the region as a clipping_rect
-// (which has integer coordinates).
 clipping_rect
 BRegion::FrameInt() const
 {
@@ -159,7 +144,6 @@ BRegion::FrameInt() const
 }
 
 
-// Returns the rect contained in the region at the given index.
 BRect
 BRegion::RectAt(int32 index)
 {
@@ -167,7 +151,6 @@ BRegion::RectAt(int32 index)
 }
 
 
-// Returns the rect contained in the region at the given index. (const)
 BRect
 BRegion::RectAt(int32 index) const
 {
@@ -181,7 +164,6 @@ BRegion::RectAt(int32 index) const
 }
 
 
-// Returns the clipping_rect contained in the region at the given index.
 clipping_rect
 BRegion::RectAtInt(int32 index)
 {
@@ -189,7 +171,6 @@ BRegion::RectAtInt(int32 index)
 }
 
 
-// Returns the clipping_rect contained in the region at the given index.
 clipping_rect
 BRegion::RectAtInt(int32 index) const
 {
@@ -203,7 +184,6 @@ BRegion::RectAtInt(int32 index) const
 }
 
 
-// Returns the number of rects contained in the region.
 int32
 BRegion::CountRects()
 {
@@ -211,7 +191,6 @@ BRegion::CountRects()
 }
 
 
-// Returns the number of rects contained in the region.
 int32
 BRegion::CountRects() const
 {
@@ -219,7 +198,6 @@ BRegion::CountRects() const
 }
 
 
-// Check if the region has any area in common with the given BRect.
 bool
 BRegion::Intersects(BRect rect) const
 {
@@ -227,13 +205,10 @@ BRegion::Intersects(BRect rect) const
 }
 
 
-// Check if the region has any area in common with the given clipping_rect.
 bool
 BRegion::Intersects(clipping_rect clipping) const
 {
-	// cheap convert to internal rect format
-	clipping.right++;
-	clipping.bottom++;
+	clipping = _ConvertToInternal(clipping);
 
 	int result = Support::XRectInRegion(this, clipping);
 
@@ -241,7 +216,6 @@ BRegion::Intersects(clipping_rect clipping) const
 }
 
 
-// Check if the region contains the given BPoint.
 bool
 BRegion::Contains(BPoint point) const
 {
@@ -249,7 +223,6 @@ BRegion::Contains(BPoint point) const
 }
 
 
-// Check if the region contains the given coordinates.
 bool
 BRegion::Contains(int32 x, int32 y)
 {
@@ -257,7 +230,6 @@ BRegion::Contains(int32 x, int32 y)
 }
 
 
-// Check if the region contains the given coordinates.
 bool
 BRegion::Contains(int32 x, int32 y) const
 {
@@ -287,8 +259,6 @@ BRegion::OffsetBy(const BPoint& point)
 }
 
 
-// Applies the given x and y offsets to each rect contained by
-// the region and recalculates the region's bounds.
 void
 BRegion::OffsetBy(int32 x, int32 y)
 {
@@ -330,8 +300,6 @@ BRegion::ScaleBy(float x, float y)
 }
 
 
-// Empties the region, so that it doesn't include any rect, and invalidates
-// its bounds.
 void
 BRegion::MakeEmpty()
 {
@@ -340,7 +308,6 @@ BRegion::MakeEmpty()
 }
 
 
-// Modifies the region, so that it includes the given BRect.
 void
 BRegion::Include(BRect rect)
 {
@@ -348,7 +315,6 @@ BRegion::Include(BRect rect)
 }
 
 
-// Modifies the region, so that it includes the given clipping_rect.
 void
 BRegion::Include(clipping_rect clipping)
 {
@@ -369,7 +335,6 @@ BRegion::Include(clipping_rect clipping)
 }
 
 
-// Modifies the region, so that it includes the area of the given region.
 void
 BRegion::Include(const BRegion* region)
 {
@@ -380,9 +345,6 @@ BRegion::Include(const BRegion* region)
 }
 
 
-/*!	\brief Modifies the region, excluding the area represented by the given BRect.
-	\param rect The BRect to be excluded.
-*/
 void
 BRegion::Exclude(BRect rect)
 {
@@ -390,7 +352,6 @@ BRegion::Exclude(BRect rect)
 }
 
 
-// Modifies the region, excluding the area represented by the given clipping_rect.
 void
 BRegion::Exclude(clipping_rect clipping)
 {
@@ -411,7 +372,6 @@ BRegion::Exclude(clipping_rect clipping)
 }
 
 
-// Modifies the region, excluding the area contained in the given BRegion.
 void
 BRegion::Exclude(const BRegion* region)
 {
@@ -422,8 +382,6 @@ BRegion::Exclude(const BRegion* region)
 }
 
 
-// Modifies the region, so that it will contain only the area in common
-// with the given BRegion.
 void
 BRegion::IntersectWith(const BRegion* region)
 {
@@ -434,8 +392,6 @@ BRegion::IntersectWith(const BRegion* region)
 }
 
 
-// Modifies the region, so that it will contain just the area which both
-// regions do not have in common.
 void
 BRegion::ExclusiveInclude(const BRegion* region)
 {

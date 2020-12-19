@@ -1,39 +1,101 @@
 /*
- * Copyright 2017-2018, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2017-2020, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
-
 #include "ServerIconExportUpdateProcess.h"
 
-#include <stdio.h>
 #include <sys/stat.h>
 #include <time.h>
 
-#include <Autolock.h>
+#include <AutoDeleter.h>
+#include <AutoLocker.h>
+#include <Catalog.h>
 #include <FileIO.h>
-#include <support/StopWatch.h>
-#include <support/ZlibCompressionAlgorithm.h>
 
+#include "DataIOUtils.h"
 #include "HaikuDepotConstants.h"
 #include "Logger.h"
-#include "ServerSettings.h"
+#include "ServerHelper.h"
+#include "StandardMetaDataJsonEventListener.h"
 #include "StorageUtils.h"
 #include "TarArchiveService.h"
 
+#define ENTRY_PATH_METADATA "hicn/info.json"
 
-/*! This constructor will locate the cached data in a standardized location */
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "ServerIconExportUpdateProcess"
+
+
+/*!	This listener will scan the files that are available in the tar file and
+	find the meta-data file.  This is a JSON piece of data that describes the
+	timestamp of the last modified data in the tar file.  This is then used to
+	establish if the server has any newer data and hence if it is worth
+	downloading fresh data.  The process uses the standard HTTP
+	If-Modified-Since header.
+*/
+
+class InfoJsonExtractEntryListener : public TarEntryListener
+{
+public:
+								InfoJsonExtractEntryListener();
+	virtual						~InfoJsonExtractEntryListener();
+
+	virtual status_t			Handle(
+									const TarArchiveHeader& header,
+									size_t offset,
+									BDataIO *data);
+
+			BPositionIO&		GetInfoJsonData();
+private:
+			BMallocIO			fInfoJsonData;
+};
+
+
+InfoJsonExtractEntryListener::InfoJsonExtractEntryListener()
+{
+}
+
+InfoJsonExtractEntryListener::~InfoJsonExtractEntryListener()
+{
+}
+
+
+BPositionIO&
+InfoJsonExtractEntryListener::GetInfoJsonData()
+{
+	return fInfoJsonData;
+}
+
+
+status_t
+InfoJsonExtractEntryListener::Handle( const TarArchiveHeader& header,
+	size_t offset, BDataIO *data)
+{
+	if (header.Length() > 0 && header.FileName() == ENTRY_PATH_METADATA) {
+		status_t copyResult = DataIOUtils::CopyAll(&fInfoJsonData, data);
+		if (copyResult == B_OK) {
+			HDINFO("[InfoJsonExtractEntryListener] did extract [%s]",
+				ENTRY_PATH_METADATA);
+			fInfoJsonData.Seek(0, SEEK_SET);
+			return B_CANCELED;
+				// this will prevent further scanning of the tar file
+		}
+		return copyResult;
+	}
+
+	return B_OK;
+}
+
+
+/*!	This constructor will locate the cached data in a standardized location
+*/
 
 ServerIconExportUpdateProcess::ServerIconExportUpdateProcess(
-	AbstractServerProcessListener* listener,
-	const BPath& localStorageDirectoryPath,
 	Model* model,
-	uint32 options)
+	uint32 serverProcessOptions)
 	:
-	AbstractServerProcess(listener, options),
-	fLocalStorageDirectoryPath(localStorageDirectoryPath),
-	fModel(model),
-	fLocalIconStore(LocalIconStore(localStorageDirectoryPath)),
-	fCountIconsSet(0)
+	AbstractSingleFileServerProcess(serverProcessOptions),
+	fModel(model)
 {
 }
 
@@ -44,147 +106,103 @@ ServerIconExportUpdateProcess::~ServerIconExportUpdateProcess()
 
 
 const char*
-ServerIconExportUpdateProcess::Name()
+ServerIconExportUpdateProcess::Name() const
 {
 	return "ServerIconExportUpdateProcess";
 }
 
 
-status_t
-ServerIconExportUpdateProcess::RunInternal()
+const char*
+ServerIconExportUpdateProcess::Description() const
 {
-	status_t result = B_OK;
+	return B_TRANSLATE("Synchronizing icons");
+}
 
-	if (IsSuccess(result) && HasOption(SERVER_PROCESS_DROP_CACHE)) {
-		result = StorageUtils::RemoveDirectoryContents(
-			fLocalStorageDirectoryPath);
-	}
 
-	if (IsSuccess(result)) {
-		bool hasData;
-
-		result = HasLocalData(&hasData);
-
-		if (IsSuccess(result) && ShouldAttemptNetworkDownload(hasData))
-			result = DownloadAndUnpack();
-
-		if (IsSuccess(result)) {
-			status_t hasDataResult = HasLocalData(&hasData);
-
-			if (IsSuccess(hasDataResult) && !hasData)
-				result = HD_ERR_NO_DATA;
-		}
-	}
-
-	if (IsSuccess(result) && !WasStopped())
-		result = Populate();
-
+status_t
+ServerIconExportUpdateProcess::ProcessLocalData()
+{
+	status_t result = fModel->InitPackageIconRepository();
+	_NotifyPackagesWithIconsInDepots();
 	return result;
 }
 
 
 status_t
-ServerIconExportUpdateProcess::PopulateForPkg(const PackageInfoRef& package)
+ServerIconExportUpdateProcess::GetLocalPath(BPath& path) const
 {
-	BPath bestIconPath;
-
-	if ( fLocalIconStore.TryFindIconPath(
-		package->Name(), bestIconPath) == B_OK) {
-
-		BFile bestIconFile(bestIconPath.Path(), O_RDONLY);
-		BitmapRef bitmapRef(new(std::nothrow)SharedBitmap(bestIconFile), true);
-		// TODO; somehow handle the locking!
-		//BAutolock locker(&fLock);
-		package->SetIcon(bitmapRef);
-
-		if (Logger::IsDebugEnabled()) {
-			fprintf(stdout, "have set the package icon for [%s] from [%s]\n",
-				package->Name().String(), bestIconPath.Path());
-		}
-
-		fCountIconsSet++;
-
-		return B_OK;
-	}
-
-	if (Logger::IsDebugEnabled()) {
-		fprintf(stdout, "did not set the package icon for [%s]; no data\n",
-			package->Name().String());
-	}
-
-	return B_FILE_NOT_FOUND;
+	return fModel->IconTarPath(path);
 }
 
 
-bool
-ServerIconExportUpdateProcess::ConsumePackage(
-	const PackageInfoRef& packageInfoRef, void* context)
-{
-	PopulateForPkg(packageInfoRef);
-	return !WasStopped();
-}
-
+/*!	This overridden method implementation seems inefficient because it will
+	apparently scan the entire tarball for the file that it is looking for, but
+	actually it will cancel the scan once it has found it's target object (the
+	JSON data containing the meta-data) and by convention, the server side will
+	place the meta-data as one of the first objects in the tar-ball so it will
+	find it quickly.
+*/
 
 status_t
-ServerIconExportUpdateProcess::Populate()
+ServerIconExportUpdateProcess::IfModifiedSinceHeaderValue(BString& headerValue) const
 {
-	BStopWatch watch("ServerIconExportUpdateProcess::Populate", true);
-	fModel->ForAllPackages(this, NULL);
+	headerValue.SetTo("");
 
-	if (Logger::IsInfoEnabled()) {
-		double secs = watch.ElapsedTime() / 1000000.0;
-		fprintf(stdout, "did populate %" B_PRId32 " packages' icons"
-		 	" (%6.3g secs)\n", fCountIconsSet, secs);
-	}
+	BPath tarPath;
+	status_t result = GetLocalPath(tarPath);
 
-	return B_OK;
-}
-
-
-status_t
-ServerIconExportUpdateProcess::DownloadAndUnpack()
-{
-	BPath tarGzFilePath(tmpnam(NULL));
-	status_t result = B_OK;
-
-	printf("will start fetching icons\n");
-
-	result = Download(tarGzFilePath);
+	// early exit if the tar file is not there.
 
 	if (result == B_OK) {
-		printf("delete any existing stored data\n");
-		StorageUtils::RemoveDirectoryContents(fLocalStorageDirectoryPath);
+		off_t size;
+		bool hasFile;
 
-		BFile *tarGzFile = new BFile(tarGzFilePath.Path(), O_RDONLY);
-		BDataIO* tarIn;
+		result = StorageUtils::ExistsObject(tarPath, &hasFile, NULL, &size);
 
-		BZlibDecompressionParameters* zlibDecompressionParameters
-			= new BZlibDecompressionParameters();
+		if (result == B_OK && (!hasFile || size == 0))
+			return result;
+	}
 
-		result = BZlibCompressionAlgorithm()
-			.CreateDecompressingInputStream(tarGzFile,
-			    zlibDecompressionParameters, tarIn);
+	if (result == B_OK) {
+		BFile *tarIo = new BFile(tarPath.Path(), O_RDONLY);
+		ObjectDeleter<BFile> tarIoDeleter(tarIo);
+		InfoJsonExtractEntryListener* extractDataListener
+			= new InfoJsonExtractEntryListener();
+		ObjectDeleter<InfoJsonExtractEntryListener> extractDataListenerDeleter(
+			extractDataListener);
+		result = TarArchiveService::ForEachEntry(*tarIo, extractDataListener);
 
-		if (result == B_OK) {
-			BStopWatch watch("ServerIconExportUpdateProcess::DownloadAndUnpack_Unpack", true);
+		if (result == B_CANCELED) {
+			// the cancellation is expected because it will cancel when it finds
+			// the meta-data file to avoid any further cost of traversing the
+			// tar-ball.
+			result = B_OK;
 
-			result = TarArchiveService::Unpack(*tarIn,
-			    fLocalStorageDirectoryPath, NULL);
+			StandardMetaData metaData;
+			BString metaDataJsonPath;
+			GetStandardMetaDataJsonPath(metaDataJsonPath);
+			StandardMetaDataJsonEventListener parseInfoJsonListener(
+				metaDataJsonPath, metaData);
+			BPrivate::BJson::Parse(
+				&(extractDataListener->GetInfoJsonData()),
+				&parseInfoJsonListener);
+
+			result = parseInfoJsonListener.ErrorStatus();
+
+		// An example of this output would be; 'Fri, 24 Oct 2014 19:32:27 +0000'
 
 			if (result == B_OK) {
-				double secs = watch.ElapsedTime() / 1000000.0;
-				fprintf(stdout, "did unpack icon tgz in (%6.3g secs)\n", secs);
-
-				if (0 != remove(tarGzFilePath.Path())) {
-					fprintf(stdout, "unable to delete the temporary tgz path; "
-					    "%s\n", tarGzFilePath.Path());
-				}
+				SetIfModifiedSinceHeaderValueFromMetaData(
+					headerValue, metaData);
+			} else {
+				HDERROR("[%s] unable to parse the meta data from the tar file",
+					Name());
 			}
+		} else {
+			HDERROR("[%s] did not find the metadata [%s] in the tar",
+				Name(), ENTRY_PATH_METADATA);
+			result = B_BAD_DATA;
 		}
-
-		delete tarGzFile;
-
-		printf("did complete fetching icons\n");
 	}
 
 	return result;
@@ -192,21 +210,10 @@ ServerIconExportUpdateProcess::DownloadAndUnpack()
 
 
 status_t
-ServerIconExportUpdateProcess::HasLocalData(bool* result) const
-{
-	BPath path;
-	off_t size;
-	GetStandardMetaDataPath(path);
-	return StorageUtils::ExistsObject(path, result, NULL, &size)
-		&& size > 0;
-}
-
-
-void
 ServerIconExportUpdateProcess::GetStandardMetaDataPath(BPath& path) const
 {
-	path.SetTo(fLocalStorageDirectoryPath.Path());
-	path.Append("hicn/info.json");
+	return B_ERROR;
+		// unsupported
 }
 
 
@@ -214,17 +221,38 @@ void
 ServerIconExportUpdateProcess::GetStandardMetaDataJsonPath(
 	BString& jsonPath) const
 {
-		// the "$" here indicates that the data is at the top level.
 	jsonPath.SetTo("$");
+		// the "$" here indicates that the data is at the top level.
 }
 
 
-status_t
-ServerIconExportUpdateProcess::Download(BPath& tarGzFilePath)
+BString
+ServerIconExportUpdateProcess::UrlPathComponent()
 {
-	return DownloadToLocalFileAtomically(tarGzFilePath,
-		ServerSettings::CreateFullUrl("/__pkgicon/all.tar.gz"));
+	return "/__pkgicon/all.tar.gz";
 }
 
 
+void
+ServerIconExportUpdateProcess::_NotifyPackagesWithIconsInDepots() const
+{
+	for (int32 d = 0; d < fModel->CountDepots(); d++) {
+		_NotifyPackagesWithIconsInDepot(fModel->DepotAtIndex(d));
+	}
+}
 
+
+void
+ServerIconExportUpdateProcess::_NotifyPackagesWithIconsInDepot(
+	const DepotInfoRef& depot) const
+{
+	PackageIconRepository& packageIconRepository
+		= fModel->GetPackageIconRepository();
+	const PackageList& packages = depot->Packages();
+	for (int32 p = 0; p < packages.CountItems(); p++) {
+		AutoLocker<BLocker> locker(fModel->Lock());
+		const PackageInfoRef& packageInfoRef = packages.ItemAtFast(p);
+		if (packageIconRepository.HasAnyIcon(packageInfoRef->Name()))
+			packages.ItemAtFast(p)->NotifyChangedIcon();
+	}
+}

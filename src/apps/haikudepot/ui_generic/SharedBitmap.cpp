@@ -1,12 +1,12 @@
 /*
  * Copyright 2013-2014, Stephan Aßmus <superstippi@gmx.de>.
+ * Copyright 2020, Andrew Lindesay <apl@lindesay.co.nz>
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
 #include "SharedBitmap.h"
 
 #include <algorithm>
-#include <stdio.h>
 
 #include <Application.h>
 #include <Bitmap.h>
@@ -16,6 +16,8 @@
 #include <MimeType.h>
 #include <Resources.h>
 #include <TranslationUtils.h>
+
+#include "Logger.h"
 
 #include "support.h"
 
@@ -73,39 +75,26 @@ SharedBitmap::SharedBitmap(BPositionIO& data)
 	fSize(0),
 	fMimeType()
 {
-	status_t status = data.GetSize(&fSize);
-	const off_t kMaxSize = 1024 * 1024;
-	if (status == B_OK && fSize > 0 && fSize <= kMaxSize) {
-		fBuffer = new(std::nothrow) uint8[fSize];
-		if (fBuffer != NULL) {
-			data.Seek(0, SEEK_SET);
-
-			off_t bytesRead = 0;
-			size_t chunkSize = std::min((off_t)4096, fSize);
-			while (bytesRead < fSize) {
-				ssize_t read = data.Read(fBuffer + bytesRead, chunkSize);
-				if (read > 0)
-					bytesRead += read;
-				else
-					break;
-			}
-
-			if (bytesRead != fSize) {
-				delete[] fBuffer;
-				fBuffer = NULL;
-				fSize = 0;
-			}
-		} else
-			fSize = 0;
-	} else {
-		fprintf(stderr, "SharedBitmap(): Stream too large: %" B_PRIi64
-			", max: %" B_PRIi64 "\n", fSize, kMaxSize);
+	off_t size;
+	if (data.GetSize(&size) == B_OK) {
+		data.Seek(0, SEEK_SET);
+		_InitWithData(data, size);
 	}
-
 	fBitmap[0] = NULL;
 	fBitmap[1] = NULL;
 	fBitmap[2] = NULL;
 	fBitmap[3] = NULL;
+}
+
+SharedBitmap::SharedBitmap(BDataIO& data, size_t size)
+	:
+	BReferenceable(),
+	fResourceID(-1),
+	fBuffer(NULL),
+	fSize(0),
+	fMimeType()
+{
+	_InitWithData(data, size);
 }
 
 
@@ -119,8 +108,35 @@ SharedBitmap::~SharedBitmap()
 }
 
 
+void
+SharedBitmap::_InitWithData(BDataIO& data, size_t size)
+{
+	fSize = size;
+	const off_t kMaxSize = 1024 * 1024;
+	if (size > 0 && size <= kMaxSize) {
+		fBuffer = new(std::nothrow) uint8[size];
+		if (fBuffer != NULL) {
+			if (data.ReadExactly(fBuffer, size) == B_OK)
+				fSize = size;
+			else {
+				delete[] fBuffer;
+				fBuffer = NULL;
+			}
+		}
+	} else {
+		HDERROR("image data too large to deal with; %" B_PRIi64
+			", max: %" B_PRIi64, fSize, kMaxSize);
+	}
+
+	fBitmap[0] = NULL;
+	fBitmap[1] = NULL;
+	fBitmap[2] = NULL;
+	fBitmap[3] = NULL;
+}
+
+
 const BBitmap*
-SharedBitmap::Bitmap(Size which)
+SharedBitmap::Bitmap(BitmapSize which)
 {
 	if (fResourceID == -1 && fMimeType.Length() == 0 && fBuffer == NULL)
 		return fBitmap[0];
@@ -130,20 +146,20 @@ SharedBitmap::Bitmap(Size which)
 
 	switch (which) {
 		default:
-		case SIZE_16:
+		case BITMAP_SIZE_16:
 			break;
 
-		case SIZE_22:
+		case BITMAP_SIZE_22:
 			index = 1;
 			size = 22;
 			break;
 
-		case SIZE_32:
+		case BITMAP_SIZE_32:
 			index = 2;
 			size = 32;
 			break;
 
-		case SIZE_64:
+		case BITMAP_SIZE_64:
 			index = 3;
 			size = 64;
 			break;
@@ -204,7 +220,7 @@ SharedBitmap::_CreateBitmapFromMimeType(int32 size) const
 	if (status != B_OK)
 		return NULL;
 
-	BBitmap* bitmap = new BBitmap(BRect(0, 0, size, size), 0, B_RGBA32);
+	BBitmap* bitmap = new BBitmap(BRect(0, 0, size - 1, size - 1), 0, B_RGBA32);
 	status = bitmap->InitCheck();
 	if (status == B_OK)
 		status = mimeType.GetIcon(bitmap, B_MINI_ICON);
@@ -267,7 +283,7 @@ BBitmap*
 SharedBitmap::_LoadIconFromBuffer(const void* data, size_t dataSize,
 	int32 size) const
 {
-	BBitmap* bitmap = new BBitmap(BRect(0, 0, size, size), 0,
+	BBitmap* bitmap = new BBitmap(BRect(0, 0, size - 1, size - 1), 0,
 		B_RGBA32);
 	status_t status = bitmap->InitCheck();
 	if (status == B_OK) {

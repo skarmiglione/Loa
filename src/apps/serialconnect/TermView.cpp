@@ -1,5 +1,5 @@
 /*
- * Copyright 2012-2015, Adrien Destugues, pulkomandy@gmail.com
+ * Copyright 2012-2019, Adrien Destugues, pulkomandy@pulkomandy.tk
  * Distributed under the terms of the MIT licence.
  */
 
@@ -77,7 +77,7 @@ TermView::Draw(BRect updateRect)
 		VTermScreenCell cell;
 		int width = 0;
 		bool isCursor = false;
-		
+
 		pos.col = updatedChars.start_col;
 		_GetCell(pos, cell);
 
@@ -99,7 +99,7 @@ TermView::Draw(BRect updateRect)
 				|| pos.col >= updatedChars.end_col
 				|| (pos.col == cursorPos.col && pos.row == cursorPos.row)
 				|| (pos.col == cursorPos.col + 1 && pos.row == cursorPos.row)) {
-				
+
 				rgb_color foreground, background;
 				foreground.red = cell.fg.red;
 				foreground.green = cell.fg.green;
@@ -111,7 +111,7 @@ TermView::Draw(BRect updateRect)
 				background.alpha = 255;
 
 				// Draw the cursor by swapping foreground and background colors
-				if (isCursor) {
+				if (isCursor ^ cell.attrs.reverse) {
 					SetLowColor(foreground);
 					SetViewColor(foreground);
 					SetHighColor(background);
@@ -135,8 +135,12 @@ TermView::Draw(BRect updateRect)
 					font.SetFace(B_ITALIC_FACE);
 				if (cell.attrs.blink) // FIXME make it actually blink
 					font.SetFace(B_OUTLINED_FACE);
+#if 0
+				// FIXME B_NEGATIVE_FACE isn't actually implemented so we
+				// instead swap the colors above
 				if (cell.attrs.reverse)
 					font.SetFace(B_NEGATIVE_FACE);
+#endif
 				if (cell.attrs.strike)
 					font.SetFace(B_STRIKEOUT_FACE);
 
@@ -156,7 +160,7 @@ TermView::Draw(BRect updateRect)
 				isCursor = true;
 			else
 				isCursor = false;
-			
+
 			if (newCell.chars[0] == 0) {
 				string += " ";
 				pos.col ++;
@@ -234,7 +238,7 @@ TermView::KeyDown(const char* bytes, int32 numBytes)
 void
 TermView::MessageReceived(BMessage* message)
 {
-	switch(message->what)
+	switch (message->what)
 	{
 		case 'DATA':
 		{
@@ -263,6 +267,20 @@ void
 TermView::PushBytes(const char* bytes, size_t length)
 {
 	vterm_push_bytes(fTerm, bytes, length);
+}
+
+
+void
+TermView::Clear()
+{
+	while (fScrollBuffer.ItemAt(0)) {
+		free(fScrollBuffer.RemoveItem((int32)0));
+	}
+
+	vterm_state_reset(vterm_obtain_state(fTerm), 1);
+	vterm_screen_reset(fTermScreen, 1);
+
+	_UpdateScrollbar();
 }
 
 
@@ -435,8 +453,16 @@ TermView::_PushLine(int cols, const VTermScreenCell* cells)
 
 	fScrollBuffer.AddItem(item, 0);
 
+	// Remove extra items if the scrollback gets too long
 	free(fScrollBuffer.RemoveItem(kScrollBackSize));
 
+	_UpdateScrollbar();
+}
+
+
+void
+TermView::_UpdateScrollbar()
+{
 	int availableRows, availableCols;
 	vterm_get_size(fTerm, &availableRows, &availableCols);
 
@@ -459,6 +485,27 @@ TermView::_PushLine(int cols, const VTermScreenCell* cells)
 		scrollBar->SetProportion(availableRows * fFontHeight / range);
 		scrollBar->SetSteps(fFontHeight, fFontHeight * 3);
 	}
+}
+
+
+int
+TermView::_PopLine(int cols, VTermScreenCell* cells)
+{
+	ScrollBufferItem* item =
+		(ScrollBufferItem*)fScrollBuffer.RemoveItem((int32)0);
+	if (item == NULL)
+		return 0;
+
+	_UpdateScrollbar();
+	if (item->cols >= cols) {
+		memcpy(cells, item->cells, cols * sizeof(VTermScreenCell));
+	} else {
+		memcpy(cells, item->cells, item->cols * sizeof(VTermScreenCell));
+		for (int i = item->cols; i < cols; i++)
+			cells[i] = cells[i - 1];
+	}
+	free(item);
+	return 1;
 }
 
 
@@ -492,6 +539,14 @@ TermView::_PushLine(int cols, const VTermScreenCell* cells, void* user)
 }
 
 
+/* static */ int
+TermView::_PopLine(int cols, VTermScreenCell* cells, void* user)
+{
+	TermView* view = (TermView*)user;
+	return view->_PopLine(cols, cells);
+}
+
+
 const
 VTermScreenCallbacks TermView::sScreenCallbacks = {
 	&TermView::_Damage,
@@ -502,5 +557,5 @@ VTermScreenCallbacks TermView::sScreenCallbacks = {
 	/*.bell =*/ NULL,
 	/*.resize =*/ NULL,
 	&TermView::_PushLine,
-	/*.sb_popline =*/ NULL,
+	&TermView::_PopLine,
 };

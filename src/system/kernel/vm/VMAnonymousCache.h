@@ -40,12 +40,19 @@ public:
 									uint32 allocationFlags);
 
 	virtual	status_t			Resize(off_t newSize, int priority);
+	virtual	status_t			Rebase(off_t newBase, int priority);
+	virtual	status_t			Adopt(VMCache* source, off_t offset,
+									off_t size, off_t newOffset);
+
+	virtual	status_t			Discard(off_t offset, off_t size);
 
 	virtual	status_t			Commit(off_t size, int priority);
 	virtual	bool				HasPage(off_t offset);
 	virtual	bool				DebugHasPage(off_t offset);
 
 	virtual	int32				GuardSize()	{ return fGuardedSize; }
+	virtual	void				SetGuardSize(int32 guardSize)
+									{ fGuardedSize = guardSize; }
 
 	virtual	status_t			Read(off_t offset, const generic_io_vec* vecs,
 									size_t count, uint32 flags,
@@ -75,7 +82,7 @@ private:
 
 			void				_SwapBlockBuild(off_t pageIndex,
 									swap_addr_t slotIndex, uint32 count);
-			void        		_SwapBlockFree(off_t pageIndex, uint32 count);
+			void				_SwapBlockFree(off_t pageIndex, uint32 count);
 			swap_addr_t			_SwapBlockGetAddress(off_t pageIndex);
 			status_t			_Commit(off_t size, int priority);
 
@@ -85,6 +92,9 @@ private:
 									VMAnonymousCache* source);
 			void				_MergeSwapPages(VMAnonymousCache* source);
 
+			void				_FreeSwapPageRange(off_t fromOffset,
+									off_t toOffset, bool skipBusyPages = true);
+
 private:
 	friend bool swap_free_page_swap_space(vm_page* page);
 
@@ -92,8 +102,8 @@ private:
 			bool				fHasPrecommitted;
 			uint8				fPrecommittedPages;
 			int32				fGuardedSize;
-			off_t   			fCommittedSwapSize;
-			off_t   			fAllocatedSwapSize;
+			off_t				fCommittedSwapSize;
+			off_t				fAllocatedSwapSize;
 };
 
 #endif	// ENABLE_SWAP_SUPPORT

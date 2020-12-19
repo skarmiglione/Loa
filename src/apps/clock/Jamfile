@@ -1,7 +1,5 @@
 SubDir HAIKU_TOP src apps clock ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
-
 Application Clock : 
 	cl_view.cpp 
 	cl_wind.cpp 
@@ -13,5 +11,6 @@ Application Clock :
 DoCatalogs Clock :
 	x-vnd.Haiku-Clock
 	:
+	cl_view.cpp
 	clock.cpp
 ;

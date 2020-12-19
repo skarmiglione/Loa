@@ -1,3 +1,10 @@
+/*
+ * Copyright 1998-1999 Be, Inc. All Rights Reserved.
+ * Copyright 2003-2019 Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ */
+
+
 #include "FtpClient.h"
 
 #include <stdlib.h>
@@ -12,7 +19,8 @@
 
 
 FtpClient::FtpClient()
-	: FileUploadClient(),
+	:
+	FileUploadClient(),
 	fState(0),
 	fControl(NULL),
 	fData(NULL)
@@ -32,7 +40,8 @@ FtpClient::ChangeDir(const string& dir)
 {
 	bool rc = false;
 	int code, codeType;
-	string cmd = "CWD ", replyString;
+	string cmd = "CWD ";
+	string replyString;
 
 	cmd += dir;
 
@@ -74,7 +83,7 @@ FtpClient::ListDirContents(string& listing)
 							memset(buf, 0, sizeof(buf));
 							numRead = fData->Receive(buf, sizeof(buf) - 1);
 							listing += buf;
-							printf(buf);
+							printf("%s", buf);
 						}
 						if (_GetReply(replyString, code, codeType)) {
 							if (codeType <= 2)
@@ -87,7 +96,7 @@ FtpClient::ListDirContents(string& listing)
 	}
 
 	delete fData;
-	fData = 0;
+	fData = NULL;
 
 	return rc;
 }
@@ -98,7 +107,8 @@ FtpClient::PrintWorkingDir(string& dir)
 {
 	bool rc = false;
 	int code, codeType;
-	string cmd = "PWD", replyString;
+	string cmd = "PWD";
+	string replyString;
 	long i;
 
 	if (_SendRequest(cmd) == true) {
@@ -119,7 +129,8 @@ FtpClient::PrintWorkingDir(string& dir)
 
 
 bool
-FtpClient::Connect(const string& server, const string& login, const string& passwd)
+FtpClient::Connect(const string& server, const string& login,
+	const string& passwd)
 {
 	bool rc = false;
 	int code, codeType;
@@ -129,7 +140,7 @@ FtpClient::Connect(const string& server, const string& login, const string& pass
 	delete fControl;
 	delete fData;
 
-	fControl = new BNetEndpoint;
+	fControl = new BNetEndpoint();
 
 	if (fControl->InitCheck() != B_NO_ERROR)
 		return false;
@@ -174,7 +185,7 @@ FtpClient::Connect(const string& server, const string& login, const string& pass
 		_SetState(ftp_connected);
 	else {
 		delete fControl;
-		fControl = 0;
+		fControl = NULL;
 	}
 
 	return rc;
@@ -188,7 +199,9 @@ FtpClient::PutFile(const string& local, const string& remote, ftp_mode mode)
 	string cmd, replyString;
 	int code, codeType, rlen, slen, i;
 	BFile infile(local.c_str(), B_READ_ONLY);
-	char buf[8192], sbuf[16384], *stmp;
+	char buf[8192];
+	char sbuf[16384];
+	char* stmp;
 
 	if (infile.InitCheck() != B_NO_ERROR)
 		return false;
@@ -251,7 +264,7 @@ FtpClient::PutFile(const string& local, const string& remote, ftp_mode mode)
 	}
 
 	delete fData;
-	fData = 0;
+	fData = NULL;
 
 	if (rc) {
 		_GetReply(replyString, code, codeType);
@@ -269,7 +282,9 @@ FtpClient::GetFile(const string& remote, const string& local, ftp_mode mode)
 	string cmd, replyString;
 	int code, codeType, rlen, slen, i;
 	BFile outfile(local.c_str(), B_READ_WRITE | B_CREATE_FILE);
-	char buf[8192], sbuf[16384], *stmp;
+	char buf[8192];
+	char sbuf[16384];
+	char* stmp;
 	bool writeError = false;
 
 	if (outfile.InitCheck() != B_NO_ERROR)
@@ -328,7 +343,7 @@ FtpClient::GetFile(const string& remote, const string& local, ftp_mode mode)
 	}
 
 	delete fData;
-	fData = 0;
+	fData = NULL;
 
 	if (rc) {
 		_GetReply(replyString, code, codeType);
@@ -373,7 +388,8 @@ FtpClient::Chmod(const string& path, const string& mod)
 {
 	bool rc = false;
 	int code, codeType;
-	string cmd = "SITE CHMOD ", replyString;
+	string cmd = "SITE CHMOD ";
+	string replyString;
 
 	cmd += mod;
 	cmd += " ";
@@ -381,10 +397,11 @@ FtpClient::Chmod(const string& path, const string& mod)
 
 	if (path.length() == 0)
 		cmd += '/';
-printf(B_TRANSLATE("cmd: '%s'\n"), cmd.c_str());
+	printf(B_TRANSLATE("cmd: '%s'\n"), cmd.c_str());
+
 	if (_SendRequest(cmd) == true) {
 		if (_GetReply(replyString, code, codeType) == true) {
-printf(B_TRANSLATE("reply: %d, %d\n"), code, codeType);
+			printf(B_TRANSLATE("reply: %d, %d\n"), code, codeType);
 			if (codeType == 2)
 				rc = true;
 		}
@@ -431,10 +448,11 @@ FtpClient::_SendRequest(const string& cmd)
 	string ccmd = cmd;
 
 	if (fControl != 0) {
-		if (cmd.find("PASS") != string::npos)
-			printf(B_TRANSLATE("PASS <suppressed>  (real password sent)\n"));
-		else
-			printf("%s\n", ccmd.c_str());
+		if (cmd.find("PASS") != string::npos) {
+			puts(B_TRANSLATE("PASS <suppressed>  (real password sent)"));
+		} else {
+			puts(ccmd.c_str());
+		}
 
 		ccmd += "\r\n";
 		if (fControl->Send(ccmd.c_str(), ccmd.length()) >= 0)
@@ -452,9 +470,10 @@ FtpClient::_GetReplyLine(string& line)
 	int c = 0;
 	bool done = false;
 
-	line = "";  // Thanks to Stephen van Egmond for catching a bug here
+	line = "";
+		// Thanks to Stephen van Egmond for catching a bug here
 
-	if (fControl != 0) {
+	if (fControl != NULL) {
 		rc = true;
 		while (done == false && fControl->Receive(&c, 1) > 0) {
 			if (c == EOF || c == xEOF || c == '\n') {
@@ -528,21 +547,25 @@ FtpClient::_GetReply(string& outString, int& outCode, int& codeType)
 	 *	123 The last line
 	 */
 
-	if ((rc = _GetReplyLine(line)) == true) {
+	rc = _GetReplyLine(line);
+	if (rc == true) {
 		outString = line;
+		puts(outString.c_str());
 		outString += '\n';
-		printf(outString.c_str());
 		tempString = line.substr(0, 3);
 		outCode = atoi(tempString.c_str());
 
 		if (line[3] == '-') {
-			while ((rc = _GetReplyLine(line)) == true) {
+			rc = _GetReplyLine(line);
+			while (rc == true) {
 				outString += line;
+				puts(outString.c_str());
 				outString += '\n';
-				printf(outString.c_str());
 				// we're done with nnn when we get to a "nnn blahblahblah"
 				if ((line.find(tempString) == 0) && line[3] == ' ')
 					break;
+
+				rc = _GetReplyLine(line);
 			}
 		}
 	}
@@ -554,7 +577,7 @@ FtpClient::_GetReply(string& outString, int& outCode, int& codeType)
 
 	if (outCode == 421) {
 		delete fControl;
-		fControl = 0;
+		fControl = NULL;
 		_ClearState(ftp_connected);
 	}
 
@@ -575,9 +598,9 @@ FtpClient::_OpenDataConnection()
 	struct sockaddr_in sa;
 
 	delete fData;
-	fData = 0;
+	fData = NULL;
 
-	fData = new BNetEndpoint;
+	fData = new BNetEndpoint();
 
 	if (_TestState(ftp_passive)) {
 		// Here we send a "pasv" command and connect to the remote server
@@ -587,21 +610,23 @@ FtpClient::_OpenDataConnection()
 			if (_GetReply(replyString, code, codeType)) {
 
 				if (codeType == 2) {
-					 //  It should give us something like:
-			 		 // "227 Entering Passive Mode (192,168,1,1,10,187)"
+					//  It should give us something like:
+					// "227 Entering Passive Mode (192,168,1,1,10,187)"
 					int paddr[6];
 					unsigned char ucaddr[6];
 
 					i = replyString.find('(');
 					i++;
 
-					replyString = replyString.substr(i, replyString.find(')') - i);
+					replyString = replyString.substr(i,
+						replyString.find(')') - i);
 					if (sscanf(replyString.c_str(), "%d,%d,%d,%d,%d,%d",
 						&paddr[0], &paddr[1], &paddr[2], &paddr[3],
 						&paddr[4], &paddr[5]) != 6) {
-						// cannot do passive.  Do a little harmless rercursion here
-						_ClearState(ftp_passive);
-						return _OpenDataConnection();
+							// Cannot do passive.
+							// Do a little harmless rercursion here.
+							_ClearState(ftp_passive);
+							return _OpenDataConnection();
 						}
 
 					for (i = 0; i < 6; i++)
@@ -661,9 +686,9 @@ FtpClient::_AcceptDataConnection()
 	bool rc = false;
 
 	if (_TestState(ftp_passive) == false) {
-		if (fData != 0) {
+		if (fData != NULL) {
 			endPoint = fData->Accept();
-			if (endPoint != 0) {
+			if (endPoint != NULL) {
 				delete fData;
 				fData = endPoint;
 				rc = true;

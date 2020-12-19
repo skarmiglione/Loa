@@ -9,7 +9,7 @@ boot loader, kernel, the system libraries, servers, and applications."
 packager		"The Haiku build system"
 vendor			"Haiku Project"
 
-copyrights		"2001-2018 Haiku, Inc. et al"
+copyrights		"2001-2020 Haiku, Inc. et al"
 licenses {
 	MIT
 	"GNU LGPL v2.1"
@@ -21,9 +21,7 @@ provides {
 	cmd:arp
 	cmd:chop
 	cmd:clear
-	cmd:compress
 	cmd:df
-	cmd:ftp
 	cmd:ftpd
 	cmd:hd
 	cmd:hey
@@ -40,7 +38,6 @@ provides {
 	cmd:telnet
 	cmd:telnetd
 	cmd:top
-	cmd:tput
 	cmd:traceroute
 	cmd:trash
 	cmd:unchop
@@ -59,6 +56,9 @@ requires {
 	cmd:unzip
 #endif
 	lib:libcurl
+#ifdef HAIKU_BUILD_FEATURE_X86_LIBEDIT_ENABLED
+	lib:libedit
+#endif
 #ifdef HAIKU_BUILD_FEATURE_X86_FONTCONFIG_ENABLED
 	lib:libfontconfig
 #endif
@@ -67,8 +67,6 @@ requires {
 	lib:libicudata >= 57
 	lib:libicui18n >= 57
 	lib:libicuio >= 57
-	lib:libicule >= 57
-	lib:libiculx >= 57
 	lib:libicutest >= 57
 	lib:libicutu >= 57
 	lib:libicuuc >= 57
@@ -78,7 +76,7 @@ requires {
 	lib:libexpat
 #endif
 #ifdef HAIKU_BUILD_FEATURE_X86_GUTENPRINT_ENABLED
-	lib:libgutenprint
+	lib:libgutenprint >= 8
 #endif
 #ifdef HAIKU_BUILD_FEATURE_X86_LIBICNS_ENABLED
 	lib:libicns
@@ -98,20 +96,13 @@ requires {
 #ifdef HAIKU_BUILD_FEATURE_X86_LIBWEBP_ENABLED
 	lib:libwebp
 #endif
-#ifdef HAIKU_BUILD_FEATURE_X86_ILMBASE_ENABLED
-	lib:libhalf
-	lib:libiex
-	lib:libiexmath
-	lib:libilmthread
-	lib:libimath
-#endif
 #ifdef HAIKU_BUILD_FEATURE_X86_OPENEXR_ENABLED
 	lib:libilmimf
 	lib:libilmimfutil
 #endif
 #ifdef HAIKU_BUILD_FEATURE_X86_OPENSSL_ENABLED
-	lib:libssl >= 1.0.0
-	lib:libcrypto >= 1.0.0
+	lib:libssl
+	lib:libcrypto
 #endif
 #ifdef HAIKU_BUILD_FEATURE_X86_FFMPEG_ENABLED
 	lib:libavcodec >= 58
@@ -131,7 +122,7 @@ requires {
 	lib:libstdc++
 	lib:libsupc++
 	lib:libz
-	noto
+	noto >= 2.7
 #ifdef HAIKU_REGULAR_BUILD
 	noto_sans_cjk_jp
 #endif

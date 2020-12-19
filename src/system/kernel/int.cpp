@@ -696,6 +696,7 @@ free_io_interrupt_vectors(long count, long startVector)
 	if (startVector + count > NUM_IO_VECTORS) {
 		panic("invalid start vector %ld or count %ld supplied to "
 			"free_io_interrupt_vectors\n", startVector, count);
+		return;
 	}
 
 	dprintf("free_io_interrupt_vectors: freeing %ld vectors starting "
@@ -708,7 +709,15 @@ free_io_interrupt_vectors(long count, long startVector)
 				startVector + i);
 		}
 
-		sVectors[startVector + i].assigned_cpu = NULL;
+		io_vector& vector = sVectors[startVector + i];
+		InterruptsSpinLocker vectorLocker(vector.vector_lock);
+		if (vector.assigned_cpu != NULL && vector.assigned_cpu->cpu != -1) {
+			panic("freeing io interrupt vector %ld that is still asigned to a "
+				"cpu", startVector + i);
+			continue;
+		}
+
+		vector.assigned_cpu = NULL;
 		sAllocatedIOInterruptVectors[startVector + i] = false;
 	}
 }

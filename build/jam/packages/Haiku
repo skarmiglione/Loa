@@ -33,6 +33,7 @@ AddFilesToPackage add-ons kernel busses agp_gart : <agp_gart>intel@x86,x86_64 ;
 AddFilesToPackage add-ons kernel busses ata
 	: generic_ide_pci it8211 legacy_sata silicon_image_3112 highpoint_ide_pci ide_isa@x86 ;
 
+AddFilesToPackage add-ons kernel busses i2c : pch_i2c@x86,x86_64 ;
 AddFilesToPackage add-ons kernel busses random : virtio_rng ;
 AddFilesToPackage add-ons kernel busses scsi : ahci virtio_scsi ;
 AddFilesToPackage add-ons kernel busses usb : <usb>uhci <usb>ohci <usb>ehci
@@ -45,10 +46,10 @@ AddFilesToPackage add-ons kernel debugger
 	  <kdebug>run_on_exit ;
 AddFilesToPackage add-ons kernel file_systems : $(SYSTEM_ADD_ONS_FILE_SYSTEMS) ;
 AddFilesToPackage add-ons kernel generic
-	: ata_adapter@ata bios@x86,x86_64 dpc
-		locked_pool mpu401 scsi_periph <module>tty ;
+	: ata_adapter bios@x86,x86_64 dpc
+		locked_pool mpu401 scsi_periph smbios@x86,x86_64 <module>tty ;
 AddFilesToPackage add-ons kernel partitioning_systems
-	: amiga_rdb@m68k apple@ppc efi_gpt intel session ;
+	: amiga_rdb@m68k apple@ppc sun@sparc efi_gpt intel session ;
 AddFilesToPackage add-ons kernel interrupt_controllers : openpic@ppc ;
 AddFilesToPackage add-ons kernel power cpufreq : intel_pstates@x86,x86_64 ;
 AddFilesToPackage add-ons kernel power cpuidle : intel_cstates@x86,x86_64 ;
@@ -58,9 +59,12 @@ if $(TARGET_ARCH) = x86 || $(TARGET_ARCH) = x86_64 {
 }
 
 # drivers
+AddNewDriversToPackage 				: wmi@x86,x86_64 ;
+AddNewDriversToPackage disk			: nvme_disk@x86,x86_64 ;
 AddNewDriversToPackage disk scsi	: scsi_cd scsi_disk ;
 AddNewDriversToPackage disk virtual : virtio_block ram_disk ;
 AddNewDriversToPackage power		: $(SYSTEM_ADD_ONS_DRIVERS_POWER) ;
+AddNewDriversToPackage sensor		: $(SYSTEM_ADD_ONS_DRIVERS_SENSOR) ;
 AddNewDriversToPackage network		: virtio_net ;
 #AddNewDriversToPackage display		: display_adapter@x86 ;
 
@@ -73,8 +77,6 @@ AddDriversToPackage midi			: $(SYSTEM_ADD_ONS_DRIVERS_MIDI) ;
 AddDriversToPackage bus				: usb_raw fw_raw@x86 ;
 AddDriversToPackage disk floppy		: pc_floppy@x86 ;
 AddDriversToPackage disk usb		: usb_disk ;
-AddDriversToPackage disk usb		: usb_floppy ;
-AddDriversToPackage printer usb		: usb_printer ;
 AddDriversToPackage disk virtual	: nbd ;
 AddDriversToPackage dvb				: cx23882 ;
 AddDriversToPackage graphics		: $(SYSTEM_ADD_ONS_DRIVERS_GRAPHICS) ;
@@ -91,7 +93,7 @@ AddLibrariesToPackage lib
 	: [ HaikuImageGetSystemLibs ] [ HaikuImageGetPrivateSystemLibs ] ;
 
 # libnetwork.so replaces quite a few libraries
-if $(HAIKU_GCC_VERSION_$(architecture)[1]) = 2 {
+if $(HAIKU_CC_IS_LEGACY_GCC_$(architecture)) = 1 {
 	local libNetworkAliases = libsocket.so libbind.so libnet.so ;
 	local lib ;
 	for lib in $(libNetworkAliases) {
@@ -101,9 +103,6 @@ if $(HAIKU_GCC_VERSION_$(architecture)[1]) = 2 {
 	AddSymlinkToPackage lib : libbnetapi.so : libnetapi.so ;
 }
 
-
-# TODO: Remove when the packages have been rebuilt!
-AddSymlinkToPackage lib : libbe.so : liblocale.so ;
 
 # servers
 AddFilesToPackage servers : $(SYSTEM_SERVERS) ;
@@ -122,8 +121,7 @@ AddSymlinkToPackage bin : trash : untrash ;
 AddSymlinkToPackage bin : less : more ;
 
 # scripts and data files
-local bootScripts = PostInstallScript SetupEnvironment
-	InstallerInitScript InstallerFinishScript ;
+local bootScripts = PostInstallScript SetupEnvironment ;
 SEARCH on $(bootScripts) = [ FDirName $(HAIKU_TOP) data system boot ] ;
 AddFilesToPackage boot : $(bootScripts) ;
 
@@ -188,7 +186,7 @@ AddFilesToPackage data KeyboardLayouts ThinkPad
 
 # boot module links
 AddBootModuleSymlinksToPackage
-	acpi@x86,x86_64 ahci ata@ata ata_adapter@ata
+	acpi@x86,x86_64 ahci ata ata_adapter
 	bfs
 	config_manager
 	dpc
@@ -196,6 +194,7 @@ AddBootModuleSymlinksToPackage
 	generic_ide_pci
 	ide_isa@x86 isa@x86,x86_64 intel it8211
 	legacy_sata locked_pool
+	nvme_disk@x86,x86_64
 	openpic@ppc
 	packagefs pci
 	scsi scsi_cd scsi_disk scsi_periph silicon_image_3112 highpoint_ide_pci
@@ -219,7 +218,7 @@ AddFilesToPackage add-ons media : $(SYSTEM_ADD_ONS_MEDIA) ;
 AddFilesToPackage add-ons media plugins : $(SYSTEM_ADD_ONS_MEDIA_PLUGINS) ;
 
 AddFilesToPackage add-ons Network\ Settings
-	: IPv4Interface IPv6Interface DNSClientService FTPService SSHService
+	: IPv4Interface IPv6Interface DNSClientService Hostname FTPService SSHService
 		TelnetService ;
 
 AddFilesToPackage add-ons Tracker
@@ -235,7 +234,7 @@ AddSymlinkToPackage add-ons Tracker
 AddFilesToPackage add-ons input_server devices
 	: <input>keyboard <input>mouse <input>tablet <input>wacom ;
 AddFilesToPackage add-ons input_server filters
-	: screen_saver shortcut_catcher switch_workspace ;
+	: padblocker screen_saver shortcut_catcher switch_workspace ;
 AddDirectoryToPackage add-ons input_server methods ;
 
 AddFilesToPackage add-ons kernel network : <net>notifications stack ;
@@ -266,6 +265,9 @@ AddFilesToPackage add-ons decorators : BeDecorator ;
 # the MIME DB
 CopyDirectoryToPackage data : <mimedb>mime_db : : : isTarget ;
 
+# directory attributes
+AddDirectoryToPackage apps : system-apps.rdef ;
+AddDirectoryToPackage preferences : system-preferences.rdef ;
 
 # Deskbar menu symlinks
 

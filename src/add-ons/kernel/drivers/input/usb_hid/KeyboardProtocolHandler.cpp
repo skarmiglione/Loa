@@ -53,7 +53,8 @@ debug_get_keyboard_config(int argc, char **argv)
 KeyboardProtocolHandler::KeyboardProtocolHandler(HIDReport &inputReport,
 	HIDReport *outputReport)
 	:
-	ProtocolHandler(inputReport.Device(), "input/keyboard/usb/", 512),
+	ProtocolHandler(inputReport.Device(), "input/keyboard/" DEVICE_PATH_SUFFIX
+		"/", 512),
 	fInputReport(inputReport),
 	fOutputReport(outputReport),
 	fRepeatDelay(300000),
@@ -80,7 +81,8 @@ KeyboardProtocolHandler::KeyboardProtocolHandler(HIDReport &inputReport,
 		if (item->UsagePage() == B_HID_USAGE_PAGE_KEYBOARD
 			|| item->UsagePage() == B_HID_USAGE_PAGE_CONSUMER
 			|| item->UsagePage() == B_HID_USAGE_PAGE_BUTTON) {
-			TRACE("keyboard item with usage %lx\n", item->UsageMinimum());
+			TRACE("keyboard item with usage %" B_PRIx32 "\n",
+				item->UsageMinimum());
 
 			if (item->Array()) {
 				// normal or "consumer"/button keys handled as array items
@@ -114,8 +116,8 @@ KeyboardProtocolHandler::KeyboardProtocolHandler(HIDReport &inputReport,
 			sDebugKeyboardFound = true;
 	}
 
-	TRACE("keyboard device with %lu keys and %lu modifiers\n", fKeyCount,
-		fModifierCount);
+	TRACE("keyboard device with %" B_PRIu32 " keys and %" B_PRIu32
+		" modifiers\n", fKeyCount, fModifierCount);
 	TRACE("input report: %u; output report: %u\n", inputReport.ID(),
 		outputReport != NULL ? outputReport->ID() : 255);
 
@@ -186,7 +188,13 @@ KeyboardProtocolHandler::AddHandlers(HIDDevice &device,
 			switch (collection.UsageID()) {
 				case B_HID_UID_GD_KEYBOARD:
 				case B_HID_UID_GD_KEYPAD:
+#if 0
+				// This is not specific enough to deserve a keyboard device on
+				// its own (some mice have one such descriptor, for example).
+				// If your keyboard uses this, do a more extensive check of
+				// the descriptor to make sure there actually are keys in it.
 				case B_HID_UID_GD_SYSTEM_CONTROL:
+#endif
 					handled = true;
 			}
 
@@ -219,7 +227,7 @@ KeyboardProtocolHandler::AddHandlers(HIDDevice &device,
 	collection.BuildReportList(HID_REPORT_TYPE_INPUT, inputReports,
 		inputReportCount);
 
-	TRACE("input report count: %lu\n", inputReportCount);
+	TRACE("input report count: %" B_PRIu32 "\n", inputReportCount);
 
 	for (uint32 i = 0; i < inputReportCount; i++) {
 		HIDReport *inputReport = inputReports[i];

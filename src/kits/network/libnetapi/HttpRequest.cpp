@@ -551,9 +551,11 @@ BHttpRequest::_MakeRequest()
 	_EmitDebug(B_URL_PROTOCOL_DEBUG_TEXT,
 		"Connection opened, sending request.");
 
-	_SendRequest();
-	_SendHeaders();
-	fSocket->Write("\r\n", 2);
+	BString requestHeaders;
+	requestHeaders.Append(_SerializeRequest());
+	requestHeaders.Append(_SerializeHeaders());
+	requestHeaders.Append("\r\n");
+	fSocket->Write(requestHeaders.String(), requestHeaders.Length());
 	_EmitDebug(B_URL_PROTOCOL_DEBUG_TEXT, "Request sent.");
 
 	_SendPostData();
@@ -568,11 +570,12 @@ BHttpRequest::_MakeRequest()
 	bool decompress = false;
 	status_t readError = B_OK;
 	ssize_t bytesRead = 0;
-	ssize_t bytesReceived = 0;
-	ssize_t bytesTotal = 0;
+	off_t bytesReceived = 0;
+	off_t bytesTotal = 0;
 	size_t previousBufferSize = 0;
 	off_t bytesUnpacked = 0;
 	char* inputTempBuffer = new(std::nothrow) char[kHttpBufferSize];
+	ArrayDeleter<char> inputTempBufferDeleter(inputTempBuffer);
 	ssize_t inputTempSize = kHttpBufferSize;
 	ssize_t chunkSize = -1;
 	DynamicBuffer decompressorStorage;
@@ -581,7 +584,6 @@ BHttpRequest::_MakeRequest()
 
 	while (!fQuit && !(receiveEnd && parseEnd)) {
 		if ((!receiveEnd) && (fInputBuffer.Size() == previousBufferSize)) {
-			fSocket->WaitForReadable();
 			BStackOrHeapArray<char, 4096> chunk(kHttpBufferSize);
 			bytesRead = fSocket->Read(chunk, kHttpBufferSize);
 
@@ -647,7 +649,7 @@ BHttpRequest::_MakeRequest()
 
 				int32 index = fHeaders.HasHeader("Content-Length");
 				if (index != B_ERROR)
-					bytesTotal = atoi(fHeaders.HeaderAt(index).Value());
+					bytesTotal = atoll(fHeaders.HeaderAt(index).Value());
 				else
 					bytesTotal = -1;
 			}
@@ -662,10 +664,10 @@ BHttpRequest::_MakeRequest()
 							// 2 more bytes to handle the closing CR+LF
 						bytesRead = chunkSize;
 						if (inputTempSize < chunkSize + 2) {
-							delete[] inputTempBuffer;
 							inputTempSize = chunkSize + 2;
 							inputTempBuffer
 								= new(std::nothrow) char[inputTempSize];
+							inputTempBufferDeleter.SetTo(inputTempBuffer);
 						}
 
 						if (inputTempBuffer == NULL) {
@@ -713,8 +715,8 @@ BHttpRequest::_MakeRequest()
 				if (bytesRead > 0) {
 					if (inputTempSize < bytesRead) {
 						inputTempSize = bytesRead;
-						delete[] inputTempBuffer;
 						inputTempBuffer = new(std::nothrow) char[bytesRead];
+						inputTempBufferDeleter.SetTo(inputTempBuffer);
 					}
 
 					if (inputTempBuffer == NULL) {
@@ -748,7 +750,7 @@ BHttpRequest::_MakeRequest()
 							bytesReceived - bytesRead, bytesRead);
 					}
 					fListener->DownloadProgress(this, bytesReceived,
-						std::max((ssize_t)0, bytesTotal));
+						std::max((off_t)0, bytesTotal));
 				}
 
 				if (bytesTotal >= 0 && bytesReceived >= bytesTotal)
@@ -779,7 +781,6 @@ BHttpRequest::_MakeRequest()
 	}
 
 	fSocket->Disconnect();
-	delete[] inputTempBuffer;
 
 	if (readError != B_OK)
 		return readError;
@@ -835,8 +836,8 @@ BHttpRequest::_ParseHeaders()
 }
 
 
-void
-BHttpRequest::_SendRequest()
+BString
+BHttpRequest::_SerializeRequest()
 {
 	BString request(fRequestMethod);
 	request << ' ';
@@ -868,12 +869,14 @@ BHttpRequest::_SendRequest()
 			break;
 	}
 
-	fSocket->Write(request.String(), request.Length());
+	_EmitDebug(B_URL_PROTOCOL_DEBUG_HEADER_OUT, "%s", request.String());
+
+	return request;
 }
 
 
-void
-BHttpRequest::_SendHeaders()
+BString
+BHttpRequest::_SerializeHeaders()
 {
 	BHttpHeaders outputHeaders;
 
@@ -996,7 +999,7 @@ BHttpRequest::_SendHeaders()
 		_EmitDebug(B_URL_PROTOCOL_DEBUG_HEADER_OUT, "%s", header);
 	}
 
-	fSocket->Write(headerData.String(), headerData.Length());
+	return headerData;
 }
 
 
@@ -1035,6 +1038,10 @@ BHttpRequest::_SendPostData()
 								B_READ_ONLY);
 							char readBuffer[kHttpBufferSize];
 							ssize_t readSize;
+							off_t totalSize;
+
+							if (upFile.GetSize(&totalSize) != B_OK)
+								ASSERT(0);
 
 							readSize = upFile.Read(readBuffer,
 								sizeof(readBuffer));
@@ -1042,6 +1049,8 @@ BHttpRequest::_SendPostData()
 								fSocket->Write(readBuffer, readSize);
 								readSize = upFile.Read(readBuffer,
 									sizeof(readBuffer));
+								fListener->UploadProgress(this, readSize,
+									std::max((off_t)0, totalSize));
 							}
 
 							break;

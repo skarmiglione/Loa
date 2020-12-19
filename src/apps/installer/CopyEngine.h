@@ -32,22 +32,23 @@ public:
 			status_t			CollectTargets(const char* source,
 									sem_id cancelSemaphore = -1);
 
-			status_t			CopyFolder(const char* source,
+			status_t			Copy(const char* source,
 									const char* destination,
-									sem_id cancelSemaphore = -1);
+									sem_id cancelSemaphore = -1,
+									bool copyAttributes = true);
 
-			status_t			CopyFile(const BEntry& entry,
-									const BEntry& destination,
-									sem_id cancelSemaphore = -1);
+	static	status_t			RemoveFolder(BEntry& entry);
 
 private:
 			status_t			_CollectCopyInfo(const char* source,
-									int32& level, sem_id cancelSemaphore);
-			status_t			_CopyFolder(const char* source,
-									const char* destination,
-									int32& level, sem_id cancelSemaphore);
-
-			status_t			_RemoveFolder(BEntry& entry);
+									sem_id cancelSemaphore, off_t& bytesToCopy,
+									uint64& itemsToCopy);
+			status_t			_Copy(BEntry& source, BEntry& destination,
+									sem_id cancelSemaphore,
+									bool copyAttributes);
+			status_t			_CopyData(const BEntry& entry,
+									const BEntry& destination,
+									sem_id cancelSemaphore = -1);
 
 			const char*			_RelativeEntryPath(
 									const char* absoluteSourcePath) const;
@@ -102,9 +103,6 @@ private:
 			off_t				fBytesWritten;
 			bigtime_t			fTimeWritten;
 
-			off_t				fBytesToCopy;
-			uint64				fItemsToCopy;
-
 			const char*			fCurrentTargetFolder;
 			const char*			fCurrentItem;
 
@@ -119,12 +117,7 @@ public:
 
 	virtual	bool				ShouldCopyEntry(const BEntry& entry,
 									const char* path,
-									const struct stat& statInfo,
-									int32 level) const = 0;
-	virtual	bool				ShouldClobberFolder(const BEntry& entry,
-									const char* path,
-									const struct stat& statInfo,
-									int32 level) const = 0;
+									const struct stat& statInfo) const = 0;
 };
 
 

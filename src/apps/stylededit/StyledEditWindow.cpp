@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012, Haiku, Inc. All Rights Reserved.
+ * Copyright 2002-2020, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -10,6 +10,7 @@
  *		Ryan Leavengood
  *		Vlad Slepukhin
  *		Sarzhuk Zharski
+ *		Pascal R. G. Abresch
  */
 
 
@@ -397,6 +398,42 @@ StyledEditWindow::MessageReceived(BMessage* message)
 			_SetFontStyle(fontFamily, fontStyle);
 			break;
 		}
+		case kMsgSetFontUp:
+		{
+			uint32 sameProperties;
+			BFont font;
+
+			fTextView->GetFontAndColor(&font, &sameProperties);
+			//GetFont seems to return a constant size for font.Size(),
+			//thus not used here (maybe that is a bug)
+			int32 cur_size = (int32)font.Size();
+
+			for (unsigned int a = 0;
+				a < sizeof(fontSizes)/sizeof(fontSizes[0]); a++) {
+				if (fontSizes[a] > cur_size) {
+					_SetFontSize(fontSizes[a]);
+					break;
+				}
+			}
+			break;
+		}
+		case kMsgSetFontDown:
+		{
+			uint32 sameProperties;
+			BFont font;
+
+			fTextView->GetFontAndColor(&font, &sameProperties);
+			int32 cur_size = (int32)font.Size();
+
+			for (unsigned int a = 1;
+				a < sizeof(fontSizes)/sizeof(fontSizes[0]); a++) {
+				if (fontSizes[a] >= cur_size) {
+					_SetFontSize(fontSizes[a-1]);
+					break;
+				}
+			}
+			break;
+		}
 		case kMsgSetItalic:
 		{
 			uint32 sameProperties;
@@ -465,20 +502,16 @@ StyledEditWindow::MessageReceived(BMessage* message)
 			break;
 		case WRAP_LINES:
 		{
-			BRect textRect(fTextView->Bounds());
-			textRect.OffsetTo(B_ORIGIN);
-			textRect.InsetBy(TEXT_INSET, TEXT_INSET);
+			// update wrap setting
 			if (fTextView->DoesWordWrap()) {
 				fTextView->SetWordWrap(false);
 				fWrapItem->SetMarked(false);
-				// the width comes from stylededit R5. TODO: find a better way
-				textRect.SetRightBottom(BPoint(1500.0, textRect.RightBottom().y));
 			} else {
 				fTextView->SetWordWrap(true);
 				fWrapItem->SetMarked(true);
 			}
-			fTextView->SetTextRect(textRect);
 
+			// update buttons
 			_UpdateCleanUndoRedoSaveRevert();
 			break;
 		}
@@ -881,7 +914,7 @@ StyledEditWindow::OpenFile(entry_ref* ref)
 		return;
 	}
 
-	fSaveMessage = new BMessage(B_SAVE_REQUESTED);
+	fSaveMessage = new(std::nothrow) BMessage(B_SAVE_REQUESTED);
 	if (fSaveMessage) {
 		BEntry entry(ref, true);
 		BEntry parent;
@@ -1212,7 +1245,6 @@ StyledEditWindow::_InitWindow(uint32 encoding)
 	fFontSizeMenu->SetRadioMode(true);
 	fFontMenu->AddItem(fFontSizeMenu);
 
-	const int32 fontSizes[] = {9, 10, 11, 12, 14, 18, 24, 36, 48, 72};
 	for (uint32 i = 0; i < sizeof(fontSizes) / sizeof(fontSizes[0]); i++) {
 		BMessage* fontMessage = new BMessage(FONT_SIZE);
 		fontMessage->AddFloat("size", fontSizes[i]);
@@ -1233,6 +1265,15 @@ StyledEditWindow::_InitWindow(uint32 encoding)
 	_BuildFontColorMenu(fFontColorMenu);
 
 	fFontMenu->AddSeparatorItem();
+
+	BMenuItem* fontSizeUpItem = new BMenuItem(B_TRANSLATE("Increase size"),
+		new BMessage(kMsgSetFontUp));
+	BMenuItem* fontSizeDownItem = new BMenuItem(B_TRANSLATE("Decrease size"),
+		new BMessage(kMsgSetFontDown));
+	fFontMenu->AddItem(fontSizeUpItem);
+	fFontMenu->AddItem(fontSizeDownItem);
+	fontSizeUpItem->SetShortcut('+', 0);
+	fontSizeDownItem->SetShortcut('-', 0);
 
 	// "Bold" & "Italic" menu items
 	fFontMenu->AddItem(fBoldItem = new BMenuItem(B_TRANSLATE("Bold"),

@@ -22,6 +22,7 @@
 #endif
 
 
+//! Class used for in-memory representation of inodes
 class Inode {
 public:
 						Inode(Volume* volume, ino_t id);
@@ -45,6 +46,7 @@ public:
 							{ return S_ISLNK(Mode()); }
 			status_t	CheckPermissions(int accessMode) const;
 
+			btrfs_inode&	Node() { return fNode; }
 			mode_t		Mode() const { return fNode.Mode(); }
 			off_t		Size() const { return fNode.Size(); }
 			uid_t		UserID() const { return fNode.UserID(); }
@@ -97,11 +99,10 @@ private:
 			btrfs_inode fNode;
 };
 
-
-// The Vnode class provides a convenience layer upon get_vnode(), so that
-// you don't have to call put_vnode() anymore, which may make code more
-// readable in some cases
-
+/*!The Vnode class provides a convenience layer upon get_vnode(), so that
+ * you don't have to call put_vnode() anymore, which may make code more
+ * readable in some cases
+ */
 class Vnode {
 public:
 	Vnode(Volume* volume, ino_t id)

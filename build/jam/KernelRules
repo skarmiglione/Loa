@@ -21,6 +21,10 @@ rule SetupKernel
 		ObjectC++Flags $(object) : $(TARGET_KERNEL_C++FLAGS) $(2) ;
 		ObjectDefines $(object) : $(TARGET_KERNEL_DEFINES) ;
 
+		# override regular CCFLAGS/C++FLAGS, as we don't want them
+		TARGET_CCFLAGS_$(TARGET_PACKAGING_ARCH) on $(object) = ;
+		TARGET_C++FLAGS_$(TARGET_PACKAGING_ARCH) on $(object) = ;
+
 		# override warning flags
 		TARGET_WARNING_CCFLAGS_$(TARGET_PACKAGING_ARCH) on $(object)
 			= $(TARGET_KERNEL_WARNING_CCFLAGS) ;
@@ -93,7 +97,7 @@ rule KernelSo target : source
 
 actions KernelSo1
 {
-	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
+	export $(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
 
 	$(2[1]) --data $(2[2]) $(1) &&
 	$(HAIKU_ELFEDIT_$(TARGET_PACKAGING_ARCH)) --output-type dyn $(1)

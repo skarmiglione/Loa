@@ -87,7 +87,7 @@ total_size
 
 minor_version
   The minor version of the HPKG format the file conforms to. The current minor
-  version is 0 (B_HPKG_MINOR_VERSION). Additions of new attributes to the
+  version is 1 (B_HPKG_MINOR_VERSION). Additions of new attributes to the
   attributes or TOC sections should generally only increment the minor version.
   When a file with a greater minor version is encountered, the reader should
   ignore unknown attributes.
@@ -620,6 +620,7 @@ B_HPKG_ATTRIBUTE_ID_PACKAGE_ARCHITECTURE ("package:architecture")
     5 B_PACKAGE_ARCHITECTURE_PPC      PowerPC
     6 B_PACKAGE_ARCHITECTURE_ARM      ARM
     7 B_PACKAGE_ARCHITECTURE_M68K     m68k
+    8 B_PACKAGE_ARCHITECTURE_SPARC    sparc
     = =============================== =========================================
 
   :Child Attributes: none
@@ -914,7 +915,18 @@ B_HPKG_ATTRIBUTE_ID_PACKAGE_POST_INSTALL_SCRIPT ("package:post-install-script")
   :Value: Relative path of a script that shall be executed after package
     activation.
   :Allowed Values: Installation location relative path of a file included in the
-    package.
+    package.  Must start with "boot/post-install/", so besides being run after
+    package installation, it also gets run on the first boot after the OS is
+    installed.
+  :Child Attributes: none
+
+B_HPKG_ATTRIBUTE_ID_PACKAGE_PRE_UNINSTALL_SCRIPT ("package:pre-uninstall-script")
+  :Type: string
+  :Value: Relative path of a script that shall be executed before package
+    deactivation.
+  :Allowed Values: Installation location relative path of a file included in
+    the package.  For consistency, it is recommended to start with
+    "boot/pre-uninstall/".
   :Child Attributes: none
 
 Haiku Package Repository Format
@@ -993,8 +1005,8 @@ total_size
 
 minor_version
   The minor version of the HPKR format the file conforms to. The current minor
-  version is 0 (B_HPKG_REPO_MINOR_VERSION). Additions of new attributes to the
-  attributes section shouldgenerally only increment the minor version. When a
+  version is 1 (B_HPKG_REPO_MINOR_VERSION). Additions of new attributes to the
+  attributes section should generally only increment the minor version. When a
   file with a greater minor version is encountered, the reader should ignore
   unknown attributes.
 

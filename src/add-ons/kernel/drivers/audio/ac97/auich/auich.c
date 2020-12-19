@@ -246,8 +246,8 @@ auich_stream_get_nth_buffer(auich_stream *stream, uint8 chan, uint8 buf,
 	sample_size = stream->b16 + 1;
 	frame_size = sample_size * stream->channels;
 
-	*buffer = stream->buffer->log_base + (buf * stream->bufframes * frame_size)
-		+ chan * sample_size;
+	*buffer = (char*)stream->buffer->log_base
+		+ (buf * stream->bufframes * frame_size) + chan * sample_size;
 	*stride = frame_size;
 
 	return B_OK;
@@ -460,11 +460,12 @@ auich_int(void *arg)
 			}
 
 		if (sta != 0) {
-			dprintf("global status not fully handled %lx!\n", sta);
+			dprintf("global status not fully handled %" B_PRIx32 "!\n", sta);
 			auich_reg_write_32(&card->config, AUICH_REG_GLOB_STA, sta);
 		}
 	} else if (sta != 0) {
-		dprintf("interrupt masked %lx, sta %lx\n", card->interrupt_mask, sta);
+		dprintf("interrupt masked %" B_PRIx32 ", sta %" B_PRIx32 "\n",
+			card->interrupt_mask, sta);
 	}
 
 	if (gotone)
@@ -638,7 +639,8 @@ auich_setup(auich_dev * card)
 	if (card->info.device_id == SIS_SI7012_AC97_DEVICE_ID)
 		card->config.type |= TYPE_SIS7012;
 
-	PRINT(("%s deviceid = %#04x chiprev = %x model = %x enhanced at %lx\n",
+	PRINT(("%s deviceid = %#04x chiprev = %x model = %x "
+		"enhanced at %" B_PRIx32 "lx\n",
 		card->name, card->info.device_id, card->info.revision,
 		card->info.u.h0.subsystem_id, card->config.nabmbar));
 
@@ -674,6 +676,7 @@ auich_setup(auich_dev * card)
 	cmd = (*pci->read_pci_config)(card->info.bus, card->info.device,
 		card->info.function, PCI_command, 2);
 	PRINT(("PCI command before: %x\n", cmd));
+	cmd |= PCI_command_master;
 	if (IS_ICH4(&card->config)) {
 		(*pci->write_pci_config)(card->info.bus, card->info.device,
 			card->info.function, PCI_command, 2, cmd | PCI_command_memory);
@@ -731,7 +734,7 @@ auich_setup(auich_dev * card)
 			"auich interrupt poller", B_REAL_TIME_PRIORITY, card);
 		resume_thread(int_thread_id);
 	} else {
-		PRINT(("installing interrupt : %lx\n", card->config.irq));
+		PRINT(("installing interrupt : %" B_PRIx32 "\n", card->config.irq));
 		err = install_io_interrupt_handler(card->config.irq, auich_int,
 			card, 0);
 		if (err != B_OK) {
@@ -819,7 +822,8 @@ init_driver(void)
 			}
 #endif
 			if (auich_setup(&cards[num_cards])) {
-				PRINT(("Setup of auich %ld failed\n", num_cards+1));
+				PRINT(("Setup of auich %" B_PRId32 " failed\n",
+					num_cards + 1));
 #ifdef __HAIKU__
 				(*pci->unreserve_device)(info.bus, info.device, info.function,
 					DRIVER_NAME, &cards[num_cards]);

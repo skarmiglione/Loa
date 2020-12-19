@@ -162,7 +162,7 @@ private:
 			return fUnusedBuffers.RemoveItem(fUnusedBuffers.CountItems() - 1);
 
 		void* buffer = malloc(fBufferSize);
-		if (buffer == NULL && !fBuffers.AddItem(buffer)) {
+		if (buffer == NULL || !fBuffers.AddItem(buffer)) {
 			free(buffer);
 			throw std::bad_alloc();
 		}
@@ -317,7 +317,9 @@ PackageFileHeapWriter::RemoveDataRanges(
 
 	// Before we begin flush any pending data, so we don't need any special
 	// handling and also can use the pending data buffer.
-	_FlushPendingData();
+	status_t status = _FlushPendingData();
+	if (status != B_OK)
+		throw status_t(status);
 
 	// We potentially have to recompress all data from the first affected chunk
 	// to the end (minus the removed ranges, of course). As a basic algorithm we

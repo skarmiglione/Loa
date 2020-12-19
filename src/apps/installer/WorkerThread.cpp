@@ -113,8 +113,14 @@ public:
 	}
 
 	virtual bool ShouldCopyEntry(const BEntry& entry, const char* path,
-		const struct stat& statInfo, int32 level) const
+		const struct stat& statInfo) const
 	{
+		if (S_ISBLK(statInfo.st_mode) || S_ISCHR(statInfo.st_mode)
+				|| S_ISFIFO(statInfo.st_mode) || S_ISSOCK(statInfo.st_mode)) {
+			printf("skipping '%s', it is a special file.\n", path);
+			return false;
+		}
+
 		if (fIgnorePaths.find(path) != fIgnorePaths.end()) {
 			printf("ignoring '%s'.\n", path);
 			return false;
@@ -129,19 +135,6 @@ public:
 		}
 
 		return true;
-	}
-
-	virtual bool ShouldClobberFolder(const BEntry& entry, const char* path,
-		const struct stat& statInfo, int32 level) const
-	{
-		if (level == 2 && S_ISDIR(statInfo.st_mode)
-				&& strncmp("system/", path, 7) == 0
-				&& strcmp("system/settings", path) != 0) {
-			// Replace everything in "system" besides "settings"
-			printf("clobbering '%s'.\n", path);
-			return true;
-		}
-		return false;
 	}
 
 private:
@@ -221,8 +214,11 @@ WorkerThread::MessageReceived(BMessage* message)
 				}
 			}
 
-			_LaunchFinishScript(targetDirectory);
-			// TODO: Get error from executing script!
+			if (_WriteBootSector(targetDirectory) != B_OK) {
+				_SetStatusMessage(
+					B_TRANSLATE("Error writing boot sector."));
+				break;
+			}
 			_SetStatusMessage(
 				B_TRANSLATE("Boot sector successfully written."));
 		}
@@ -241,11 +237,9 @@ WorkerThread::ScanDisksPartitions(BMenu *srcMenu, BMenu *targetMenu)
 	BDiskDevice device;
 	BPartition *partition = NULL;
 
-	printf("\nScanDisksPartitions source partitions begin\n");
 	SourceVisitor srcVisitor(srcMenu);
 	fDDRoster.VisitEachMountedPartition(&srcVisitor, &device, &partition);
 
-	printf("\nScanDisksPartitions target partitions begin\n");
 	TargetVisitor targetVisitor(targetMenu);
 	fDDRoster.VisitEachPartition(&targetVisitor, &device, &partition);
 }
@@ -296,35 +290,30 @@ WorkerThread::WriteBootSector(BMenu* targetMenu)
 // #pragma mark -
 
 
-void
-WorkerThread::_LaunchInitScript(BPath &path)
+status_t
+WorkerThread::_WriteBootSector(BPath &path)
 {
 	BPath bootPath;
 	find_directory(B_BEOS_BOOT_DIRECTORY, &bootPath);
-	BString command("/bin/sh ");
-	command += bootPath.Path();
-	command += "/InstallerInitScript ";
-	command += "\"";
-	command += path.Path();
-	command += "\"";
-	_SetStatusMessage(B_TRANSLATE("Starting Installation."));
-	system(command.String());
+	BString command;
+	command.SetToFormat("makebootable \"%s\"", path.Path());
+	_SetStatusMessage(B_TRANSLATE("Writing bootsector."));
+	return system(command.String());
 }
 
 
-void
+status_t
 WorkerThread::_LaunchFinishScript(BPath &path)
 {
-	BPath bootPath;
-	find_directory(B_BEOS_BOOT_DIRECTORY, &bootPath);
-	BString command("/bin/sh ");
-	command += bootPath.Path();
-	command += "/InstallerFinishScript ";
-	command += "\"";
-	command += path.Path();
-	command += "\"";
-	_SetStatusMessage(B_TRANSLATE("Finishing Installation."));
-	system(command.String());
+	_SetStatusMessage(B_TRANSLATE("Finishing installation."));
+
+	BString command;
+	command.SetToFormat("mkdir -p \"%s/system/cache/tmp\"", path.Path());
+	if (system(command.String()) != 0)
+		return B_ERROR;
+
+	command.SetToFormat("rm -f \"%s/home/Desktop/Installer\"", path.Path());
+	return system(command.String());
 }
 
 
@@ -459,12 +448,12 @@ WorkerThread::_PerformInstall(partition_id sourcePartitionID,
 
 	if (entries != 0) {
 		BAlert* alert = new BAlert("", B_TRANSLATE("The target volume is not "
-			"empty. Are you sure you want to install anyway?\n\nNote: The "
-			"'system' folder will be a clean copy from the source volume but "
-			"will retain its settings folder, all other folders will be "
-			"merged, whereas files and links that exist on both the source "
-			"and target volume will be overwritten with the source volume "
-			"version."),
+			"empty. If it already contains a Haiku installation, it will be "
+			"overwritten. This will remove all installed software.\n\n"
+			"If you want to upgrade your system without removing installed "
+			"software, see the Haiku User Guide's topic on the application "
+			"\"SoftwareUpdater\" for update instructions.\n\n"
+			"Are you sure you want to continue the installation?"),
 			B_TRANSLATE("Install anyway"), B_TRANSLATE("Cancel"), 0,
 			B_WIDTH_AS_USUAL, B_STOP_ALERT);
 		alert->SetShortcut(1, B_ESCAPE);
@@ -473,6 +462,9 @@ WorkerThread::_PerformInstall(partition_id sourcePartitionID,
 		// folders at the user's choice.
 			return _InstallationError(B_CANCELED);
 		}
+		err = _PrepareCleanInstall(targetDirectory);
+		if (err != B_OK)
+			return _InstallationError(err);
 	}
 
 	// Begin actual installation
@@ -481,8 +473,6 @@ WorkerThread::_PerformInstall(partition_id sourcePartitionID,
 	EntryFilter entryFilter(srcDirectory.Path());
 	CopyEngine engine(&reporter, &entryFilter);
 	BList unzipEngines;
-
-	_LaunchInitScript(targetDirectory);
 
 	// Create the default indices which should always be present on a proper
 	// boot volume. We don't care if the source volume does not have them.
@@ -505,12 +495,14 @@ WorkerThread::_PerformInstall(partition_id sourcePartitionID,
 
 	// Collect selected packages also
 	if (fPackages) {
-		BPath pkgRootDir(srcDirectory.Path(), kPackagesDirectoryPath);
 		int32 count = fPackages->CountItems();
 		for (int32 i = 0; i < count; i++) {
 			Package *p = static_cast<Package*>(fPackages->ItemAt(i));
-			BPath packageDir(pkgRootDir.Path(), p->Folder());
-			err = engine.CollectTargets(packageDir.Path(), fCancelSemaphore);
+			const BPath& pkgPath = p->Path();
+			err = pkgPath.InitCheck();
+			if (err != B_OK)
+				return _InstallationError(err);
+			err = engine.CollectTargets(pkgPath.Path(), fCancelSemaphore);
 			if (err != B_OK)
 				return _InstallationError(err);
 		}
@@ -525,19 +517,31 @@ WorkerThread::_PerformInstall(partition_id sourcePartitionID,
 	reporter.StartTimer();
 
 	// copy source volume
-	err = engine.CopyFolder(srcDirectory.Path(), targetDirectory.Path(),
+	err = engine.Copy(srcDirectory.Path(), targetDirectory.Path(),
 		fCancelSemaphore);
 	if (err != B_OK)
 		return _InstallationError(err);
 
 	// copy selected packages
 	if (fPackages) {
-		BPath pkgRootDir(srcDirectory.Path(), kPackagesDirectoryPath);
 		int32 count = fPackages->CountItems();
+		// FIXME: find_directory doesn't return the folder in the target volume,
+		// so we are hard coding this for now.
+		BPath targetPkgDir(targetDirectory.Path(), "system/packages");
+		err = targetPkgDir.InitCheck();
+		if (err != B_OK)
+			return _InstallationError(err);
 		for (int32 i = 0; i < count; i++) {
 			Package *p = static_cast<Package*>(fPackages->ItemAt(i));
-			BPath packageDir(pkgRootDir.Path(), p->Folder());
-			err = engine.CopyFolder(packageDir.Path(), targetDirectory.Path(),
+			const BPath& pkgPath = p->Path();
+			err = pkgPath.InitCheck();
+			if (err != B_OK)
+				return _InstallationError(err);
+			BPath targetPath(targetPkgDir.Path(), pkgPath.Leaf());
+			err = targetPath.InitCheck();
+			if (err != B_OK)
+				return _InstallationError(err);
+			err = engine.Copy(pkgPath.Path(), targetPath.Path(),
 				fCancelSemaphore);
 			if (err != B_OK)
 				return _InstallationError(err);
@@ -556,9 +560,66 @@ WorkerThread::_PerformInstall(partition_id sourcePartitionID,
 	if (err != B_OK)
 		return _InstallationError(err);
 
-	_LaunchFinishScript(targetDirectory);
+	err = _WriteBootSector(targetDirectory);
+	if (err != B_OK)
+		return _InstallationError(err);
+
+	err = _LaunchFinishScript(targetDirectory);
+	if (err != B_OK)
+		return _InstallationError(err);
 
 	fOwner.SendMessage(MSG_INSTALL_FINISHED);
+	return B_OK;
+}
+
+
+status_t
+WorkerThread::_PrepareCleanInstall(const BPath& targetDirectory) const
+{
+	// When a target volume has files (other than the trash), the /system
+	// folder will be purged, except for the /system/settings subdirectory.
+	BPath systemPath(targetDirectory.Path(), "system", true);
+	status_t ret = systemPath.InitCheck();
+	if (ret != B_OK)
+		return ret;
+
+	BEntry systemEntry(systemPath.Path());
+	ret = systemEntry.InitCheck();
+	if (ret != B_OK)
+		return ret;
+	if (!systemEntry.Exists())
+		// target does not exist, done
+		return B_OK;
+	if (!systemEntry.IsDirectory())
+		// the system entry is a file or a symlink
+		return systemEntry.Remove();
+
+	BDirectory systemDirectory(&systemEntry);
+	ret = systemDirectory.InitCheck();
+	if (ret != B_OK)
+		return ret;
+
+	BEntry subEntry;
+	char fileName[B_FILE_NAME_LENGTH];
+	while (systemDirectory.GetNextEntry(&subEntry) == B_OK) {
+		ret = subEntry.GetName(fileName);
+		if (ret != B_OK)
+			return ret;
+
+		if (subEntry.IsDirectory() && strcmp(fileName, "settings") == 0) {
+			// Keep the settings folder
+			continue;
+		} else if (subEntry.IsDirectory()) {
+			ret = CopyEngine::RemoveFolder(subEntry);
+			if (ret != B_OK)
+				return ret;
+		} else {
+			ret = subEntry.Remove();
+			if (ret != B_OK)
+				return ret;
+		}
+	}
+
 	return B_OK;
 }
 
@@ -762,10 +823,6 @@ bool
 SourceVisitor::Visit(BPartition *partition, int32 level)
 {
 	BPath path;
-	if (partition->GetPath(&path) == B_OK)
-		printf("SourceVisitor::Visit(BPartition *) : %s\n", path.Path());
-	printf("SourceVisitor::Visit(BPartition *) : %s\n",
-		partition->ContentName());
 
 	if (partition->ContentType() == NULL)
 		return false;
@@ -773,7 +830,8 @@ SourceVisitor::Visit(BPartition *partition, int32 level)
 	bool isBootPartition = false;
 	if (partition->IsMounted()) {
 		BPath mountPoint;
-		partition->GetMountPoint(&mountPoint);
+		if (partition->GetMountPoint(&mountPoint) != B_OK)
+			return false;
 		isBootPartition = strcmp(BOOT_PATH, mountPoint.Path()) == 0;
 	}
 
@@ -821,23 +879,15 @@ TargetVisitor::Visit(BDiskDevice *device)
 bool
 TargetVisitor::Visit(BPartition *partition, int32 level)
 {
-	BPath path;
-	if (partition->GetPath(&path) == B_OK)
-		printf("TargetVisitor::Visit(BPartition *) : %s\n", path.Path());
-	printf("TargetVisitor::Visit(BPartition *) : %s\n",
-		partition->ContentName());
-
 	if (partition->ContentSize() < 20 * 1024 * 1024) {
 		// reject partitions which are too small anyway
 		// TODO: Could depend on the source size
-		printf("  too small\n");
 		return false;
 	}
 
 	if (partition->CountChildren() > 0) {
 		// Looks like an extended partition, or the device itself.
 		// Do not accept this as target...
-		printf("  no leaf partition\n");
 		return false;
 	}
 
@@ -851,9 +901,11 @@ TargetVisitor::Visit(BPartition *partition, int32 level)
 		isBootPartition = strcmp(BOOT_PATH, mountPoint.Path()) == 0;
 	}
 
-	// Only non-boot BFS partitions are valid targets, but we want to display the
-	// other partitions as well, in order not to irritate the user.
+	// Only writable non-boot BFS partitions are valid targets, but we want to
+	// display the other partitions as well, to inform the user that they are
+	// detected but somehow not appropriate.
 	bool isValidTarget = isBootPartition == false
+		&& !partition->IsReadOnly()
 		&& partition->ContentType() != NULL
 		&& strcmp(partition->ContentType(), kPartitionTypeBFS) == 0;
 

@@ -2,8 +2,10 @@
 # all the other definitions.
 
 # create directories that may remain empty
+AddDirectoryToHaikuImage home : home.rdef ;
 AddDirectoryToHaikuImage home Desktop ;
 AddDirectoryToHaikuImage home mail ;
+AddDirectoryToHaikuImage home config : home-config.rdef ;
 AddDirectoryToHaikuImage home config cache ;
 AddDirectoryToHaikuImage home config packages ;
 AddDirectoryToHaikuImage home config settings ;
@@ -22,6 +24,7 @@ AddDirectoryToHaikuImage home config non-packaged add-ons Tracker ;
 AddDirectoryToHaikuImage home config non-packaged add-ons Print ;
 AddDirectoryToHaikuImage home config non-packaged add-ons Screen\ Savers ;
 AddDirectoryToHaikuImage home config non-packaged add-ons Translators ;
+AddDirectoryToHaikuImage system : system.rdef ;
 AddDirectoryToHaikuImage system cache tmp ;
 AddDirectoryToHaikuImage system non-packaged bin ;
 AddDirectoryToHaikuImage system non-packaged data fonts ;
@@ -108,7 +111,7 @@ AddVariableToScript $(script) : installDir : $(HAIKU_INSTALL_DIR) ;
 AddVariableToScript $(script) : imageSize : $(HAIKU_IMAGE_SIZE) ;
 AddVariableToScript $(script) : imageLabel : $(HAIKU_IMAGE_LABEL) ;
 AddVariableToScript $(script) : addBuildCompatibilityLibDir
-	: $(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR) ;
+	: "export $(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)" ;
 AddVariableToScript $(script) : dontClearImage : $(HAIKU_DONT_CLEAR_IMAGE) ;
 AddVariableToScript $(script) : updateOnly : [ IsUpdateHaikuImageOnly ] ;
 AddTargetVariableToScript $(script) : <build>addattr ;

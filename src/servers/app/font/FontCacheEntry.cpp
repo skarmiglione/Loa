@@ -143,14 +143,13 @@ FontCacheEntry::FontCacheEntry()
 FontCacheEntry::~FontCacheEntry()
 {
 //printf("~FontCacheEntry()\n");
-	delete fGlyphCache;
 }
 
 
 bool
 FontCacheEntry::Init(const ServerFont& font, bool forceVector)
 {
-	if (fGlyphCache == NULL)
+	if (fGlyphCache.Get() == NULL)
 		return false;
 
 	glyph_rendering renderingType = _RenderTypeFor(font, forceVector);
@@ -263,6 +262,16 @@ FontCacheEntry::CachedGlyph(uint32 glyphCode)
 {
 	// Only requires a read lock.
 	return fGlyphCache->FindGlyph(glyphCode);
+}
+
+
+bool
+FontCacheEntry::CanCreateGlyph(uint32 glyphCode)
+{
+	// Note that this bypass any fallback or caching because it is used in
+	// the fallback code itself.
+	uint32 glyphIndex = fEngine.GlyphIndexForGlyphCode(glyphCode);
+	return glyphIndex != 0;
 }
 
 

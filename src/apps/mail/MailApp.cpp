@@ -423,6 +423,7 @@ TMailApp::MessageReceived(BMessage *msg)
 
 		default:
 			BApplication::MessageReceived(msg);
+			break;
 	}
 }
 
@@ -433,8 +434,8 @@ TMailApp::QuitRequested()
 	if (!BApplication::QuitRequested())
 		return false;
 
-    fMailWindowFrame = fLastMailWindowFrame;
-    	// Last closed window becomes standard window size.
+	fMailWindowFrame = fLastMailWindowFrame;
+		// Last closed window becomes standard window size.
 
 	// Shut down the spam server if it's still running. If the user has trained it on a message, it will stay
 	// open. This is actually a good thing if there's quite a bit of spam -- no waiting for the thing to start
@@ -1276,4 +1277,3 @@ main()
 	TMailApp().Run();
 	return B_OK;
 }
-

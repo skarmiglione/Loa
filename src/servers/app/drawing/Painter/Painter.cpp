@@ -118,7 +118,7 @@ uint32 gSIMDFlags = detect_simd();
 static uint32
 detect_simd()
 {
-#if __INTEL__
+#if __i386__
 	// Only scan CPUs for which we are certain the SIMD flags are properly
 	// defined.
 	const char* vendorNames[] = {
@@ -170,7 +170,7 @@ detect_simd()
 		systemSIMD &= cpuSIMD;
 	}
 	return systemSIMD;
-#else	// !__INTEL__
+#else	// !__i386__
 	return 0;
 #endif
 }
@@ -322,7 +322,7 @@ Painter::SetDrawState(const DrawState* state, int32 xOffset, int32 yOffset)
 	SetHighColor(state->HighColor());
 	SetLowColor(state->LowColor());
 
-	if (updateDrawingMode || fPixelFormat.UsesOpCopyForText())
+	if (updateDrawingMode)
 		_UpdateDrawingMode();
 }
 

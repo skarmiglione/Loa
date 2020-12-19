@@ -755,7 +755,7 @@ OverlayInode::Read(void *_cookie, off_t position, void *buffer, size_t *length,
 			if (ioRequest != NULL)
 				;// TODO: handle this case
 			else
-				memset(pointer, 0, gapSize);
+				user_memset(pointer, 0, gapSize);
 
 			bytesLeft -= gapSize;
 			position += gapSize;
@@ -1059,7 +1059,9 @@ OverlayInode::ReadSymlink(char *buffer, size_t *bufferSize)
 		if (!S_ISLNK(fStat.st_mode))
 			return B_BAD_VALUE;
 
-		return Read(NULL, 0, buffer, bufferSize, false, NULL);
+		status_t result = Read(NULL, 0, buffer, bufferSize, false, NULL);
+		*bufferSize = fStat.st_size;
+		return result;
 	}
 
 	if (fSuperVnode.ops->read_symlink == NULL)

@@ -34,20 +34,28 @@
 #define ALIGN(size, align)	(((size) + align - 1) & ~(align - 1))
 
 
-#define PCI_VENDOR_AMD			0x1002
+#define PCI_VENDOR_ATI			0x1002
+#define PCI_VENDOR_AMD			0x1022
 #define PCI_VENDOR_CREATIVE		0x1102
+#define PCI_VENDOR_CMEDIA		0x13f6
 #define PCI_VENDOR_INTEL		0x8086
 #define PCI_VENDOR_NVIDIA		0x10de
+#define PCI_VENDOR_VMWARE		0x15ad
+#define PCI_VENDOR_SIS			0x1039
 #define PCI_ALL_DEVICES			0xffffffff
+
 #define HDA_QUIRK_SNOOP					0x0001
 #define HDA_QUIRK_NO_MSI				0x0002
 #define HDA_QUIRK_NO_CORBRP_RESET_ACK	0x0004
+#define HDA_QUIRK_NOTCSEL				0x0008
 
 
 static const struct {
 	uint32 vendor_id, device_id;
 	uint32 quirks;
 } kControllerQuirks[] = {
+	{ PCI_VENDOR_INTEL, 0x02c8, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_INTEL, 0x06c8, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x080a, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x0a0c, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x0c0c, HDA_QUIRK_SNOOP },
@@ -58,11 +66,14 @@ static const struct {
 	{ PCI_VENDOR_INTEL, 0x1d20, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x1e20, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x2284, HDA_QUIRK_SNOOP },
-	{ PCI_VENDOR_INTEL, 0x2668, HDA_QUIRK_NO_CORBRP_RESET_ACK },
 	{ PCI_VENDOR_INTEL, 0x3198, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x34c8, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_INTEL, 0x38c8, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x3b56, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x3b57, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_INTEL, 0x4b55, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_INTEL, 0x4d55, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_INTEL, 0x4dc8, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x5a98, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x811b, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x8c20, HDA_QUIRK_SNOOP },
@@ -75,17 +86,30 @@ static const struct {
 	{ PCI_VENDOR_INTEL, 0x9d70, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x9d71, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0x9dc8, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_INTEL, 0xa0c8, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0xa170, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0xa171, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_INTEL, 0xa1f0, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_INTEL, 0xa270, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0xa2f0, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_INTEL, 0xa348, HDA_QUIRK_SNOOP },
-	// Enable snooping for ATI and Nvidia, right now for all their hda-devices,
+	{ PCI_VENDOR_INTEL, 0xa3f0, HDA_QUIRK_SNOOP },
+	{ PCI_VENDOR_ATI, 0x437b, HDA_QUIRK_SNOOP | HDA_QUIRK_NOTCSEL },
+	{ PCI_VENDOR_ATI, 0x4383, HDA_QUIRK_SNOOP | HDA_QUIRK_NOTCSEL },
+	{ PCI_VENDOR_AMD, 0x157a, HDA_QUIRK_SNOOP | HDA_QUIRK_NOTCSEL },
+	{ PCI_VENDOR_AMD, 0x780d, HDA_QUIRK_SNOOP | HDA_QUIRK_NOTCSEL },
+	{ PCI_VENDOR_AMD, 0x1457, HDA_QUIRK_SNOOP | HDA_QUIRK_NOTCSEL },
+	{ PCI_VENDOR_AMD, 0x1487, HDA_QUIRK_SNOOP | HDA_QUIRK_NOTCSEL },
+	{ PCI_VENDOR_AMD, 0x15e3, HDA_QUIRK_SNOOP | HDA_QUIRK_NOTCSEL },
+	// Enable snooping for Nvidia, right now for all their hda-devices,
 	// but only based on guessing.
-	{ PCI_VENDOR_AMD, PCI_ALL_DEVICES, HDA_QUIRK_SNOOP },
 	{ PCI_VENDOR_NVIDIA, PCI_ALL_DEVICES, HDA_QUIRK_SNOOP | HDA_QUIRK_NO_MSI
 		| HDA_QUIRK_NO_CORBRP_RESET_ACK },
+	{ PCI_VENDOR_CMEDIA, 0x5011, HDA_QUIRK_NO_MSI },
 	{ PCI_VENDOR_CREATIVE, 0x0010, HDA_QUIRK_NO_MSI },
-	{ PCI_VENDOR_CREATIVE, 0x0012, HDA_QUIRK_NO_MSI }
+	{ PCI_VENDOR_CREATIVE, 0x0012, HDA_QUIRK_NO_MSI },
+	{ PCI_VENDOR_VMWARE, PCI_ALL_DEVICES, HDA_QUIRK_NO_CORBRP_RESET_ACK },
+	{ PCI_VENDOR_SIS, 0x7502, HDA_QUIRK_NO_CORBRP_RESET_ACK },
 };
 
 
@@ -111,7 +135,7 @@ static const struct {
 
 
 static uint32
-get_controller_quirks(pci_info& info)
+get_controller_quirks(const pci_info& info)
 {
 	for (size_t i = 0;
 			i < sizeof(kControllerQuirks) / sizeof(kControllerQuirks[0]); i++) {
@@ -121,6 +145,37 @@ get_controller_quirks(pci_info& info)
 			return kControllerQuirks[i].quirks;
 	}
 	return 0;
+}
+
+
+template<int bits, typename base_type>
+bool
+wait_for_bits(base_type base, uint32 reg, uint32 mask, bool set,
+	bigtime_t delay = 100, int timeout = 10)
+{
+	STATIC_ASSERT(bits == 8 || bits == 16 || bits == 32);
+
+	for (; timeout >= 0; timeout--) {
+		snooze(delay);
+
+		uint32 value;
+		switch (bits) {
+			case 8:
+				value = base->Read8(reg);
+				break;
+			case 16:
+				value = base->Read16(reg);
+				break;
+			case 32:
+				value = base->Read32(reg);
+				break;
+		}
+
+		if (((value & mask) != 0) == set)
+			return true;
+	}
+
+	return false;
 }
 
 
@@ -354,80 +409,67 @@ hda_interrupt_handler(hda_controller* controller)
 static status_t
 reset_controller(hda_controller* controller)
 {
-	// stop streams
-
-	for (uint32 i = 0; i < controller->num_input_streams; i++) {
-		controller->Write8(HDAC_STREAM_CONTROL0 + HDAC_STREAM_BASE
-			+ HDAC_INPUT_STREAM_OFFSET(controller, i), 0);
-		controller->Write8(HDAC_STREAM_STATUS + HDAC_STREAM_BASE
-			+ HDAC_INPUT_STREAM_OFFSET(controller, i), 0);
-	}
-	for (uint32 i = 0; i < controller->num_output_streams; i++) {
-		controller->Write8(HDAC_STREAM_CONTROL0 + HDAC_STREAM_BASE
-			+ HDAC_OUTPUT_STREAM_OFFSET(controller, i), 0);
-		controller->Write8(HDAC_STREAM_STATUS + HDAC_STREAM_BASE
-			+ HDAC_OUTPUT_STREAM_OFFSET(controller, i), 0);
-	}
-	for (uint32 i = 0; i < controller->num_bidir_streams; i++) {
-		controller->Write8(HDAC_STREAM_CONTROL0 + HDAC_STREAM_BASE
-			+ HDAC_BIDIR_STREAM_OFFSET(controller, i), 0);
-		controller->Write8(HDAC_STREAM_STATUS + HDAC_STREAM_BASE
-			+ HDAC_BIDIR_STREAM_OFFSET(controller, i), 0);
-	}
-
-	// stop DMA
-	controller->ReadModifyWrite8(HDAC_CORB_CONTROL, HDAC_CORB_CONTROL_MASK, 0);
-	controller->ReadModifyWrite8(HDAC_RIRB_CONTROL, HDAC_RIRB_CONTROL_MASK, 0);
-
-	uint8 corbControl = 0;
-	uint8 rirbControl = 0;
-	for (int timeout = 0; timeout < 10; timeout++) {
-		snooze(100);
-
-		corbControl = controller->Read8(HDAC_CORB_CONTROL);
-		rirbControl = controller->Read8(HDAC_RIRB_CONTROL);
-		if (corbControl == 0 && rirbControl == 0)
-			break;
-	}
-	if (corbControl != 0 || rirbControl != 0) {
-		dprintf("hda: unable to stop dma\n");
-		return B_BUSY;
-	}
-
-	// reset DMA position buffer
-	controller->Write32(HDAC_DMA_POSITION_BASE_LOWER, 0);
-	controller->Write32(HDAC_DMA_POSITION_BASE_UPPER, 0);
-
-	// Set reset bit - it must be asserted for at least 100us
-
 	uint32 control = controller->Read32(HDAC_GLOBAL_CONTROL);
-	controller->Write32(HDAC_GLOBAL_CONTROL, control & ~GLOBAL_CONTROL_RESET);
+	if ((control & GLOBAL_CONTROL_RESET) != 0) {
+		controller->Write32(HDAC_INTR_CONTROL, 0);
 
-	for (int timeout = 0; timeout < 10; timeout++) {
-		snooze(100);
+		// stop streams
+
+		for (uint32 i = 0; i < controller->num_input_streams; i++) {
+			controller->Write8(HDAC_STREAM_CONTROL0 + HDAC_STREAM_BASE
+				+ HDAC_INPUT_STREAM_OFFSET(controller, i), 0);
+			controller->Write8(HDAC_STREAM_STATUS + HDAC_STREAM_BASE
+				+ HDAC_INPUT_STREAM_OFFSET(controller, i), 0);
+		}
+		for (uint32 i = 0; i < controller->num_output_streams; i++) {
+			controller->Write8(HDAC_STREAM_CONTROL0 + HDAC_STREAM_BASE
+				+ HDAC_OUTPUT_STREAM_OFFSET(controller, i), 0);
+			controller->Write8(HDAC_STREAM_STATUS + HDAC_STREAM_BASE
+				+ HDAC_OUTPUT_STREAM_OFFSET(controller, i), 0);
+		}
+		for (uint32 i = 0; i < controller->num_bidir_streams; i++) {
+			controller->Write8(HDAC_STREAM_CONTROL0 + HDAC_STREAM_BASE
+				+ HDAC_BIDIR_STREAM_OFFSET(controller, i), 0);
+			controller->Write8(HDAC_STREAM_STATUS + HDAC_STREAM_BASE
+				+ HDAC_BIDIR_STREAM_OFFSET(controller, i), 0);
+		}
+
+		// stop DMA
+		controller->ReadModifyWrite8(HDAC_CORB_CONTROL, HDAC_CORB_CONTROL_MASK,
+			0);
+		controller->ReadModifyWrite8(HDAC_RIRB_CONTROL, HDAC_RIRB_CONTROL_MASK,
+			0);
+
+		if (!wait_for_bits<8>(controller, HDAC_CORB_CONTROL, ~0, false)
+			|| !wait_for_bits<8>(controller, HDAC_RIRB_CONTROL, ~0, false)) {
+			dprintf("hda: unable to stop dma\n");
+			return B_BUSY;
+		}
+
+		// reset DMA position buffer
+		controller->Write32(HDAC_DMA_POSITION_BASE_LOWER, 0);
+		controller->Write32(HDAC_DMA_POSITION_BASE_UPPER, 0);
 
 		control = controller->Read32(HDAC_GLOBAL_CONTROL);
-		if ((control & GLOBAL_CONTROL_RESET) == 0)
-			break;
 	}
-	if ((control & GLOBAL_CONTROL_RESET) != 0) {
+
+	// Set reset bit - it must be asserted for at least 100us
+	controller->Write32(HDAC_GLOBAL_CONTROL, control & ~GLOBAL_CONTROL_RESET);
+	if (!wait_for_bits<32>(controller, HDAC_GLOBAL_CONTROL,
+			GLOBAL_CONTROL_RESET, false)) {
 		dprintf("hda: unable to reset controller\n");
 		return B_BUSY;
 	}
+
+	// Wait for codec PLL to lock at least 100us, section 5.5.1.2
+	snooze(1000);
 
 	// Unset reset bit
 
 	control = controller->Read32(HDAC_GLOBAL_CONTROL);
 	controller->Write32(HDAC_GLOBAL_CONTROL, control | GLOBAL_CONTROL_RESET);
-
-	for (int timeout = 0; timeout < 10; timeout++) {
-		snooze(100);
-
-		control = controller->Read32(HDAC_GLOBAL_CONTROL);
-		if ((control & GLOBAL_CONTROL_RESET) != 0)
-			break;
-	}
-	if ((control & GLOBAL_CONTROL_RESET) == 0) {
+	if (!wait_for_bits<32>(controller, HDAC_GLOBAL_CONTROL,
+			GLOBAL_CONTROL_RESET, true)) {
 		dprintf("hda: unable to exit reset\n");
 		return B_BUSY;
 	}
@@ -505,7 +547,7 @@ init_corb_rirb_pos(hda_controller* controller, uint32 quirks)
 	// Allocate memory area
 	controller->corb_rirb_pos_area = create_area("hda corb/rirb/pos",
 		(void**)&controller->corb, B_ANY_KERNEL_ADDRESS, memSize,
-		B_CONTIGUOUS, 0);
+		controller->is_64_bit ? B_CONTIGUOUS : B_32_BIT_CONTIGUOUS, 0);
 	if (controller->corb_rirb_pos_area < 0)
 		return controller->corb_rirb_pos_area;
 
@@ -526,17 +568,24 @@ init_corb_rirb_pos(hda_controller* controller, uint32 quirks)
 
 	// Program CORB/RIRB for these locations
 	controller->Write32(HDAC_CORB_BASE_LOWER, (uint32)pe.address);
-	controller->Write32(HDAC_CORB_BASE_UPPER,
-		(uint32)((uint64)pe.address >> 32));
+	if (controller->is_64_bit) {
+		controller->Write32(HDAC_CORB_BASE_UPPER,
+			(uint32)((uint64)pe.address >> 32));
+	}
+
 	controller->Write32(HDAC_RIRB_BASE_LOWER, (uint32)pe.address + rirbOffset);
-	controller->Write32(HDAC_RIRB_BASE_UPPER,
-		(uint32)(((uint64)pe.address + rirbOffset) >> 32));
+	if (controller->is_64_bit) {
+		controller->Write32(HDAC_RIRB_BASE_UPPER,
+			(uint32)(((uint64)pe.address + rirbOffset) >> 32));
+	}
 
 	// Program DMA position update
 	controller->Write32(HDAC_DMA_POSITION_BASE_LOWER,
 		(uint32)pe.address + posOffset);
-	controller->Write32(HDAC_DMA_POSITION_BASE_UPPER,
-		(uint32)(((uint64)pe.address + posOffset) >> 32));
+	if (controller->is_64_bit) {
+		controller->Write32(HDAC_DMA_POSITION_BASE_UPPER,
+			(uint32)(((uint64)pe.address + posOffset) >> 32));
+	}
 
 	controller->stream_positions = (uint32*)
 		((uint8*)controller->corb + posOffset);
@@ -552,13 +601,8 @@ init_corb_rirb_pos(hda_controller* controller, uint32 quirks)
 
 	corbReadPointer |= CORB_READ_POS_RESET;
 	controller->Write16(HDAC_CORB_READ_POS, corbReadPointer);
-	for (int timeout = 0; timeout < 10; timeout++) {
-		snooze(100);
-		corbReadPointer = controller->Read16(HDAC_CORB_READ_POS);
-		if ((corbReadPointer & CORB_READ_POS_RESET) != 0)
-			break;
-	}
-	if ((corbReadPointer & CORB_READ_POS_RESET) == 0) {
+	if (!wait_for_bits<16>(controller, HDAC_CORB_READ_POS, CORB_READ_POS_RESET,
+			true)) {
 		dprintf("hda: CORB read pointer reset not acknowledged\n");
 
 		// According to HDA spec v1.0a ch3.3.21, software must read the
@@ -570,13 +614,8 @@ init_corb_rirb_pos(hda_controller* controller, uint32 quirks)
 
 	corbReadPointer &= ~CORB_READ_POS_RESET;
 	controller->Write16(HDAC_CORB_READ_POS, corbReadPointer);
-	for (int timeout = 0; timeout < 10; timeout++) {
-		snooze(100);
-		corbReadPointer = controller->Read16(HDAC_CORB_READ_POS);
-		if ((corbReadPointer & CORB_READ_POS_RESET) == 0)
-			break;
-	}
-	if ((corbReadPointer & CORB_READ_POS_RESET) != 0) {
+	if (!wait_for_bits<16>(controller, HDAC_CORB_READ_POS, CORB_READ_POS_RESET,
+			false)) {
 		dprintf("hda: CORB read pointer reset failed\n");
 		return B_BUSY;
 	}
@@ -695,6 +734,11 @@ hda_stream_start(hda_controller* controller, hda_stream* stream)
 		| CONTROL0_BUFFER_COMPLETED_INTR | CONTROL0_FIFO_ERROR_INTR
 		| CONTROL0_DESCRIPTOR_ERROR_INTR | CONTROL0_RUN);
 
+	if (!wait_for_bits<8>(stream, HDAC_STREAM_CONTROL0, CONTROL0_RUN, true)) {
+		dprintf("hda: unable to start stream\n");
+		return B_BUSY;
+	}
+
 	stream->running = true;
 	return B_OK;
 }
@@ -713,7 +757,38 @@ hda_stream_stop(hda_controller* controller, hda_stream* stream)
 	controller->Write32(HDAC_INTR_CONTROL, controller->Read32(HDAC_INTR_CONTROL)
 		& ~(1 << (stream->offset / HDAC_STREAM_SIZE)));
 
+	if (!wait_for_bits<8>(stream, HDAC_STREAM_CONTROL0, CONTROL0_RUN, false)) {
+		dprintf("hda: unable to stop stream\n");
+		return B_BUSY;
+	}
+
 	stream->running = false;
+	return B_OK;
+}
+
+
+/*! Runs a stream through a reset cycle.
+*/
+status_t
+hda_stream_reset(hda_stream* stream)
+{
+	if (stream->running)
+		hda_stream_stop(stream->controller, stream);
+
+	stream->Write8(HDAC_STREAM_CONTROL0,
+		stream->Read8(HDAC_STREAM_CONTROL0) | CONTROL0_RESET);
+	if (!wait_for_bits<8>(stream, HDAC_STREAM_CONTROL0, CONTROL0_RESET, true)) {
+		dprintf("hda: unable to start stream reset\n");
+		return B_BUSY;
+	}
+
+	stream->Write8(HDAC_STREAM_CONTROL0,
+		stream->Read8(HDAC_STREAM_CONTROL0) & ~CONTROL0_RESET);
+	if (!wait_for_bits<8>(stream, HDAC_STREAM_CONTROL0, CONTROL0_RESET, false))
+	{
+		dprintf("hda: unable to stop stream reset\n");
+		return B_BUSY;
+	}
 
 	return B_OK;
 }
@@ -723,6 +798,8 @@ status_t
 hda_stream_setup_buffers(hda_audio_group* audioGroup, hda_stream* stream,
 	const char* desc)
 {
+	hda_stream_reset(stream);
+
 	// Clear previously allocated memory
 	if (stream->buffer_area >= 0) {
 		delete_area(stream->buffer_area);
@@ -775,7 +852,9 @@ hda_stream_setup_buffers(hda_audio_group* audioGroup, hda_stream* stream,
 	// Allocate memory for buffers
 	uint8* buffer;
 	stream->buffer_area = create_area("hda buffers", (void**)&buffer,
-		B_ANY_KERNEL_ADDRESS, alloc, B_CONTIGUOUS, B_READ_AREA | B_WRITE_AREA);
+		B_ANY_KERNEL_ADDRESS, alloc,
+		stream->controller->is_64_bit ? B_CONTIGUOUS : B_32_BIT_CONTIGUOUS,
+		B_READ_AREA | B_WRITE_AREA);
 	if (stream->buffer_area < B_OK)
 		return stream->buffer_area;
 
@@ -812,7 +891,7 @@ hda_stream_setup_buffers(hda_audio_group* audioGroup, hda_stream* stream,
 	bdl_entry_t* bufferDescriptors;
 	stream->buffer_descriptors_area = create_area("hda buffer descriptors",
 		(void**)&bufferDescriptors, B_ANY_KERNEL_ADDRESS, alloc,
-		B_CONTIGUOUS, 0);
+		stream->controller->is_64_bit ? B_CONTIGUOUS : B_32_BIT_CONTIGUOUS, 0);
 	if (stream->buffer_descriptors_area < B_OK) {
 		delete_area(stream->buffer_area);
 		return stream->buffer_descriptors_area;
@@ -853,8 +932,11 @@ hda_stream_setup_buffers(hda_audio_group* audioGroup, hda_stream* stream,
 	stream->Write16(HDAC_STREAM_FORMAT, format);
 	stream->Write32(HDAC_STREAM_BUFFERS_BASE_LOWER,
 		(uint32)stream->physical_buffer_descriptors);
-	stream->Write32(HDAC_STREAM_BUFFERS_BASE_UPPER,
-		(uint32)(stream->physical_buffer_descriptors >> 32));
+	if (stream->controller->is_64_bit) {
+		stream->Write32(HDAC_STREAM_BUFFERS_BASE_UPPER,
+			(uint32)((uint64)stream->physical_buffer_descriptors >> 32));
+	}
+
 	stream->Write16(HDAC_STREAM_LAST_VALID, fragments - 1);
 	// total cyclic buffer size in _bytes_
 	stream->Write32(HDAC_STREAM_BUFFER_SIZE, stream->buffer_size
@@ -971,20 +1053,26 @@ hda_hw_init(hda_controller* controller)
 	uint16 stateStatus;
 	uint16 cmd;
 	status_t status;
-	uint32 quirks = get_controller_quirks(controller->pci_info);
+	const pci_info& pciInfo = controller->pci_info;
+	uint32 quirks = get_controller_quirks(pciInfo);
+
+	// map the registers (low + high for 64-bit when requested)
+	phys_addr_t physicalAddress = pciInfo.u.h0.base_registers[0];
+	if ((pciInfo.u.h0.base_register_flags[0] & PCI_address_type)
+			== PCI_address_type_64) {
+		physicalAddress |= (uint64)pciInfo.u.h0.base_registers[1] << 32;
+	}
 
 	// Map MMIO registers
 	controller->regs_area = map_physical_memory("hda_hw_regs",
-		controller->pci_info.u.h0.base_registers[0],
-		controller->pci_info.u.h0.base_register_sizes[0], B_ANY_KERNEL_ADDRESS,
-		0, (void**)&controller->regs);
+		physicalAddress, pciInfo.u.h0.base_register_sizes[0],
+		B_ANY_KERNEL_ADDRESS, 0, (void**)&controller->regs);
 	if (controller->regs_area < B_OK) {
 		status = controller->regs_area;
 		goto error;
 	}
 
-	cmd = (gPci->read_pci_config)(controller->pci_info.bus,
-		controller->pci_info.device, controller->pci_info.function,
+	cmd = gPci->read_pci_config(pciInfo.bus, pciInfo.device, pciInfo.function,
 		PCI_command, 2);
 	if (!(cmd & PCI_command_master)) {
 		dprintf("hda: enabling PCI bus mastering\n");
@@ -994,31 +1082,25 @@ hda_hw_init(hda_controller* controller)
 		dprintf("hda: enabling PCI memory access\n");
 		cmd |= PCI_command_memory;
 	}
-	if ((cmd & PCI_command_int_disable)) {
-		dprintf("hda: enabling PCI interrupts\n");
-		cmd &= ~PCI_command_int_disable;
-	}
-	(gPci->write_pci_config)(controller->pci_info.bus,
-		controller->pci_info.device, controller->pci_info.function,
-			PCI_command, 2, cmd);
+	gPci->write_pci_config(pciInfo.bus, pciInfo.device, pciInfo.function,
+		PCI_command, 2, cmd);
+
+	// Disable interrupt generation
+	controller->Write32(HDAC_INTR_CONTROL, 0);
 
 	// Absolute minimum hw is online; we can now install interrupt handler
 
-	controller->irq = controller->pci_info.u.h0.interrupt_line;
+	controller->irq = pciInfo.u.h0.interrupt_line;
 	controller->msi = false;
 
 	if (gPCIx86Module != NULL && (quirks & HDA_QUIRK_NO_MSI) == 0
-			&& gPCIx86Module->get_msi_count(
-				controller->pci_info.bus, controller->pci_info.device,
-				controller->pci_info.function) >= 1) {
+			&& gPCIx86Module->get_msi_count(pciInfo.bus, pciInfo.device,
+				pciInfo.function) >= 1) {
 		// Try MSI first
 		uint8 vector;
-		if (gPCIx86Module->configure_msi(controller->pci_info.bus,
-				controller->pci_info.device, controller->pci_info.function,
-				1, &vector) == B_OK
-			&& gPCIx86Module->enable_msi(controller->pci_info.bus,
-				controller->pci_info.device, controller->pci_info.function)
-					== B_OK) {
+		if (gPCIx86Module->configure_msi(pciInfo.bus, pciInfo.device,
+			pciInfo.function, 1, &vector) == B_OK && gPCIx86Module->enable_msi(
+				pciInfo.bus, pciInfo.device, pciInfo.function) == B_OK) {
 			dprintf("hda: using MSI vector %u\n", vector);
 			controller->irq = vector;
 			controller->msi = true;
@@ -1028,15 +1110,33 @@ hda_hw_init(hda_controller* controller)
 	status = install_io_interrupt_handler(controller->irq,
 		(interrupt_handler)hda_interrupt_handler, controller, 0);
 	if (status != B_OK)
-		goto no_irq;
+		goto no_irq_handler;
+
+	cmd = gPci->read_pci_config(pciInfo.bus, pciInfo.device, pciInfo.function,
+		PCI_command, 2);
+	if (controller->msi != ((cmd & PCI_command_int_disable) != 0)) {
+		if ((cmd & PCI_command_int_disable) != 0) {
+			dprintf("hda: enabling PCI interrupts\n");
+			cmd &= ~PCI_command_int_disable;
+		} else {
+			dprintf("hda: disabling PCI interrupts for MSI use\n");
+			cmd |= PCI_command_int_disable;
+		}
+
+		gPci->write_pci_config(pciInfo.bus, pciInfo.device, pciInfo.function,
+			PCI_command, 2, cmd);
+	}
 
 	// TCSEL is reset to TC0 (clear 0-2 bits)
-	update_pci_register(controller, PCI_HDA_TCSEL, PCI_HDA_TCSEL_MASK, 0, 1);
+	if ((quirks & HDA_QUIRK_NOTCSEL) == 0) {
+		update_pci_register(controller, PCI_HDA_TCSEL, PCI_HDA_TCSEL_MASK, 0,
+			1);
+	}
 
 	controller->dma_snooping = false;
 
 	if ((quirks & HDA_QUIRK_SNOOP) != 0) {
-		switch (controller->pci_info.vendor_id) {
+		switch (pciInfo.vendor_id) {
 			case PCI_VENDOR_NVIDIA:
 			{
 				controller->dma_snooping = update_pci_register(controller,
@@ -1059,6 +1159,7 @@ hda_hw_init(hda_controller* controller)
 			}
 
 			case PCI_VENDOR_AMD:
+			case PCI_VENDOR_ATI:
 			{
 				controller->dma_snooping = update_pci_register(controller,
 					ATI_HDA_MISC_CNTR2, ATI_HDA_MISC_CNTR2_MASK,
@@ -1080,6 +1181,7 @@ hda_hw_init(hda_controller* controller)
 	controller->num_input_streams = GLOBAL_CAP_INPUT_STREAMS(capabilities);
 	controller->num_output_streams = GLOBAL_CAP_OUTPUT_STREAMS(capabilities);
 	controller->num_bidir_streams = GLOBAL_CAP_BIDIR_STREAMS(capabilities);
+	controller->is_64_bit = GLOBAL_CAP_64BIT(capabilities);
 
 	// show some hw features
 	dprintf("hda: HDA v%d.%d, O:%" B_PRIu32 "/I:%" B_PRIu32 "/B:%" B_PRIu32
@@ -1089,7 +1191,7 @@ hda_hw_init(hda_controller* controller)
 		controller->num_output_streams, controller->num_input_streams,
 		controller->num_bidir_streams,
 		GLOBAL_CAP_NUM_SDO(capabilities),
-		GLOBAL_CAP_64BIT(capabilities) ? "yes" : "no");
+		controller->is_64_bit ? "yes" : "no");
 
 	// Get controller into valid state
 	status = reset_controller(controller);
@@ -1157,15 +1259,17 @@ corb_rirb_failed:
 	controller->Write32(HDAC_INTR_CONTROL, 0);
 
 reset_failed:
-	if (controller->msi) {
-		gPCIx86Module->disable_msi(controller->pci_info.bus,
-			controller->pci_info.device, controller->pci_info.function);
-	}
-
 	remove_io_interrupt_handler(controller->irq,
 		(interrupt_handler)hda_interrupt_handler, controller);
 
-no_irq:
+no_irq_handler:
+	if (controller->msi) {
+		gPCIx86Module->disable_msi(controller->pci_info.bus,
+			controller->pci_info.device, controller->pci_info.function);
+		gPCIx86Module->unconfigure_msi(controller->pci_info.bus,
+			controller->pci_info.device, controller->pci_info.function);
+	}
+
 	delete_area(controller->regs_area);
 	controller->regs_area = B_ERROR;
 	controller->regs = NULL;
@@ -1209,18 +1313,15 @@ hda_hw_uninit(hda_controller* controller)
 	// Disable interrupts, and remove interrupt handler
 	controller->Write32(HDAC_INTR_CONTROL, 0);
 
+	remove_io_interrupt_handler(controller->irq,
+		(interrupt_handler)hda_interrupt_handler, controller);
+
 	if (controller->msi) {
 		// Disable MSI
 		gPCIx86Module->disable_msi(controller->pci_info.bus,
 			controller->pci_info.device, controller->pci_info.function);
-	}
-
-	remove_io_interrupt_handler(controller->irq,
-		(interrupt_handler)hda_interrupt_handler, controller);
-
-	if (gPCIx86Module != NULL) {
-		put_module(B_PCI_X86_MODULE_NAME);
-		gPCIx86Module = NULL;
+		gPCIx86Module->unconfigure_msi(controller->pci_info.bus,
+			controller->pci_info.device, controller->pci_info.function);
 	}
 
 	// Delete corb/rirb area

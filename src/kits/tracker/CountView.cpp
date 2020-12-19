@@ -56,6 +56,7 @@ All rights reserved.
 
 
 const bigtime_t kBarberPoleDelay = 500000;
+static const float kMinFontSize = 8.0f;
 
 
 //	#pragma mark - BCountView
@@ -243,7 +244,6 @@ BCountView::Draw(BRect updateRect)
 
 	rgb_color light = tint_color(ViewColor(), B_LIGHTEN_MAX_TINT);
 	rgb_color shadow = tint_color(ViewColor(), B_DARKEN_2_TINT);
-	rgb_color lightShadow = tint_color(ViewColor(), B_DARKEN_1_TINT);
 
 	BeginLineArray(fShowingBarberPole && !fStartSpinningAfter ? 9 : 5);
 
@@ -314,7 +314,8 @@ void
 BCountView::AttachedToWindow()
 {
 	SetFont(be_plain_font);
-	SetFontSize(9);
+	SetFontSize(std::max(kMinFontSize,
+		floorf(be_plain_font->Size() * 0.75f)));
 
 	SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
 	SetLowUIColor(ViewUIColor());

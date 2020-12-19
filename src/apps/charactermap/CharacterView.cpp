@@ -27,7 +27,8 @@ static const uint32 kMsgCopyAsEscapedString = 'cesc';
 
 
 CharacterView::CharacterView(const char* name)
-	: BView(name, B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE | B_FRAME_EVENTS),
+	: BView(name, B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE | B_FRAME_EVENTS
+		| B_SCROLL_VIEW_AWARE),
 	fTargetCommand(0),
 	fClickPoint(-1, 0),
 	fHasCharacter(false),
@@ -60,7 +61,7 @@ void
 CharacterView::SetCharacterFont(const BFont& font)
 {
 	fCharacterFont = font;
-
+	fUnicodeBlocks = fCharacterFont.Blocks();
 	InvalidateLayout();
 }
 
@@ -96,10 +97,22 @@ CharacterView::IsShowingBlock(int32 blockIndex) const
 	if (!fShowPrivateBlocks && kUnicodeBlocks[blockIndex].private_block)
 		return false;
 
-	if (fShowContainedBlocksOnly
-		&& !fCharacterFont.Blocks().Includes(
-				kUnicodeBlocks[blockIndex].block)) {
-		return false;
+	// the reason for two checks is BeOS compatibility.
+	// The Includes method checks for unicode blocks as
+	// defined by Be, but there are only 71 such blocks.
+	// The rest of the blocks (denoted by kNoBlock) need to
+	// be queried by searching for the start and end codepoints
+	// via the IncludesBlock method.
+	if (fShowContainedBlocksOnly) {
+		if (kUnicodeBlocks[blockIndex].block != kNoBlock
+			&& !fUnicodeBlocks.Includes(
+				kUnicodeBlocks[blockIndex].block))
+			return false;
+
+		if (!fCharacterFont.IncludesBlock(
+				kUnicodeBlocks[blockIndex].start,
+				kUnicodeBlocks[blockIndex].end))
+			return false;
 	}
 
 	return true;

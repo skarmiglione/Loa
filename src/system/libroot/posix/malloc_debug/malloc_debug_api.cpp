@@ -220,6 +220,18 @@ __heap_after_fork_parent(void)
 }
 
 
+extern "C" void
+__heap_thread_init(void)
+{
+}
+
+
+extern "C" void
+__heap_thread_exit(void)
+{
+}
+
+
 // #pragma mark - Public API
 
 
@@ -289,4 +301,22 @@ posix_memalign(void **pointer, size_t alignment, size_t size)
 		return ENOMEM;
 
 	return 0;
+}
+
+
+extern "C" size_t
+malloc_usable_size(void *ptr)
+{
+	size_t size;
+	thread_id thread;
+
+	if (ptr == NULL)
+		return 0;
+
+	status_t res = sCurrentHeap->get_allocation_info(ptr, &size, &thread);
+
+	if (res != B_OK)
+		return 0;
+
+	return size;
 }

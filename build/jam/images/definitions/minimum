@@ -8,7 +8,7 @@ SYSTEM_BIN = [ FFilterByBuildFeatures
 	driveinfo dstcheck dumpcatalog
 	eject error
 	fdinfo ffm filepanel finddir findpaths fortune fstrim
-	ftp@libedit ftpd
+	ftpd
 	getarch groupadd groupdel groupmod
 	hd hey
 	ifconfig iroster isvolume
@@ -21,14 +21,15 @@ SYSTEM_BIN = [ FFilterByBuildFeatures
 	open
 	package package_repo passwd pc ping ping6 pkgman prio profile ps
 	query quit
-	ramdisk rc reindex release renice resattr rmattr rmindex roster route
+	ramdisk rc reindex release renice resattr resizefs rmattr rmindex roster
+	route
 	safemode screen_blanker screeninfo screenmode setarch setmime settype
 	setversion setvolume shutdown
 	strace su sysinfo system_time
 	tcptester telnet telnetd top
 	traceroute trash
 	unchop unmount
-	uptime urlwrapper useradd userdel
+	urlwrapper useradd userdel
 	version vmstat
 	waitfor watch writembr@x86,x86_64 xres
 ] ;
@@ -65,12 +66,12 @@ SYSTEM_PREFERENCES = [ FFilterByBuildFeatures
 	Backgrounds
 	<preference>Deskbar
 	FileTypes
-	Keyboard Keymap
+	Input
+	Keymap
 	Locale
-	Mouse
 	Network Notifications
 	Screen Shortcuts
-	Time Touchpad <preference>Tracker
+	Time <preference>Tracker
 	VirtualMemory
 ] ;
 
@@ -183,42 +184,37 @@ SYSTEM_ADD_ONS_DRIVERS_NET = [ FFilterByBuildFeatures
 		atheros813x ar81xx attansic_l1 attansic_l2
 		broadcom440x broadcom570x
 		dec21xxx
+		emulex_oce
 		ipro100 ipro1000
 		jmicron2x0
 		marvell_yukon
 		nforce
 		pcnet
 		rtl8139 rtl81xx
-		sis19x syskonnect
+		sis19x sis900 syskonnect
 		via_rhine vt612x
 	}@ # x86,x86_64
 
 	etherpci
 	pegasus
-	sis900
 	usb_asix usb_davicom usb_ecm
 	wb840
-
-	# WLAN drivers
-	x86,x86_64 @{
-		aironetwifi atheroswifi
-		broadcom43xx
-		iprowifi2100 iprowifi2200 iprowifi3945 iprowifi4965
-		idualwifi7260
-		marvell88w8363 marvell88w8335
-		ralinkwifi realtekwifi
-		wavelanwifi
-	}@ # x86,x86_64
 ] ;
 
 SYSTEM_ADD_ONS_DRIVERS_POWER = [ FFilterByBuildFeatures
 	acpi_button@x86,x86_64
 ] ;
 
+SYSTEM_ADD_ONS_DRIVERS_SENSOR = [ FFilterByBuildFeatures
+	acpi_als@x86,x86_64
+] ;
+
+
 SYSTEM_ADD_ONS_BUS_MANAGERS = [ FFilterByBuildFeatures
-	acpi@x86,x86_64	agp_gart@x86,x86_64 ata@ata
+	acpi@x86,x86_64	agp_gart@x86,x86_64 ata
 	config_manager
 	firewire@x86
+	i2c@x86,x86_64
 	scsi isa@x86,x86_64
 	pci ps2@x86,x86_64
 	random
@@ -284,3 +280,17 @@ AddFilesToHaikuImage system settings network : $(networkSettingsFiles) ;
 SEARCH on <post-install>fresh_install
 	= [ FDirName $(HAIKU_TOP) data system settings ] ;
 AddFilesToHaikuImage system settings : <post-install>fresh_install ;
+
+# repository config and cache files
+local repository ;
+for repository in $(HAIKU_REPOSITORIES) {
+	local config = [ on $(repository) return $(HAIKU_REPOSITORY_CONFIG_FILE) ] ;
+	local cache = [ on $(repository) return $(HAIKU_REPOSITORY_CACHE_FILE) ] ;
+	if $(HAIKU_UPDATE_ALL_PACKAGES) {
+		HAIKU_INCLUDE_IN_IMAGE on $(config) $(cache) = 1 ;
+	}
+	AddFilesToHaikuImage system settings package-repositories
+		: $(config) : $(repository:G=) ;
+	AddFilesToHaikuImage system cache package-repositories
+		: $(cache) : $(repository:G=) ;
+}

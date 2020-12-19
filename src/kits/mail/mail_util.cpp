@@ -171,10 +171,9 @@ write_read_attr(BNode& node, read_flags flag)
 		return B_OK;
 	}
 
-	const char* statusString = flag == B_READ ? "Read"
-		: flag  == B_SEEN ? "Seen" : "New";
-	if (node.WriteAttr(B_MAIL_ATTR_STATUS, B_STRING_TYPE, 0, statusString,
-			strlen(statusString)) < 0)
+	BString statusString = flag == B_READ ? "Read"
+		: flag == B_SEEN ? "Seen" : "New";
+	if (node.WriteAttrString(B_MAIL_ATTR_STATUS, &statusString) < 0)
 		return B_ERROR;
 
 	return B_OK;
@@ -190,7 +189,7 @@ read_read_attr(BNode& node, read_flags& flag)
 
 	BString statusString;
 	if (node.ReadAttrString(B_MAIL_ATTR_STATUS, &statusString) == B_OK) {
-		if (statusString.ICompare("New"))
+		if (statusString.ICompare("New") == 0)
 			flag = B_UNREAD;
 		else
 			flag = B_READ;

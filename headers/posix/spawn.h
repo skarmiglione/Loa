@@ -1,6 +1,6 @@
 /*
  * Copyright 2017 Haiku, Inc. All Rights Reserved.
- * Distributed under the terms of the Haiku License.
+ * Distributed under the terms of the MIT License.
  */
 #ifndef _SPAWN_H_
 #define _SPAWN_H_
@@ -23,6 +23,7 @@
 #endif	/* 0 */
 #define POSIX_SPAWN_SETSIGDEF		0x10
 #define POSIX_SPAWN_SETSIGMASK		0x20
+#define POSIX_SPAWN_SETSID			0x40
 
 
 typedef struct _posix_spawnattr	*posix_spawnattr_t;

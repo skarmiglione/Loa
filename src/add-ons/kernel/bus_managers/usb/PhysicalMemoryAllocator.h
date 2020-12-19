@@ -22,7 +22,7 @@ public:
 										uint32 minCountPerBlock);
 									~PhysicalMemoryAllocator();
 
-		status_t					InitCheck() { return fStatus; };
+		status_t					InitCheck() { return fStatus; }
 
 		status_t					Allocate(size_t size,
 										void **logicalAddress,
@@ -39,9 +39,6 @@ public:
 		void						DumpFreeSlots();
 
 private:
-		bool						_Lock();
-		void						_Unlock();
-
 		char						*fName;
 
 		size_t						fOverhead;

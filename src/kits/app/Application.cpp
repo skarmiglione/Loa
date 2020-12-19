@@ -291,6 +291,7 @@ BApplication::BApplication(BMessage* data)
 }
 
 
+#ifdef _BEOS_R5_COMPATIBLE_
 BApplication::BApplication(uint32 signature)
 {
 }
@@ -299,6 +300,14 @@ BApplication::BApplication(uint32 signature)
 BApplication::BApplication(const BApplication &rhs)
 {
 }
+
+
+BApplication&
+BApplication::operator=(const BApplication &rhs)
+{
+	return *this;
+}
+#endif
 
 
 BApplication::~BApplication()
@@ -337,13 +346,6 @@ BApplication::~BApplication()
 
 	// uninitialize be_app, the be_app_messenger is invalidated automatically
 	be_app = NULL;
-}
-
-
-BApplication&
-BApplication::operator=(const BApplication &rhs)
-{
-	return *this;
 }
 
 
@@ -590,15 +592,7 @@ BApplication::Run()
 	if (fInitError != B_OK)
 		return fInitError;
 
-	AssertLocked();
-
-	if (fRunCalled)
-		debugger("BApplication::Run was already called. Can only be called once.");
-
-	fThread = find_thread(NULL);
-	fRunCalled = true;
-
-	task_looper();
+	Loop();
 
 	delete fPulseRunner;
 	return fThread;

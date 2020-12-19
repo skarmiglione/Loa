@@ -1,21 +1,7 @@
 /*
-	ProcessController © 2000, Georges-Edouard Berenger, All Rights Reserved.
-	Copyright (C) 2004 beunited.org
-
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Lesser General Public
-	License as published by the Free Software Foundation; either
-	version 2.1 of the License, or (at your option) any later version.
-
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public
-	License along with this library; if not, write to the Free Software
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
+ * Copyright 2000, Georges-Edouard Berenger. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ */
 
 
 #include "KernelMemoryBarMenuItem.h"
@@ -72,10 +58,11 @@ KernelMemoryBarMenuItem::DrawBar(bool force)
 	BMenu* menu = Menu();
 	rgb_color highColor = menu->HighColor();
 
-	// draw the bar itself
-	BRect cadre (frame.right - kMargin - kBarWidth, frame.top + 5,
-		frame.right - kMargin, frame.top + 13);
+	BFont font;
+	menu->GetFont(&font);
+	BRect cadre = bar_rect(frame, &font);
 
+	// draw the bar itself
 	if (fLastSum < 0)
 		force = true;
 	if (force) {
@@ -104,7 +91,6 @@ KernelMemoryBarMenuItem::DrawBar(bool force)
 			menu->SetHighColor(gKernelColorSelected);
 		else
 			menu->SetHighColor(gKernelColor);
-//		menu->SetHighColor(gKernelColor);
 		menu->FillRect (r);
 	}
 	r.left = grenze1;
@@ -120,7 +106,6 @@ KernelMemoryBarMenuItem::DrawBar(bool force)
 			menu->SetHighColor(tint_color (kLavender, B_HIGHLIGHT_BACKGROUND_TINT));
 		else
 			menu->SetHighColor(kLavender);
-//		menu->SetHighColor(gUserColor);
 		menu->FillRect (r);
 	}
 	r.left = grenze2;

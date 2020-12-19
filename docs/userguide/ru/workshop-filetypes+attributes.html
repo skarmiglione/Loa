@@ -4,7 +4,7 @@
 <head>
 <!-- 
  *
- * Copyright 2008, Haiku. All rights reserved.
+ * Copyright 2008, 2019 Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -12,6 +12,7 @@
  * Translators:
  *		Rodastahm Islamov
  *		Michael Smirnov
+ *		Vsevolod
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -24,41 +25,44 @@
 <body>
 
 <div id="banner">
-<div><span>User guide</span></div>
+<div><span>Руководство пользователя</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/ru.png" alt="" /> Русский</li>
-<li><a href="../ca/workshop-filetypes+attributes.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/workshop-filetypes+attributes.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/workshop-filetypes+attributes.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/workshop-filetypes+attributes.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../fr/workshop-filetypes+attributes.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../it/workshop-filetypes+attributes.html"><img src="../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../hu/workshop-filetypes+attributes.html"><img src="../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../pl/workshop-filetypes+attributes.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/workshop-filetypes+attributes.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/workshop-filetypes+attributes.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/workshop-filetypes+attributes.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/workshop-filetypes+attributes.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/workshop-filetypes+attributes.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/workshop-filetypes+attributes.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/workshop-filetypes+attributes.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../uk/workshop-filetypes+attributes.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/workshop-filetypes+attributes.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Русский&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/workshop-filetypes+attributes.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/workshop-filetypes+attributes.html">Català</a></li>
+<li><a href="../de/workshop-filetypes+attributes.html">Deutsch</a></li>
+<li><a href="../en/workshop-filetypes+attributes.html">English</a></li>
+<li><a href="../es/workshop-filetypes+attributes.html">Español</a></li>
+<li><a href="../fr/workshop-filetypes+attributes.html">Français</a></li>
+<li><a href="../fur/workshop-filetypes+attributes.html">Furlan</a></li>
+<li><a href="../it/workshop-filetypes+attributes.html">Italiano</a></li>
+<li><a href="../hu/workshop-filetypes+attributes.html">Magyar</a></li>
+<li><a href="../pl/workshop-filetypes+attributes.html">Polski</a></li>
+<li><a href="../pt_PT/workshop-filetypes+attributes.html">Português</a></li>
+<li><a href="../pt_BR/workshop-filetypes+attributes.html">Português (Brazil)</a></li>
+<li><a href="../ro/workshop-filetypes+attributes.html">Română</a></li>
+<li><a href="../sk/workshop-filetypes+attributes.html">Slovenčina</a></li>
+<li><a href="../fi/workshop-filetypes+attributes.html">Suomi</a></li>
+<li><a href="../sv_SE/workshop-filetypes+attributes.html">Svenska</a></li>
+<li><a href="../tr/workshop-filetypes+attributes.html">Türkçe</a></li>
+<li><a href="../zh_CN/workshop-filetypes+attributes.html"> 中文 ［中文］</a></li>
+<li><a href="../uk/workshop-filetypes+attributes.html">Українська</a></li>
+<li><a href="../jp/workshop-filetypes+attributes.html">日本語</a></li>
 </ul>
 <span>
  «  <a href="queries.html">Запросы</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
+::  <a href="contents.html" class="uplink">Содержание</a> 
 ::  <a href="applications.html">Приложения</a>  »
 </span></div>
 </div>
 
 <div id="content">
 <div>
-<div class="box-info">The translation of this page isn't yet complete. Until it is, unfinished parts use the English original.</div>
+<div class="box-info">Перевод этой страницы еще не завершен. Пока это не произойдет, незавершенные части будут на английском.</div>
 
 
 <table class="index" id="index" summary="index">
@@ -84,9 +88,9 @@
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
 <a id="preparations" name="preparations">Подготовка</a></h2>
-<p>Let's first decide what filetype and attributes would serve our needs. Originally, I planned to use a bookmark file with a link to the movie's IMdB page, but since Haiku didn't have a "bookmarkable" browser like BeOS' <span class="app">NetPositive</span> at that time, I came up with this: The file itself will be a JPEG image for the movie cover.<br />
-With <span class="app">WebPositive</span>, Haiku now has a browser using bookmark files again, so you could as well use a bookmark file instead of an image as basic filetype for our database files.<br />
-In any case, to these files we add a couple of attributes. Here we have to decide if we want to query it later (then we have to add it to the index) and if so, what type of attribute it should be. Numbers (int, float) can be evaluated differently than text (&lt;/=/&gt; vs. is/contains/starts with).</p>
+<p>Для начала решим, какой тип файла и атрибуты удовлетворили бы наши потребности. Первоначально я хотел использовать файл закладок со ссылкой на страницу фильма в базе IMdB, но на тот момент в Haiku не было браузера, работающего с закладочными файлами, как <span class="app">NetPositive</span> в BeOS, и я решил сделать так: сам файл будет изображением обложки фильма в фомате JPEG.<br />
+Теперь в Haiku тоже есть браузер, использующий закладочные файлы - <span class="app">WebPositive</span>, так что вы можете использовать файл закладок, а не изображение в качестве базового типа файлов для нашей базы данных.<br />
+В любом случае, мы добавим к файлу несколько атрибутов. Тут мы должны решить какими они будут (позже их необходимо проиндексировать): числовыми (целыми, дробными) или текстовыми.</p>
 <p>Вот атрибуты, которые я хотел бы видеть для своих DVD-дисков:</p>
 <ul>
 <li>Название фильма</li>
@@ -137,34 +141,42 @@ In any case, to these files we add a couple of attributes. Here we have to decid
 <h3>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
 <a id="extra_attribute" name="extra_attribute">Дополнительные атрибуты</a></h3>
-<p>Here we enter all the custom attributes we decided on in our preparations. Clicking the <span class="button">Add...</span> button opens a panel to enter all the data for the new attribute. You can edit an existing attribute with a double-click.</p>
+<p>Здесь вводятся все атрибуты, которые мы выбрали при подготовке. Клик по кнопке <span class="button">Добавить (Add)...</span> откроет панель, где вводятся данные для нового атрибута. Существующий атрибут можно редактировать, дважды кликнув по нему.</p>
 <img src="images/workshop-filetypes+attributes-images/filetype-extra-attribute.png" alt="filetype-extra-attribute.png" />
 <ul>
 <li><p><i>Название атрибута (Attribute Name)</i> - Отображается, например, как заголовок колонки в окнах Tracker.</p></li>
 <li><p><i>Внутреннее Название (Internal Name)</i> - используется для индексации и запроса атрибута.</p></li>
-<li><i>Тип (Type)</i> - Определяет значение, которое атрибут будет содержать, и как по нему делать запрос.
+<li><i>Type</i> - Defines the value the attribute can hold and therefore how it can be queried.
     <ul>
-    <li><span class="menu">Строчный (String)</span> для обычного текста</li>
-     <li><span class="menu">Булевый (Boolean)</span> для двоичных данных: 0 или 1</li>
-<li><span class="menu">Целые (Integer)</span> для целых чисел с различными диапазонами:
+    <li><span class="menu">String</span> for normal text</li>
+    <li><span class="menu">Boolean</span> for binary data: 0 (false) or &gt;=1 (true)</li>
+    <li><span class="menu">Integer</span> for integer numbers with different ranges:
         <ul>
-        <li><span class="menu">8 бит</span>: ± 255</li>
-        <li><span class="menu">16 бит</span>: ± 65,535</li>
-        <li><span class="menu">32 бита</span>: ± 4,294,967,295</li>
-        <li><span class="menu">64 бита</span>: ± 18,446,744,073,709,551,615</li>
+        <li><span class="menu">8 bit</span>: ± 255</li>
+        <li><span class="menu">16 bit</span>: ± 65,535</li>
+        <li><span class="menu">32 bit</span>: ± 4,294,967,295</li>
+        <li><span class="menu">64 bit</span>: ± 18,446,744,073,709,551,615</li>
         </ul>
     </li>
-    <li><span class="menu">С плавающей точкой (Float)</span> для чисел с плавающей запятой одинарной точности</li>
-    <li><span class="menu">Двойной (Double)</span> для чисел с плавающей запятой двойной точности</li> 
-    <li><span class="menu">Временной (Time)</span> формат времени и даты</li>
-    </ul></li>
+    <li><span class="menu">Float</span> for floating-point numbers, single precision</li>
+    <li><span class="menu">Double</span> for floating-point numbers, double precision</li>
+    <li><span class="menu">Time</span> for time and date format</li>
+    </ul>
+</li>
 </ul>
 <ul>
-<li><i>Видимый (Visible)</i> - этот поле определяет, будет ли атрибут видимым в окне Tracker. Так как сам Tracker будет интерфейсом к нашей базе DVD-дисков, то проверим что оно активно и определим внешний вид атрибута:<ul>
-    <li><span class="menu">Отображать как (Display As)</span> - Оставить <i>По умолчанию (Default)</i>. В дальнейшем будет доступно больше опций, например, полоса или звездочки для оценки рейтинга и т.д.</li>
-    <li><span class="menu">Редактируемый (Editable)</span> - Определяет, будет ли атрибут доступен для редактирования в Tracker.</li>
-    <li><span class="menu">Ширина (Width)</span> - Ширина колонки по умолчанию для этого атрибута в окне Tracker.</li>
-    <li><span class="menu">Выравнивание (Alignment)</span> - Атрибут может быть выравнен по центру, левому или правому краю.</li>
+<li><i>Visible</i> - This checkbox determines if the attribute is visible in a Tracker window at all. Since the Tracker will be the interface to our DVD database, we check it and define its appearance with:
+<ul>
+    <li><span class="menu">Display as</span> - Leave on "Default" if the values are to be displayed according to the attribute's "Type" (e.g. string/integer/float etc.). The other options are:
+	<ul>
+		<li><span class="menu">Checkbox</span> - Can be used to show either one of two symbols, see <span class="menu">Special</span> below.</li>
+		<li><span class="menu">Duration</span> - Shows an integer as 1/60, e.g. "90" becomes "1:30".</li>
+		<li><span class="menu">Rating</span> - Shows a rating between 0 and 10 as star symbols.</li>
+	</ul></li>
+    <li><span class="menu">Editable</span> - Determines if the attribute shall be editable in Tracker.</li>
+    <li><span class="menu">Special</span> - Defines the two symbols used for a checkbox display. For example, "xo" will show a "x" for all values &gt;0 and "o" for 0.</li>
+    <li><span class="menu">Width</span> - The default width of that attributes column in a Tracker window.</li>
+    <li><span class="menu">Alignment</span> - The attribute can be displayed left, center, or right aligned.</li>
 </ul></li></ul>
 <p>Теперь вставим всю информацию для наших атрибутов:</p>
 <table summary="DVDdb Attributes" cellpadding="10" border="1">
@@ -229,7 +241,7 @@ mkindex -t int DVDdb:rating</pre>
 <div class="nav">
 <div class="inner"><span>
  «  <a href="queries.html">Запросы</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
+::  <a href="contents.html" class="uplink">Содержание</a> 
 ::  <a href="applications.html">Приложения</a>  »
 </span></div>
 </div>

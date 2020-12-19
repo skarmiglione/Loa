@@ -20,6 +20,8 @@
 #include <ByteOrder.h>
 #include <File.h>
 
+#include <input_globals.h>
+
 
 #ifdef HAIKU_TARGET_PLATFORM_HAIKU
 #	include "SystemKeymap.h"
@@ -116,14 +118,17 @@ BKeymap::SetToCurrent()
 {
 #ifdef HAIKU_TARGET_PLATFORM_HAIKU
 	key_map* keys = NULL;
-	get_key_map(&keys, &fChars);
+	ssize_t charsSize;
+
+	delete[] fChars;
+	_get_key_map(&keys, &fChars, &charsSize);
 	if (!keys)
 		return B_ERROR;
 
 	memcpy(&fKeys, keys, sizeof(fKeys));
 	free(keys);
 
-	fCharsSize = sizeof(fChars);
+	fCharsSize = (uint32)charsSize;
 
 	return B_OK;
 #else	// ! __BEOS__
@@ -140,6 +145,7 @@ BKeymap::SetToDefault()
 	fKeys = kSystemKeymap;
 	fCharsSize = kSystemKeyCharsSize;
 
+	delete[] fChars;
 	fChars = new (std::nothrow) char[fCharsSize];
 	if (fChars == NULL) {
 		Unset();
@@ -414,7 +420,7 @@ BKeymap::GetChars(uint32 keyCode, uint32 modifiers, uint8 activeDeadKey,
 
 	// if dead key, we search for our current offset char in the dead key
 	// offset table string comparison is needed
-	for (int32 i = 0; i < 32; i++) {
+	for (int32 i = 0; i < 32; i += 2) {
 		if (strncmp(&fChars[offset + 1], &fChars[deadKey[i] + 1], *numBytes)
 				== 0) {
 			*numBytes = fChars[deadKey[i + 1]];
@@ -435,7 +441,6 @@ BKeymap::GetChars(uint32 keyCode, uint32 modifiers, uint8 activeDeadKey,
 			}
 			return;
 		}
-		i++;
 	}
 
 	// if not found we return the current char mapped
@@ -500,8 +505,8 @@ BKeymap::operator=(const BKeymap& other)
 {
 	Unset();
 
-	fChars = new char[fCharsSize];
 	fCharsSize = other.fCharsSize;
+	fChars = new char[fCharsSize];
 	memcpy(fChars, other.fChars, fCharsSize);
 	memcpy(&fKeys, &other.fKeys, sizeof(fKeys));
 

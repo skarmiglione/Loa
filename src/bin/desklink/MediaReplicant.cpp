@@ -1,5 +1,5 @@
 /*
- * Copyright 2003-2013, Haiku. All rights reserved.
+ * Copyright 2003-2018, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -29,6 +29,7 @@
 #include <MenuItem.h>
 #include <Path.h>
 #include <PopUpMenu.h>
+#include <Resources.h>
 #include <Roster.h>
 #include <String.h>
 #include <StringView.h>
@@ -37,7 +38,6 @@
 #include <ToolTipManager.h>
 
 #include "desklink.h"
-#include "iconfile.h"
 #include "MixerControl.h"
 #include "VolumeWindow.h"
 
@@ -141,6 +141,7 @@ private:
 			void			_LoadSettings();
 			void			_SaveSettings();
 			void			_Init();
+			BBitmap*		_LoadIcon(BResources& resources, const char* name);
 
 			void			_DisconnectMixer();
 			status_t		_ConnectMixer();
@@ -158,10 +159,28 @@ private:
 };
 
 
+status_t
+our_image(image_info& image)
+{
+	int32 cookie = 0;
+	while (get_next_image_info(B_CURRENT_TEAM, &cookie, &image) == B_OK) {
+		if ((char*)our_image >= (char*)image.text
+			&& (char*)our_image <= (char*)image.text + image.text_size)
+			return B_OK;
+	}
+
+	return B_ERROR;
+}
+
+
+//	#pragma mark -
+
+
 MediaReplicant::MediaReplicant(BRect frame, const char* name,
 		uint32 resizeMask, uint32 flags)
 	:
 	BView(frame, name, resizeMask, flags),
+	fMixerControl(NULL),
 	fVolumeSlider(NULL),
 	fMuted(false)
 {
@@ -172,6 +191,7 @@ MediaReplicant::MediaReplicant(BRect frame, const char* name,
 MediaReplicant::MediaReplicant(BMessage* message)
 	:
 	BView(message),
+	fMixerControl(NULL),
 	fVolumeSlider(NULL),
 	fMuted(false)
 {
@@ -388,6 +408,10 @@ MediaReplicant::MessageReceived(BMessage* message)
 			_ConnectMixer();
 			break;
 
+		case B_MEDIA_SERVER_QUIT:
+			_DisconnectMixer();
+			break;
+
 		case B_MEDIA_NODE_CREATED:
 		{
 			// It's not enough to wait for B_MEDIA_SERVER_STARTED message, as
@@ -396,12 +420,11 @@ MediaReplicant::MessageReceived(BMessage* message)
 			media_node_id mixerNodeID;
 			BMediaRoster* roster = BMediaRoster::CurrentRoster();
 			if (roster != NULL
-				&& message->FindInt32("media_node_id",&mixerNodeID) == B_OK
+				&& message->FindInt32("media_node_id", &mixerNodeID) == B_OK
 				&& roster->GetNodeFor(mixerNodeID, &mixerNode) == B_OK) {
-				if (mixerNode.kind == B_SYSTEM_MIXER) {
+				if (mixerNode.kind == B_SYSTEM_MIXER)
 					_ConnectMixer();
-					roster->ReleaseNode(mixerNode);
-				}
+				roster->ReleaseNode(mixerNode);
 			}
 			break;
 		}
@@ -469,8 +492,9 @@ MediaReplicant::_Launch(const char* prettyName, const char* signature,
 		BString message = B_TRANSLATE("Couldn't launch ");
 		message << prettyName;
 
-		BAlert* alert = new BAlert(B_TRANSLATE("desklink"), message.String(),
-			B_TRANSLATE("OK"));
+		BAlert* alert = new BAlert(
+			B_TRANSLATE_COMMENT("desklink", "Title of an alert box"), 
+			message.String(), B_TRANSLATE("OK"));
 		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 		alert->Go();
 	}
@@ -527,18 +551,43 @@ MediaReplicant::_SaveSettings()
 void
 MediaReplicant::_Init()
 {
-	fIcon = new BBitmap(BRect(0, 0, kSpeakerWidth - 1, kSpeakerHeight - 1),
-		B_RGBA32);
-	BIconUtils::GetVectorIcon(kSpeakerIcon, sizeof(kSpeakerIcon), fIcon);
+	image_info info;
+	if (our_image(info) != B_OK)
+		return;
 
-	fMutedIcon = new BBitmap(BRect(0, 0, kSpeakerWidth - 1, kSpeakerHeight - 1),
-		B_RGBA32);
-	BIconUtils::GetVectorIcon(kMutedSpeakerIcon, sizeof(kMutedSpeakerIcon),
-		fMutedIcon);
+	BFile file(info.name, B_READ_ONLY);
+	if (file.InitCheck() != B_OK)
+		return;
+
+	BResources resources(&file);
+	if (resources.InitCheck() != B_OK)
+		return;
+
+	fIcon = _LoadIcon(resources, "Speaker");
+	fMutedIcon = _LoadIcon(resources, "SpeakerMuted");
 
 	_LoadSettings();
 
 	SetToolTip(new VolumeToolTip(fVolumeWhich));
+}
+
+
+BBitmap*
+MediaReplicant::_LoadIcon(BResources& resources, const char* name)
+{
+	size_t size;
+	const void* data = resources.LoadResource(B_VECTOR_ICON_TYPE, name, &size);
+	if (data == NULL)
+		return NULL;
+
+	// Scale tray icon
+	BBitmap* icon = new BBitmap(Bounds(), B_RGBA32);
+	if (icon->InitCheck() != B_OK
+		|| BIconUtils::GetVectorIcon((const uint8*)data, size, icon) != B_OK) {
+		delete icon;
+		return NULL;
+	}
+	return icon;
 }
 
 
@@ -549,7 +598,12 @@ MediaReplicant::_DisconnectMixer()
 	if (roster == NULL)
 		return;
 
-	roster->StopWatching(this, B_MEDIA_SERVER_STARTED | B_MEDIA_NODE_CREATED);
+	roster->StopWatching(this, B_MEDIA_SERVER_STARTED);
+	roster->StopWatching(this, B_MEDIA_SERVER_QUIT);
+	roster->StopWatching(this, B_MEDIA_NODE_CREATED);
+
+	if (fMixerControl == NULL)
+		return;
 
 	if (fMixerControl->MuteNode() != media_node::null) {
 		roster->StopWatching(this, fMixerControl->MuteNode(),
@@ -570,7 +624,9 @@ MediaReplicant::_ConnectMixer()
 	if (roster == NULL)
 		return B_ERROR;
 
-	roster->StartWatching(this, B_MEDIA_SERVER_STARTED | B_MEDIA_NODE_CREATED);
+	roster->StartWatching(this, B_MEDIA_SERVER_STARTED);
+	roster->StartWatching(this, B_MEDIA_SERVER_QUIT);
+	roster->StartWatching(this, B_MEDIA_NODE_CREATED);
 
 	fMixerControl = new MixerControl(fVolumeWhich);
 
@@ -580,6 +636,8 @@ MediaReplicant::_ConnectMixer()
 
 	if (errorString != NULL) {
 		SetToolTip(errorString);
+		delete fMixerControl;
+		fMixerControl = NULL;
 		return B_ERROR;
 	}
 
@@ -597,8 +655,9 @@ MediaReplicant::_ConnectMixer()
 
 
 extern "C" BView*
-instantiate_deskbar_item(void)
+instantiate_deskbar_item(float maxWidth, float maxHeight)
 {
-	return new MediaReplicant(BRect(0, 0, 16, 16), kReplicantName);
+	return new MediaReplicant(BRect(0, 0, maxHeight - 1, maxHeight - 1),
+		kReplicantName);
 }
 

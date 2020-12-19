@@ -26,7 +26,7 @@ status_t
 Reader::Read(int32 size, void** buffer, bool* mustFree)
 {
 	// check params
-	if (size < 0 || !buffer || mustFree)
+	if (size < 0 || !buffer || !mustFree)
 		return B_BAD_VALUE;
 
 	// deal with size == 0
@@ -42,7 +42,7 @@ Reader::Read(int32 size, void** buffer, bool* mustFree)
 		return B_NO_MEMORY;
 	status_t error = Read(*buffer, size);
 	if (error != B_OK) {
-		free(buffer);
+		free(*buffer);
 		return error;
 	}
 	return error;

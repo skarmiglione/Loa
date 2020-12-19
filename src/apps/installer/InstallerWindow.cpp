@@ -1,4 +1,5 @@
 /*
+ * Copyright 2020, Panagiotis Vasilopoulos <hello@alwayslivid.com>
  * Copyright 2009-2010, Stephan Aßmus <superstippi@gmx.de>
  * Copyright 2005-2008, Jérôme DUVAL
  * All rights reserved. Distributed under the terms of the MIT License.
@@ -174,21 +175,21 @@ InstallerWindow::InstallerWindow()
 	fStatusView = new BTextView("statusView", be_plain_font, NULL,
 		B_WILL_DRAW);
 	fStatusView->SetViewColor(255, 255, 255, 255);
-	fStatusView->SetInsets(10, 0, 10, 0);
 	fStatusView->MakeEditable(false);
 	fStatusView->MakeSelectable(false);
 
 	BSize logoSize = logoView->MinSize();
 	logoView->SetExplicitMaxSize(logoSize);
-	fStatusView->SetExplicitMinSize(BSize(logoSize.width * 0.8,
+	fStatusView->SetExplicitMinSize(BSize(fStatusView->StringWidth("W") * 22,
 		logoSize.height));
 
 	// Explicitly create group view to set the background white in case
 	// height resizing is needed for the status view
-	fLogoGroup = new BGroupView(B_HORIZONTAL, 0);
+	fLogoGroup = new BGroupView(B_HORIZONTAL, 10);
 	fLogoGroup->SetViewColor(255, 255, 255);
-	fLogoGroup->GroupLayout()->AddView(logoView);
-	fLogoGroup->GroupLayout()->AddView(fStatusView);
+	fLogoGroup->GroupLayout()->SetInsets(0, 0, 10, 0);
+	fLogoGroup->AddChild(logoView);
+	fLogoGroup->AddChild(fStatusView);
 
 	fDestMenu = new BPopUpMenu(B_TRANSLATE("scanning" B_UTF8_ELLIPSIS),
 		true, false);
@@ -220,9 +221,8 @@ InstallerWindow::InstallerWindow()
 		= B_TRANSLATE("Additional disk space required: 0.0 KiB");
 	fSizeView = new BStringView("size_view", requiredDiskSpaceString);
 	fSizeView->SetAlignment(B_ALIGN_RIGHT);
-	fSizeView->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
 	fSizeView->SetExplicitAlignment(
-		BAlignment(B_ALIGN_RIGHT, B_ALIGN_MIDDLE));
+		BAlignment(B_ALIGN_RIGHT, B_ALIGN_TOP));
 
 	fProgressBar = new BStatusBar("progress",
 		B_TRANSLATE("Install progress:  "));
@@ -250,6 +250,12 @@ InstallerWindow::InstallerWindow()
 	toolsMenu->AddItem(fMakeBootableItem);
 	mainMenu->AddItem(toolsMenu);
 
+	BGroupView* packagesGroup = new BGroupView(B_VERTICAL, B_USE_ITEM_SPACING);
+	packagesGroup->AddChild(fPackagesSwitch);
+	packagesGroup->AddChild(packagesScrollView);
+	packagesGroup->AddChild(fProgressBar);
+	packagesGroup->AddChild(fSizeView);
+
 	BLayoutBuilder::Group<>(this, B_VERTICAL, 0)
 		.Add(mainMenu)
 		.Add(fLogoGroup)
@@ -257,23 +263,19 @@ InstallerWindow::InstallerWindow()
 		.AddGroup(B_VERTICAL, B_USE_ITEM_SPACING)
 			.SetInsets(B_USE_WINDOW_SPACING)
 			.AddGrid(new BGridView(B_USE_ITEM_SPACING, B_USE_ITEM_SPACING))
-				.Add(fSrcMenuField->CreateLabelLayoutItem(), 0, 0)
-				.Add(fSrcMenuField->CreateMenuBarLayoutItem(), 1, 0)
-				.Add(fDestMenuField->CreateLabelLayoutItem(), 0, 1)
-				.Add(fDestMenuField->CreateMenuBarLayoutItem(), 1, 1)
-
-				.Add(BSpaceLayoutItem::CreateVerticalStrut(5), 0, 2, 2)
-
-				.Add(fPackagesSwitch, 0, 3, 2)
-				.Add(packagesScrollView, 0, 4, 2)
-				.Add(fProgressBar, 0, 5, 2)
-				.Add(fSizeView, 0, 6, 2)
+				.AddMenuField(fSrcMenuField, 0, 0)
+				.AddMenuField(fDestMenuField, 0, 1)
+				.AddGlue(2, 0, 1, 2)
+				.Add(BSpaceLayoutItem::CreateVerticalStrut(5), 0, 2, 3)
 			.End()
-
+			.Add(packagesGroup)
 			.AddGroup(B_HORIZONTAL, B_USE_WINDOW_SPACING)
 				.Add(fLaunchDriveSetupButton)
 				.AddGlue()
-				.Add(fBeginButton);
+				.Add(fBeginButton)
+			.End()
+		.End()
+	.End();
 
 	// Make the optional packages and progress bar invisible on start
 	fPackagesLayoutItem = layout_item_for(packagesScrollView);
@@ -289,7 +291,7 @@ InstallerWindow::InstallerWindow()
 	fLaunchDriveSetupButton->SetToolTip(
 		B_TRANSLATE("Launch the DriveSetup utility to partition\n"
 		"available hard drives and other media.\n"
-		"Partitions can be initialized with the\n"
+		"Partitions can be formatted with the\n"
 		"Be File System needed for a Haiku boot\n"
 		"partition."));
 //	fLaunchBootManagerItem->SetToolTip(
@@ -436,13 +438,14 @@ InstallerWindow::MessageReceived(BMessage *msg)
 			snprintf(string, sizeof(string),
 				B_TRANSLATE("Additional disk space required: %s"), buffer);
 			fSizeView->SetText(string);
+			fSizeView->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET));
 			break;
 		}
 		case ENCOURAGE_DRIVESETUP:
 		{
 			BAlert* alert = new BAlert("use drive setup", B_TRANSLATE("No partitions have "
 				"been found that are suitable for installation. Please set "
-				"up partitions and initialize at least one partition with the "
+				"up partitions and format at least one partition with the "
 				"Be File System."), B_TRANSLATE("OK"));
 			alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 			alert->Go();
@@ -450,10 +453,6 @@ InstallerWindow::MessageReceived(BMessage *msg)
 		}
 		case MSG_STATUS_MESSAGE:
 		{
-// TODO: Was this supposed to prevent status messages still arriving
-// after the copy engine was shut down?
-//			if (fInstallStatus != kInstalling)
-//				break;
 			float progress;
 			if (msg->FindFloat("progress", &progress) == B_OK) {
 				const char* currentItem;
@@ -517,6 +516,7 @@ InstallerWindow::MessageReceived(BMessage *msg)
 
 			_SetStatusMessage(status.String());
 			fInstallStatus = kFinished;
+
 			_DisableInterface(false);
 			fProgressLayoutItem->SetVisible(false);
 			fPkgSwitchLayoutItem->SetVisible(true);
@@ -563,11 +563,14 @@ InstallerWindow::MessageReceived(BMessage *msg)
 				} else {
 					// If neither DriveSetup nor Bootman is running, we need
 					// to scan partitions in case DriveSetup has quit, or
-					// we need to update the guidance message.
+					// we need to update the guidance message, unless install
+					// was already finished.
 					if (scanPartitions)
 						_ScanPartitions();
-					else
+					else if (fInstallStatus != kFinished)
 						_UpdateControls();
+					else
+						PostMessage(MSG_INSTALL_FINISHED);
 				}
 			}
 			break;
@@ -617,9 +620,8 @@ InstallerWindow::QuitRequested()
 		}
 		if (fInstallStatus != kFinished) {
 			BAlert* alert = new BAlert(B_TRANSLATE_SYSTEM_NAME("Installer"),
-				B_TRANSLATE("Are you sure you want to abort the "
-					"installation and restart the system?"),
-				B_TRANSLATE("Cancel"), B_TRANSLATE("Restart system"), NULL,
+				B_TRANSLATE("Are you sure you want to stop the installation?"),
+				B_TRANSLATE("Cancel"), B_TRANSLATE("Stop"), NULL,
 				B_WIDTH_AS_USUAL, B_STOP_ALERT);
 			alert->SetShortcut(0, B_ESCAPE);
 			if (alert->Go() == 0)
@@ -627,8 +629,9 @@ InstallerWindow::QuitRequested()
 		}
 	} else if (fInstallStatus == kInstalling) {
 			BAlert* alert = new BAlert(B_TRANSLATE_SYSTEM_NAME("Installer"),
-				B_TRANSLATE("Are you sure you want to abort the installation?"),
-				B_TRANSLATE("Cancel"), B_TRANSLATE("Abort"), NULL,
+				B_TRANSLATE("The installation is not complete yet!\n"
+                                "Are you sure you want to stop it?"),
+				B_TRANSLATE("Cancel"), B_TRANSLATE("Stop"), NULL,
 				B_WIDTH_AS_USUAL, B_STOP_ALERT);
 			alert->SetShortcut(0, B_ESCAPE);
 			if (alert->Go() == 0)
@@ -636,8 +639,13 @@ InstallerWindow::QuitRequested()
 	}
 
 	_QuitCopyEngine(false);
-	fWorkerThread->PostMessage(B_QUIT_REQUESTED);
-	be_app->PostMessage(B_QUIT_REQUESTED);
+
+	BMessage quitWithInstallStatus(B_QUIT_REQUESTED);
+	quitWithInstallStatus.AddBool("install_complete",
+		fInstallStatus == kFinished);
+
+	fWorkerThread->PostMessage(&quitWithInstallStatus);
+	be_app->PostMessage(&quitWithInstallStatus);
 	return true;
 }
 
@@ -872,7 +880,9 @@ void
 InstallerWindow::_SetStatusMessage(const char *text)
 {
 	fStatusView->SetText(text);
-	fLogoGroup->GroupLayout()->InvalidateLayout();
+	fStatusView->InvalidateLayout();
+		// In case the status message makes the text view higher than the
+		// logo, then we need to resize te whole window to fit it.
 }
 
 

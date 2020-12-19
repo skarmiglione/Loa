@@ -34,6 +34,7 @@ private:
 									BMessage* message);
 			void				_SetWindowTitle();
 			void				_CreateMenus();
+			void				_UpdateMenus();
 			void				_CreateViews();
 			void				_LayoutViews();
 			void				_TileIfMultipleWindows();
@@ -57,7 +58,7 @@ private:
 			void				_OnRegularExpression();
 			void				_OnCaseSensitive();
 			void				_OnTextOnly();
-			void				_OnInvokePe();
+			void				_OnInvokeEditor();
 			void				_OnCheckboxShowLines();
 			void				_OnInvokeItem();
 			void				_OnSearchText();
@@ -72,9 +73,10 @@ private:
 			void				_OnOpenPanelCancel();
 			void				_OnSelectAll(BMessage* message);
 			void				_OnNewWindow();
+			void				_OnSetTargetToParent();
 
 			void				_ModelChanged();
-			bool				_OpenInPe(const entry_ref& ref, int32 lineNum);
+			bool				_OpenInEditor(const entry_ref& ref, int32 lineNum);
 			void				_RemoveFolderListDuplicates(BList* folderList);
 			status_t			_OpenFoldersInTracker(BList* folderList);
 			bool				_AreAllFoldersOpenInTracker(BList* folderList);
@@ -89,6 +91,7 @@ private:
 			BMenu*				fFileMenu;
 			BMenuItem*			fNew;
 			BMenuItem*			fOpen;
+			BMenuItem*			fSetTargetToParent;
 			BMenuItem*			fClose;
 			BMenuItem*			fQuit;
 			BMenu*				fActionMenu;
@@ -105,7 +108,7 @@ private:
 			BMenuItem*			fCaseSensitive;
 			BMenuItem*			fRegularExpression;
 			BMenuItem*			fTextOnly;
-			BMenuItem*			fInvokePe;
+			BMenuItem*			fInvokeEditor;
 			BMenu*				fHistoryMenu;
 			BMenu*				fEncodingMenu;
 			BMenuItem*			fUTF8;

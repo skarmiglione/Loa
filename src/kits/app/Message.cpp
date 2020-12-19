@@ -21,13 +21,11 @@
 #include <Application.h>
 #include <AppMisc.h>
 #include <BlockCache.h>
-#include <Entry.h>
 #include <GraphicsDefs.h>
 #include <MessageQueue.h>
 #include <Messenger.h>
 #include <Path.h>
 #include <Point.h>
-#include <Rect.h>
 #include <String.h>
 #include <StringList.h>
 
@@ -165,8 +163,9 @@ BMessage::BMessage(BMessage* other)
 BMessage::BMessage(uint32 _what)
 {
 	DEBUG_FUNCTION_ENTER;
-	_InitCommon(true);
-	fHeader->what = what = _what;
+	if (_InitCommon(true))
+		fHeader->what = _what;
+	what = _what;
 }
 
 
@@ -716,6 +715,16 @@ BMessage::_PrintToStream(const char* indent) const
 
 					BPath path(&ref);
 					printf("path=\"%s\")\n", path.Path());
+					break;
+				}
+
+				case B_NODE_REF_TYPE:
+				{
+					node_ref ref;
+					BPrivate::node_ref_unflatten(&ref, (char*)pointer, size);
+
+					printf("node_ref(device=%d, node=%" B_PRIdINO ", ",
+						(int)ref.device, ref.node);
 					break;
 				}
 
@@ -2438,24 +2447,14 @@ BMessage::Add##typeName(const char* name, type val)							\
 status_t																	\
 BMessage::Find##typeName(const char* name, type* p) const					\
 {																			\
-	void* ptr = NULL;														\
-	ssize_t bytes = 0;														\
-	status_t error = B_OK;													\
-																			\
-	*p = type();															\
-	error = FindData(name, typeCode, 0, (const void**)&ptr, &bytes);		\
-																			\
-	if (error == B_OK)														\
-		memcpy(p, ptr, sizeof(type));										\
-																			\
-	return error;															\
+	return Find##typeName(name, 0, p);										\
 }																			\
 																			\
 																			\
 status_t																	\
 BMessage::Find##typeName(const char* name, int32 index, type* p) const		\
 {																			\
-	void* ptr = NULL;														\
+	type* ptr = NULL;														\
 	ssize_t bytes = 0;														\
 	status_t error = B_OK;													\
 																			\
@@ -2463,7 +2462,7 @@ BMessage::Find##typeName(const char* name, int32 index, type* p) const		\
 	error = FindData(name, typeCode, index, (const void**)&ptr, &bytes);	\
 																			\
 	if (error == B_OK)														\
-		memcpy(p, ptr, sizeof(type));										\
+		*p = *ptr;															\
 																			\
 	return error;															\
 }																			\
@@ -2520,6 +2519,7 @@ DEFINE_HAS_FUNCTION(String, B_STRING_TYPE);
 DEFINE_HAS_FUNCTION(Pointer, B_POINTER_TYPE);
 DEFINE_HAS_FUNCTION(Messenger, B_MESSENGER_TYPE);
 DEFINE_HAS_FUNCTION(Ref, B_REF_TYPE);
+DEFINE_HAS_FUNCTION(NodeRef, B_NODE_REF_TYPE);
 DEFINE_HAS_FUNCTION(Message, B_MESSAGE_TYPE);
 
 #undef DEFINE_HAS_FUNCTION
@@ -2714,6 +2714,21 @@ BMessage::AddRef(const char* name, const entry_ref* ref)
 
 	if (error >= B_OK)
 		error = AddData(name, B_REF_TYPE, buffer, size, false);
+
+	return error;
+}
+
+
+status_t
+BMessage::AddNodeRef(const char* name, const node_ref* ref)
+{
+	size_t size = sizeof(node_ref);
+	char buffer[size];
+
+	status_t error = BPrivate::node_ref_flatten(buffer, &size, ref);
+
+	if (error >= B_OK)
+		error = AddData(name, B_NODE_REF_TYPE, buffer, size, false);
 
 	return error;
 }
@@ -2957,13 +2972,13 @@ BMessage::FindMessenger(const char* name, int32 index,
 	if (messenger == NULL)
 		return B_BAD_VALUE;
 
-	void* data = NULL;
+	BMessenger* data = NULL;
 	ssize_t size = 0;
 	status_t error = FindData(name, B_MESSENGER_TYPE, index,
 		(const void**)&data, &size);
 
 	if (error == B_OK)
-		memcpy(messenger, data, sizeof(BMessenger));
+		*messenger = *data;
 	else
 		*messenger = BMessenger();
 
@@ -2993,6 +3008,33 @@ BMessage::FindRef(const char* name, int32 index, entry_ref* ref) const
 		error = BPrivate::entry_ref_unflatten(ref, (char*)data, size);
 	else
 		*ref = entry_ref();
+
+	return error;
+}
+
+
+status_t
+BMessage::FindNodeRef(const char* name, node_ref* ref) const
+{
+	return FindNodeRef(name, 0, ref);
+}
+
+
+status_t
+BMessage::FindNodeRef(const char* name, int32 index, node_ref* ref) const
+{
+	if (ref == NULL)
+		return B_BAD_VALUE;
+
+	void* data = NULL;
+	ssize_t size = 0;
+	status_t error = FindData(name, B_NODE_REF_TYPE, index,
+		(const void**)&data, &size);
+
+	if (error == B_OK)
+		error = BPrivate::node_ref_unflatten(ref, (char*)data, size);
+	else
+		*ref = node_ref();
 
 	return error;
 }
@@ -3158,6 +3200,28 @@ BMessage::ReplaceRef(const char* name, int32 index, const entry_ref* ref)
 
 	if (error >= B_OK)
 		error = ReplaceData(name, B_REF_TYPE, index, buffer, size);
+
+	return error;
+}
+
+
+status_t
+BMessage::ReplaceNodeRef(const char* name, const node_ref* ref)
+{
+	return ReplaceNodeRef(name, 0, ref);
+}
+
+
+status_t
+BMessage::ReplaceNodeRef(const char* name, int32 index, const node_ref* ref)
+{
+	size_t size = sizeof(node_ref) + B_PATH_NAME_LENGTH;
+	char buffer[size];
+
+	status_t error = BPrivate::node_ref_flatten(buffer, &size, ref);
+
+	if (error >= B_OK)
+		error = ReplaceData(name, B_NODE_REF_TYPE, index, buffer, size);
 
 	return error;
 }

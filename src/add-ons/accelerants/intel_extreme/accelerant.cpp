@@ -22,6 +22,7 @@
 #include <new>
 
 #include <AGP.h>
+#include <AutoDeleterOS.h>
 
 
 #undef TRACE
@@ -38,53 +39,6 @@
 
 struct accelerant_info* gInfo;
 uint32 gDumpCount;
-
-
-class AreaCloner {
-public:
-							AreaCloner();
-							~AreaCloner();
-
-			area_id			Clone(const char* name, void** _address,
-								uint32 spec, uint32 protection,
-								area_id sourceArea);
-			status_t		InitCheck()
-								{ return fArea < 0 ? (status_t)fArea : B_OK; }
-			void			Keep();
-
-private:
-			area_id			fArea;
-};
-
-
-AreaCloner::AreaCloner()
-	:
-	fArea(-1)
-{
-}
-
-
-AreaCloner::~AreaCloner()
-{
-	if (fArea >= 0)
-		delete_area(fArea);
-}
-
-
-area_id
-AreaCloner::Clone(const char* name, void** _address, uint32 spec,
-	uint32 protection, area_id sourceArea)
-{
-	fArea = clone_area(name, _address, spec, protection, sourceArea);
-	return fArea;
-}
-
-
-void
-AreaCloner::Keep()
-{
-	fArea = -1;
-}
 
 
 //	#pragma mark -
@@ -134,6 +88,7 @@ init_common(int device, bool isClone)
 	gInfo = (accelerant_info*)malloc(sizeof(accelerant_info));
 	if (gInfo == NULL)
 		return B_NO_MEMORY;
+	MemoryDeleter infoDeleter(gInfo);
 
 	memset(gInfo, 0, sizeof(accelerant_info));
 
@@ -146,33 +101,26 @@ init_common(int device, bool isClone)
 	data.magic = INTEL_PRIVATE_DATA_MAGIC;
 
 	if (ioctl(device, INTEL_GET_PRIVATE_DATA, &data,
-			sizeof(intel_get_private_data)) != 0) {
-		free(gInfo);
+			sizeof(intel_get_private_data)) != 0)
 		return B_ERROR;
-	}
 
-	AreaCloner sharedCloner;
-	gInfo->shared_info_area = sharedCloner.Clone("intel extreme shared info",
+	AreaDeleter sharedDeleter(clone_area("intel extreme shared info",
 		(void**)&gInfo->shared_info, B_ANY_ADDRESS, B_READ_AREA | B_WRITE_AREA,
-		data.shared_info_area);
-	status_t status = sharedCloner.InitCheck();
-	if (status < B_OK) {
-		free(gInfo);
+		data.shared_info_area));
+	status_t status = gInfo->shared_info_area = sharedDeleter.Get();
+	if (status < B_OK)
 		return status;
-	}
 
-	AreaCloner regsCloner;
-	gInfo->regs_area = regsCloner.Clone("intel extreme regs",
+	AreaDeleter regsDeleter(clone_area("intel extreme regs",
 		(void**)&gInfo->registers, B_ANY_ADDRESS, B_READ_AREA | B_WRITE_AREA,
-		gInfo->shared_info->registers_area);
-	status = regsCloner.InitCheck();
-	if (status < B_OK) {
-		free(gInfo);
+		gInfo->shared_info->registers_area));
+	status = gInfo->regs_area = regsDeleter.Get();
+	if (status < B_OK)
 		return status;
-	}
 
-	sharedCloner.Keep();
-	regsCloner.Keep();
+	infoDeleter.Detach();
+	sharedDeleter.Detach();
+	regsDeleter.Detach();
 
 	// The overlay registers, hardware status, and cursor memory share
 	// a single area with the shared_info
@@ -298,7 +246,7 @@ probe_ports()
 
 	gInfo->port_count = 0;
 	for (int i = INTEL_PORT_A; i <= INTEL_PORT_D; i++) {
-		TRACE("Probing DisplayPort %d", i);
+		TRACE("Probing DisplayPort %d\n", i);
 		Port* displayPort = new(std::nothrow) DisplayPort((port_index)i);
 		if (displayPort == NULL)
 			return B_NO_MEMORY;
@@ -312,7 +260,7 @@ probe_ports()
 	// Digital Display Interface
 	if (gInfo->shared_info->device_type.HasDDI()) {
 		for (int i = INTEL_PORT_A; i <= INTEL_PORT_E; i++) {
-			TRACE("Probing DDI %d", i);
+			TRACE("Probing DDI %d\n", i);
 
 			Port* ddiPort
 				= new(std::nothrow) DigitalDisplayInterface((port_index)i);
@@ -328,7 +276,7 @@ probe_ports()
 	}
 
 	// Ensure DP_A isn't already taken (or DDI)
-	TRACE("Probing eDP");
+	TRACE("Probing eDP\n");
 	if (!has_connected_port((port_index)INTEL_PORT_A, INTEL_PORT_TYPE_ANY)) {
 		// also always try eDP, it'll also just fail if not applicable
 		Port* eDPPort = new(std::nothrow) EmbeddedDisplayPort();
@@ -341,7 +289,7 @@ probe_ports()
 	}
 
 	for (int i = INTEL_PORT_B; i <= INTEL_PORT_D; i++) {
-		TRACE("Probing HDMI %d", i);
+		TRACE("Probing HDMI %d\n", i);
 		if (has_connected_port((port_index)i, INTEL_PORT_TYPE_ANY)) {
 			// Ensure port not already claimed by something like DDI
 			continue;
@@ -357,22 +305,8 @@ probe_ports()
 			delete hdmiPort;
 	}
 
-	TRACE("Probing DVI");
-	if (!has_connected_port(INTEL_PORT_ANY, INTEL_PORT_TYPE_ANY)) {
-		// there's neither DisplayPort nor HDMI so far, assume DVI B
-		Port* dviPort = new(std::nothrow) DigitalPort(INTEL_PORT_B);
-		if (dviPort == NULL)
-			return B_NO_MEMORY;
-
-		if (dviPort->IsConnected()) {
-			gInfo->ports[gInfo->port_count++] = dviPort;
-			gInfo->head_mode |= HEAD_MODE_B_DIGITAL;
-		} else
-			delete dviPort;
-	}
-
 	// always try the LVDS port, it'll simply fail if not applicable
-	TRACE("Probing LVDS");
+	TRACE("Probing LVDS\n");
 	Port* lvdsPort = new(std::nothrow) LVDSPort();
 	if (lvdsPort == NULL)
 		return B_NO_MEMORY;
@@ -380,15 +314,29 @@ probe_ports()
 		foundLVDS = true;
 		gInfo->ports[gInfo->port_count++] = lvdsPort;
 		gInfo->head_mode |= HEAD_MODE_LVDS_PANEL;
-		gInfo->head_mode |= HEAD_MODE_A_ANALOG;
-			// FIXME this should not be set, but without it, LVDS modesetting
-			// doesn't work on SandyBridge. Find out why it makes a difference.
 		gInfo->head_mode |= HEAD_MODE_B_DIGITAL;
 	} else
 		delete lvdsPort;
 
+	TRACE("Probing DVI\n");
+	if (!has_connected_port(INTEL_PORT_ANY, INTEL_PORT_TYPE_ANY)) {
+		// there's neither DisplayPort nor HDMI so far, assume DVI B
+		for (port_index index = INTEL_PORT_B; index <= INTEL_PORT_C;
+				index = (port_index)(index + 1)) {
+			Port* dviPort = new(std::nothrow) DigitalPort(index, "DVI");
+			if (dviPort == NULL)
+				return B_NO_MEMORY;
+
+			if (dviPort->IsConnected()) {
+				gInfo->ports[gInfo->port_count++] = dviPort;
+				gInfo->head_mode |= HEAD_MODE_B_DIGITAL;
+			} else
+				delete dviPort;
+		}
+	}
+
 	// then finally always try the analog port
-	TRACE("Probing Analog");
+	TRACE("Probing Analog\n");
 	Port* analogPort = new(std::nothrow) AnalogPort();
 	if (analogPort == NULL)
 		return B_NO_MEMORY;
@@ -404,7 +352,7 @@ probe_ports()
 	// Activate reference clocks if needed
 	if (gInfo->shared_info->pch_info == INTEL_PCH_IBX
 		|| gInfo->shared_info->pch_info == INTEL_PCH_CPT) {
-		TRACE("Activating clocks");
+		TRACE("Activating clocks\n");
 		// XXX: Is LVDS the same as Panel?
 		refclk_activate_ilk(foundLVDS);
 	}
@@ -416,7 +364,7 @@ probe_ports()
 	}
 	*/
 
-	TRACE("Probing complete.");
+	TRACE("Probing complete.\n");
 	return B_OK;
 }
 
@@ -430,20 +378,36 @@ assign_pipes()
 	// assigned when the count is > 1;
 
 	uint32 current = 0;
+
+	bool assigned[gInfo->pipe_count];
+	memset(assigned, 0, gInfo->pipe_count);
+
+	// Some ports need to be assigned to a fixed pipe on old hardware (or due
+	// to limitations in the current driver on current hardware). Assign those
+	// first
 	for (uint32 i = 0; i < gInfo->port_count; i++) {
 		if (gInfo->ports[i] == NULL)
 			continue;
 
 		pipe_index preference = gInfo->ports[i]->PipePreference();
 		if (preference != INTEL_PIPE_ANY) {
-			// Some ports *really* need to be assigned a pipe due to
-			// implementation bugs.
 			int index = (preference == INTEL_PIPE_B) ? 1 : 0;
+			if (assigned[index]) {
+				TRACE("Pipe %d is already assigned, it will drive multiple "
+					"displays\n", index);
+			}
 			gInfo->ports[i]->SetPipe(gInfo->pipes[index]);
+			assigned[index] = true;
 			continue;
 		}
+	}
 
+	// In a second pass, assign the remaining ports to the remaining pipes
+	for (uint32 i = 0; i < gInfo->port_count; i++) {
 		if (gInfo->ports[i]->IsConnected()) {
+			while (current < gInfo->pipe_count && assigned[current])
+				current++;
+
 			if (current >= gInfo->pipe_count) {
 				ERROR("%s: No pipes left to assign to port %s!\n", __func__,
 					gInfo->ports[i]->PortName());
@@ -451,7 +415,6 @@ assign_pipes()
 			}
 
 			gInfo->ports[i]->SetPipe(gInfo->pipes[current]);
-			current++;
 		}
 	}
 
@@ -478,9 +441,6 @@ intel_init_accelerant(int device)
 	init_lock(&info.engine_lock, "intel extreme engine");
 
 	setup_ring_buffer(info.primary_ring_buffer, "intel primary ring buffer");
-
-	TRACE("pipe control for: 0x%" B_PRIx32 " 0x%" B_PRIx32 "\n",
-		read32(INTEL_PIPE_CONTROL), read32(INTEL_PIPE_CONTROL));
 
 	// Probe all ports
 	status = probe_ports();
@@ -594,12 +554,10 @@ intel_get_accelerant_device_info(accelerant_device_info* info)
 
 	DeviceType* type = &gInfo->shared_info->device_type;
 
-	if (type->InFamily(INTEL_FAMILY_7xx) || type->InFamily(INTEL_FAMILY_8xx))
+	if (type->InFamily(INTEL_FAMILY_8xx))
 		strcpy(info->name, "Intel Extreme");
 	else if (type->InFamily(INTEL_FAMILY_9xx))
 		strcpy(info->name, "Intel GMA");
-	else if (type->InFamily(INTEL_FAMILY_POVR))
-		strcpy(info->name, "Intel PowerVR");
 	else if (type->InFamily(INTEL_FAMILY_SOC0))
 		strcpy(info->name, "Intel Atom");
 	else if (type->InFamily(INTEL_FAMILY_SER5))

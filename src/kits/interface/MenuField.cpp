@@ -30,7 +30,6 @@
 #include <MenuPrivate.h>
 #include <Message.h>
 #include <MessageFilter.h>
-#include <Thread.h>
 #include <Window.h>
 
 #include <binary_compatibility/Interface.h>
@@ -164,6 +163,7 @@ struct BMenuField::LayoutData {
 
 // #pragma mark - MouseDownFilter
 
+namespace BPrivate {
 
 class MouseDownFilter : public BMessageFilter
 {
@@ -192,6 +192,9 @@ MouseDownFilter::Filter(BMessage* message, BHandler** target)
 {
 	return message->what == B_MOUSE_DOWN ? B_SKIP_MESSAGE : B_DISPATCH_MESSAGE;
 }
+
+};
+
 
 
 // #pragma mark - BMenuField
@@ -484,8 +487,7 @@ BMenuField::MouseDown(BPoint where)
 		if (fMouseDownFilter->Looper() == NULL)
 			Window()->AddCommonFilter(fMouseDownFilter);
 
-		MouseDownThread<BMenuField>::TrackMouse(this, &BMenuField::_DoneTracking,
-			&BMenuField::_Track);
+		SetMouseEventMask(B_POINTER_EVENTS, B_NO_POINTER_HISTORY);
 	}
 }
 
@@ -557,6 +559,7 @@ BMenuField::MouseMoved(BPoint point, uint32 code, const BMessage* message)
 void
 BMenuField::MouseUp(BPoint where)
 {
+	Window()->RemoveCommonFilter(fMouseDownFilter);
 	BView::MouseUp(where);
 }
 
@@ -1022,7 +1025,7 @@ BMenuField::InitObject(const char* label)
 	fFixedSizeMB = false;
 	fMenuTaskID = -1;
 	fLayoutData = new LayoutData;
-	fMouseDownFilter = new MouseDownFilter();
+	fMouseDownFilter = new BPrivate::MouseDownFilter();
 
 	SetLabel(label);
 
@@ -1400,19 +1403,6 @@ float
 BMenuField::_MenuBarWidth() const
 {
 	return Bounds().Width() - (_MenuBarOffset() + kVMargin);
-}
-
-
-void
-BMenuField::_DoneTracking(BPoint point)
-{
-	Window()->RemoveCommonFilter(fMouseDownFilter);
-}
-
-
-void
-BMenuField::_Track(BPoint point, uint32)
-{
 }
 
 

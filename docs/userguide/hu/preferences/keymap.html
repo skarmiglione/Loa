@@ -4,7 +4,7 @@
 <head>
 <!-- 
  *
- * Copyright 2008-20014, Haiku. All rights reserved.
+ * Copyright 2008-20020, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -29,40 +29,44 @@
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../../images/flags/hu.png" alt="" /> Magyar</li>
-<li><a href="../../ca/preferences/keymap.html"><img src="../../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../../de/preferences/keymap.html"><img src="../../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../../en/preferences/keymap.html"><img src="../../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../../es/preferences/keymap.html"><img src="../../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../../fr/preferences/keymap.html"><img src="../../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../../it/preferences/keymap.html"><img src="../../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../../pl/preferences/keymap.html"><img src="../../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../../pt_PT/preferences/keymap.html"><img src="../../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../../pt_BR/preferences/keymap.html"><img src="../../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../../ro/preferences/keymap.html"><img src="../../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../../sk/preferences/keymap.html"><img src="../../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../../fi/preferences/keymap.html"><img src="../../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../../sv_SE/preferences/keymap.html"><img src="../../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../../zh_CN/preferences/keymap.html"><img src="../../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../../ru/preferences/keymap.html"><img src="../../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../../uk/preferences/keymap.html"><img src="../../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../../jp/preferences/keymap.html"><img src="../../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Magyar&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../../id/preferences/keymap.html">Bahasa Indonesia</a></li>
+<li><a href="../../ca/preferences/keymap.html">Català</a></li>
+<li><a href="../../de/preferences/keymap.html">Deutsch</a></li>
+<li><a href="../../en/preferences/keymap.html">English</a></li>
+<li><a href="../../es/preferences/keymap.html">Español</a></li>
+<li><a href="../../fr/preferences/keymap.html">Français</a></li>
+<li><a href="../../fur/preferences/keymap.html">Furlan</a></li>
+<li><a href="../../it/preferences/keymap.html">Italiano</a></li>
+<li><a href="../../pl/preferences/keymap.html">Polski</a></li>
+<li><a href="../../pt_PT/preferences/keymap.html">Português</a></li>
+<li><a href="../../pt_BR/preferences/keymap.html">Português (Brazil)</a></li>
+<li><a href="../../ro/preferences/keymap.html">Română</a></li>
+<li><a href="../../sk/preferences/keymap.html">Slovenčina</a></li>
+<li><a href="../../fi/preferences/keymap.html">Suomi</a></li>
+<li><a href="../../sv_SE/preferences/keymap.html">Svenska</a></li>
+<li><a href="../../tr/preferences/keymap.html">Türkçe</a></li>
+<li><a href="../../zh_CN/preferences/keymap.html"> 中文 ［中文］</a></li>
+<li><a href="../../ru/preferences/keymap.html">Русский</a></li>
+<li><a href="../../uk/preferences/keymap.html">Українська</a></li>
+<li><a href="../../jp/preferences/keymap.html">日本語</a></li>
 </ul>
 <span>
- «  <a href="keyboard.html">Keyboard</a> 
-::  <a href="../preferences.html" class="uplink">Preferences</a> 
-::  <a href="locale.html">Locale</a>  »
+ «  <a href="filetypes.html">Fájltípusok</a> 
+::  <a href="../preferences.html" class="uplink">Beállítások</a> 
+::  <a href="input.html">Input</a>  »
 </span></div>
 </div>
 
 <div id="content">
 <div>
+<div class="box-info">The translation of this page isn't yet complete. Until it is, unfinished parts use the English original.</div>
 
 <h2><img src="../../images/prefs-images/keymap-icon_64.png" alt="keymap-icon_64.png" width="64" height="64" />Billentyűzetkiosztás (Keymap)</h2>
 <table summary="quickinfo" border="0" cellspacing="0" cellpadding="2">
 <tr><td>Asztalsáv:</td><td style="width:15px;"></td><td><span class="menu">Beállítások</span></td></tr>
 <tr><td>Útvonal:</td><td></td><td><span class="path">/boot/system/preferences/Keymap</span></td></tr>
-<tr><td>Bellítások:</td><td></td><td><span class="path">~/config/settings/Keymap/*</span> - módosított kiosztások helye<br />
+<tr><td>Beállítások:</td><td></td><td><span class="path">~/config/settings/Keymap/*</span> - módosított kiosztások helye<br />
 <span class="path">~/config/settings/Key_map</span></td></tr>
 </table>
 <p><br /></p>
@@ -77,7 +81,11 @@ A panel nem csupán a kiosztás beállítására használható, hanem a speciál
 <tr><td class="onelinetop"><span class="menu">Billentyűkombináció váltása...</span></td><td> </td><td>A billentyűzet-kombinációk Windows/Linux szerűen, például <span class="key">CONTROL</span> (általában <span class="key">CTRL</span>) vagy Haiku szerűen, például <span class="key">COMMAND</span> (általában <span class="key">ALT</span>).</td></tr>
 </table>
 <p>A bal oldalon található listában az előre deffiniált, illetve ha már vannak, akkor az egyéni kiosztások találhatóak. A virtuális billentyűzeten a gombokat módosíthatjuk is. Ekkor a bal egérgombbal a billentyű mozgatható, míg a jobb gombbal kicserélhető két billentyű.</p>
-<p>A billentyűk mozgatása helyett a <span class="menu">Fájl | Módosító billentyű megadása...</span> menü is használható:</p>
+<p>You can also create an individual mapping by drag &amp; dropping a character from another app onto the key. For example, you could extend your regular keymap with often used currency symbols. Just click on the <span class="key">CONTROL</span> key and drag &amp; drop the pound symbol from CharacterMap onto the 'P' key to get a ₤ when you press <span class="key">CTRL</span> <span class="key">P</span>.
+<br />
+By right-clicking a normal key, the context menu offers to <span class="menu">Remove</span> its mapping. Modifier keys can have alternative mappings, like using <span class="key">CAPS LOCK</span> as <span class="key">CTRL</span> key:</p>
+<img src="../images/prefs-images/keymap-context.png" alt="keymap-context.png" />
+<p>Alternatively to this or drag &amp; dropping of keys, there's the menu <span class="menu">File | Set modifier keys...</span> that opens this window:</p>
 <img src="../images/prefs-images/keymap-modifiers.png" alt="keymap-modifiers.png" />
 <p>Ezen a felületen módosíthatjuk az egyes billentyűk szerepét vagy akár teljesen le is tilthatjuk azt. Ugyanakkor, egy azon billentyűhöz több funkció is társítható. Ez általában nem a legjobb ötlet, kapunk is erre egy figyelmeztetést.<br />
 A <span class="button">Módosító billentyű megadása</span> gombot lenyomva az ablak bezáródik és a módosítások azonnal érvénybe lépnek.</p>
@@ -112,7 +120,7 @@ A fájl elején egy kis magyarázat található a stilizált billentyűzetre a h
 # [ ` ] [ 1 ] [ 2 ] [ 3 ] [ 4 ] [ 5 ] [ 6 ] [ 7 ] [ 8 ] [ 9 ] [ 0 ] [ - ] [ = ] [bck]
 #  0x11  0x12  0x13  0x14  0x15  0x16  0x17  0x18  0x19  0x1a  0x1b  0x1c  0x1d  0x1e
 #
-# [tab] [ q ] [ w ] [ e ] [ r ] [ t ] [ y ] [ u ] [ i ] [ o ] [ p ] [ [ ] [ ] ] [ \ ]
+# [tab] [ q ] [ w ] [ e ] [ r ] [ t ] [ y ] [ u ] [ i ] [ o ] [ p ] [ [ ] [ ] ] [ \\ ]
 #  0x26  0x27  0x28  0x29  0x2a  0x2b  0x2c  0x2d  0x2e  0x2f  0x30  0x31  0x32  0x33
 #
 # [cap] [ a ] [ s ] [ d ] [ f ] [ g ] [ h ] [ j ] [ k ] [ l ] [ ; ] [ ' ] [  enter  ]
@@ -190,7 +198,7 @@ Key 0x18 = '7'      '/'      ''       '{'      ''       '/'      '7'      '{'   
 Key 0x19 = '8'      '('      ''       '['      ''       '('      '8'      '['      ''       
 Key 0x1a = '9'      ')'      ''       ']'      ''       ')'      '9'      ']'      ''       
 Key 0x1b = '0'      '='      ''       '}'      ''       '='      '0'      '}'      ''       
-Key 0x1c = 0xc39f   '?'      ''       '\\'     ''       '?'      0xc39f   '\\'     ''       
+Key 0x1c = 0xc39f   '?'      ''       '\\\\'     ''       '?'      0xc39f   '\\\\'     ''       
 Key 0x1d = 0xc2b4   '`'      ''       ' '      ''       0xc2b4   '`'      ' '      ''       
 Key 0x1e = 0x08     0x08     0x08     0x08     0x08     0x08     0x08     0x08     0x08     
 Key 0x1f = 0x05     0x05     0x05     0x05     0x05     0x05     0x05     0x05     0x05     
@@ -213,7 +221,7 @@ Key 0x2f = 'o'      'O'      0x0f     ' '      ''       'O'      'o'      ' '   
 Key 0x30 = 'p'      'P'      0x10     ' '      ''       'P'      'p'      ' '      ''       
 Key 0x31 = 0xc3bc   0xc39c   0x1b     ' '      ''       0xc39c   0xc3bc   ' '      ''       
 Key 0x32 = ' '      '*'      0x1d     '~'      ''       '*'      ' '      '~'      ''       
-Key 0x33 = '#'      '\''     0x1c     ' '      ''       '\''     '#'      ' '      ''       
+Key 0x33 = '#'      '\\''     0x1c     ' '      ''       '\\''     '#'      ' '      ''       
 Key 0x34 = 0x7f     0x7f     0x7f     0x7f     0x7f     0x7f     0x7f     0x7f     0x7f     
 Key 0x35 = 0x04     0x04     0x04     0x04     0x04     0x04     0x04     0x04     0x04     
 Key 0x36 = 0x0c     0x0c     0x0c     0x0c     0x0c     0x0c     0x0c     0x0c     0x0c     
@@ -381,9 +389,9 @@ TildeTab = Normal Shift Option Option-Shift CapsLock CapsLock-Shift CapsLock-Opt
 
 <div class="nav">
 <div class="inner"><span>
- «  <a href="keyboard.html">Keyboard</a> 
-::  <a href="../preferences.html" class="uplink">Preferences</a> 
-::  <a href="locale.html">Locale</a>  »
+ «  <a href="filetypes.html">Fájltípusok</a> 
+::  <a href="../preferences.html" class="uplink">Beállítások</a> 
+::  <a href="input.html">Input</a>  »
 </span></div>
 </div>
 

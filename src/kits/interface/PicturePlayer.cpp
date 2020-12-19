@@ -1,11 +1,12 @@
 /*
- * Copyright 2001-2007, Haiku Inc.
+ * Copyright 2001-2018, Haiku Inc.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Marc Flerackers (mflerackers@androme.be)
  *		Stefano Ceccherini (stefano.ceccherini@gmail.com)
  *		Marcus Overhagen (marcus@overhagen.de)
+ *		Stephan Aßmus <superstippi@gmx.de>
  */
 
 /**	PicturePlayer is used to play picture data. */
@@ -17,8 +18,13 @@
 #include <string.h>
 
 #include <AffineTransform.h>
+#include <DataIO.h>
+#include <Gradient.h>
 #include <PictureProtocol.h>
 #include <Shape.h>
+
+#include <AutoDeleter.h>
+#include <StackOrHeapArray.h>
 
 
 using BPrivate::PicturePlayer;
@@ -115,24 +121,15 @@ draw_polygon(void* _context, size_t numPoints, const BPoint _points[],
 {
 	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
 
-	// This is rather ugly but works for such a trivial class.
-	const size_t kMaxStackCount = 200;
-	char stackData[kMaxStackCount * sizeof(BPoint)];
-	BPoint* points = (BPoint*)stackData;
-	if (numPoints > kMaxStackCount) {
-		points = (BPoint*)malloc(numPoints * sizeof(BPoint));
-		if (points == NULL)
-			return;
-	}
+	BStackOrHeapArray<BPoint, 200> points(numPoints);
+	if (!points.IsValid())
+		return;
 
-	memcpy(points, _points, numPoints * sizeof(BPoint));
+	memcpy((void*)points, _points, numPoints * sizeof(BPoint));
 
 	((void (*)(void*, int32, BPoint*, bool))
 		context->function_table[fill ? 14 : 13])(context->user_data, numPoints,
 			points, isClosed);
-
-	if (numPoints > kMaxStackCount)
-		free(points);
 }
 
 
@@ -195,22 +192,14 @@ set_clipping_rects(void* _context, size_t numRects, const BRect _rects[])
 	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
 
 	// This is rather ugly but works for such a trivial class.
-	const size_t kMaxStackCount = 100;
-	char stackData[kMaxStackCount * sizeof(BRect)];
-	BRect* rects = (BRect*)stackData;
-	if (numRects > kMaxStackCount) {
-		rects = (BRect*)malloc(numRects * sizeof(BRect));
-		if (rects == NULL)
-			return;
-	}
+	BStackOrHeapArray<BRect, 100> rects(numRects);
+	if (!rects.IsValid())
+		return;
 
-	memcpy(rects, _rects, numRects * sizeof(BRect));
+	memcpy((void*)rects, _rects, numRects * sizeof(BRect));
 
 	((void (*)(void*, BRect*, uint32))context->function_table[20])(
 		context->user_data, rects, numRects);
-
-	if (numRects > kMaxStackCount)
-		free(rects);
 }
 
 
@@ -454,6 +443,178 @@ set_blending_mode(void* _context, source_alpha alphaSrcMode,
 }
 
 
+static void
+set_transform(void* _context, const BAffineTransform& transform)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, const BAffineTransform&))
+		context->function_table[48])(context->user_data, transform);
+}
+
+
+static void
+translate_by(void* _context, double x, double y)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, double, double))
+		context->function_table[49])(context->user_data, x, y);
+}
+
+
+static void
+scale_by(void* _context, double x, double y)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, double, double))
+		context->function_table[50])(context->user_data, x, y);
+}
+
+
+static void
+rotate_by(void* _context, double angleRadians)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, double))
+		context->function_table[51])(context->user_data, angleRadians);
+}
+
+
+static void
+blend_layer(void* _context, Layer* layer)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, Layer*))
+		context->function_table[52])(context->user_data, layer);
+}
+
+
+static void
+clip_to_rect(void* _context, const BRect& rect, bool inverse)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, const BRect&, bool))
+		context->function_table[53])(context->user_data, rect, inverse);
+}
+
+
+static void
+clip_to_shape(void* _context, int32 opCount, const uint32 opList[],
+	int32 ptCount, const BPoint ptList[], bool inverse)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, int32, const uint32*, int32, const BPoint*, bool))
+		context->function_table[54])(context->user_data, opCount, opList,
+			ptCount, ptList, inverse);
+}
+
+
+static void
+draw_string_locations(void* _context, const char* _string, size_t length,
+	const BPoint* locations, size_t locationCount)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	char* string = strndup(_string, length);
+
+	((void (*)(void*, char*, const BPoint*, size_t))
+		context->function_table[55])(context->user_data, string, locations,
+			locationCount);
+
+	free(string);
+}
+
+
+static void
+draw_rect_gradient(void* _context, const BRect& rect, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, BRect, BGradient&))context->function_table[fill ? 56 : 57])(
+		context->user_data, rect, gradient);
+}
+
+
+static void
+draw_round_rect_gradient(void* _context, const BRect& rect, const BPoint& radii, BGradient& gradient,
+	bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, BRect, BPoint, BGradient&))context->function_table[fill ? 58 : 59])(
+		context->user_data, rect, radii, gradient);
+}
+
+
+static void
+draw_bezier_gradient(void* _context, size_t numPoints, const BPoint _points[], BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	if (numPoints != 4)
+		return;
+
+	BPoint points[4] = { _points[0], _points[1], _points[2], _points[3] };
+	((void (*)(void*, BPoint*, BGradient&))context->function_table[fill ? 60 : 61])(
+		context->user_data, points, gradient);
+}
+
+
+static void
+draw_arc_gradient(void* _context, const BPoint& center, const BPoint& radii,
+	float startTheta, float arcTheta, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, BPoint, BPoint, float, float, BGradient&))
+		context->function_table[fill ? 62 : 63])(context->user_data, center,
+			radii, startTheta, arcTheta, gradient);
+}
+
+
+static void
+draw_ellipse_gradient(void* _context, const BRect& rect, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	BPoint radii((rect.Width() + 1) / 2.0f, (rect.Height() + 1) / 2.0f);
+	BPoint center = rect.LeftTop() + radii;
+	((void (*)(void*, BPoint, BPoint, BGradient&))
+		context->function_table[fill ? 64 : 65])(context->user_data, center,
+			radii, gradient);
+}
+
+
+static void
+draw_polygon_gradient(void* _context, size_t numPoints, const BPoint _points[],
+	bool isClosed, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+
+	BStackOrHeapArray<BPoint, 200> points(numPoints);
+	if (!points.IsValid())
+		return;
+
+	memcpy((void*)points, _points, numPoints * sizeof(BPoint));
+
+	((void (*)(void*, int32, BPoint*, bool, BGradient&))
+		context->function_table[fill ? 66 : 67])(context->user_data, numPoints,
+			points, isClosed, gradient);
+}
+
+
+static void
+draw_shape_gradient(void* _context, const BShape& shape, BGradient& gradient, bool fill)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, BShape, BGradient&))context->function_table[fill ? 68 : 69])(
+		context->user_data, shape, gradient);
+}
+
+
+static void
+set_fill_rule(void* _context, int32 fillRule)
+{
+	adapter_context* context = reinterpret_cast<adapter_context*>(_context);
+	((void (*)(void*, int32))context->function_table[70])(
+		context->user_data, fillRule);
+}
+
+
+
 #if DEBUG > 1
 static const char *
 PictureOpToString(int op)
@@ -474,6 +635,7 @@ PictureOpToString(int op)
 		RETURN_STRING(B_PIC_STROKE_SHAPE);
 		RETURN_STRING(B_PIC_FILL_SHAPE);
 		RETURN_STRING(B_PIC_DRAW_STRING);
+		RETURN_STRING(B_PIC_DRAW_STRING_LOCATIONS);
 		RETURN_STRING(B_PIC_DRAW_PIXELS);
 		RETURN_STRING(B_PIC_DRAW_PICTURE);
 		RETURN_STRING(B_PIC_STROKE_ARC);
@@ -510,6 +672,13 @@ PictureOpToString(int op)
 		RETURN_STRING(B_PIC_SET_FONT_SHEAR);
 		RETURN_STRING(B_PIC_SET_FONT_BPP);
 		RETURN_STRING(B_PIC_SET_FONT_FACE);
+
+		RETURN_STRING(B_PIC_AFFINE_TRANSLATE);
+		RETURN_STRING(B_PIC_AFFINE_SCALE);
+		RETURN_STRING(B_PIC_AFFINE_ROTATE);
+
+		RETURN_STRING(B_PIC_BLEND_LAYER);
+
 		default: return "Unknown op";
 	}
 	#undef RETURN_STRING
@@ -572,7 +741,23 @@ PicturePlayer::Play(void** callBackTable, int32 tableEntries, void* userData)
 		set_font_flags,
 		set_font_shear,
 		set_font_face,
-		set_blending_mode
+		set_blending_mode,
+		set_transform,
+		translate_by,
+		scale_by,
+		rotate_by,
+		blend_layer,
+		clip_to_rect,
+		clip_to_shape,
+		draw_string_locations,
+		draw_rect_gradient,
+		draw_round_rect_gradient,
+		draw_bezier_gradient,
+		draw_arc_gradient,
+		draw_ellipse_gradient,
+		draw_polygon_gradient,
+		draw_shape_gradient,
+		set_fill_rule
 	};
 
 	// We don't check if the functions in the table are NULL, but we
@@ -633,6 +818,20 @@ public:
 			typed = reinterpret_cast<const T *>(fBuffer);
 			fRemaining -= sizeof(T) * count;
 			fBuffer += sizeof(T) * count;
+			return true;
+		}
+
+		bool GetGradient(BGradient*& gradient)
+		{
+			BMemoryIO stream(fBuffer, fRemaining);
+			printf("fRemaining: %ld\n", fRemaining);
+			if (BGradient::Unflatten(gradient, &stream) != B_OK) {
+				printf("BGradient::Unflatten(_gradient, &stream) != B_OK\n");
+				return false;
+			}
+
+			fRemaining -= stream.Position();
+			fBuffer += stream.Position();
 			return true;
 		}
 
@@ -853,6 +1052,141 @@ PicturePlayer::_Play(const picture_player_callbacks& callbacks, void* userData,
 				break;
 			}
 
+			case B_PIC_STROKE_RECT_GRADIENT:
+			case B_PIC_FILL_RECT_GRADIENT:
+			{
+				const BRect* rect;
+				BGradient* gradient;
+				if (callbacks.draw_rect_gradient == NULL || !reader.Get(rect) || !reader.GetGradient(gradient))
+					break;
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_rect_gradient(userData, *rect, *gradient,
+					header->op == B_PIC_FILL_RECT_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_ROUND_RECT_GRADIENT:
+			case B_PIC_FILL_ROUND_RECT_GRADIENT:
+			{
+				const BRect* rect;
+				const BPoint* radii;
+				BGradient* gradient;
+				if (callbacks.draw_round_rect_gradient == NULL || !reader.Get(rect)
+					|| !reader.Get(radii) || !reader.GetGradient(gradient)) {
+					break;
+				}
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_round_rect_gradient(userData, *rect, *radii, *gradient,
+					header->op == B_PIC_FILL_ROUND_RECT_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_BEZIER_GRADIENT:
+			case B_PIC_FILL_BEZIER_GRADIENT:
+			{
+				const size_t kNumControlPoints = 4;
+				const BPoint* controlPoints;
+				BGradient* gradient;
+				if (callbacks.draw_bezier_gradient == NULL
+					|| !reader.Get(controlPoints, kNumControlPoints) || !reader.GetGradient(gradient)) {
+					break;
+				}
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_bezier_gradient(userData, kNumControlPoints,
+					controlPoints, *gradient, header->op == B_PIC_FILL_BEZIER_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_POLYGON_GRADIENT:
+			case B_PIC_FILL_POLYGON_GRADIENT:
+			{
+				const uint32* numPoints;
+				const BPoint* points;
+				BGradient* gradient;
+				if (callbacks.draw_polygon_gradient == NULL || !reader.Get(numPoints)
+					|| !reader.Get(points, *numPoints)) {
+					break;
+				}
+
+				bool isClosed = true;
+				const bool* closedPointer;
+				if (header->op != B_PIC_FILL_POLYGON_GRADIENT) {
+					if (!reader.Get(closedPointer))
+						break;
+
+					isClosed = *closedPointer;
+				}
+
+				if (!reader.GetGradient(gradient))
+					break;
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_polygon_gradient(userData, *numPoints, points, isClosed, *gradient,
+					header->op == B_PIC_FILL_POLYGON_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_SHAPE_GRADIENT:
+			case B_PIC_FILL_SHAPE_GRADIENT:
+			{
+				const uint32* opCount;
+				const uint32* pointCount;
+				const uint32* opList;
+				const BPoint* pointList;
+				BGradient* gradient;
+				if (callbacks.draw_shape_gradient == NULL || !reader.Get(opCount)
+					|| !reader.Get(pointCount) || !reader.Get(opList, *opCount)
+					|| !reader.Get(pointList, *pointCount) || !reader.GetGradient(gradient)) {
+					break;
+				}
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				// TODO: remove BShape data copying
+				BShape shape;
+				shape.SetData(*opCount, *pointCount, opList, pointList);
+
+				callbacks.draw_shape_gradient(userData, shape, *gradient,
+					header->op == B_PIC_FILL_SHAPE_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_ARC_GRADIENT:
+			case B_PIC_FILL_ARC_GRADIENT:
+			{
+				const BPoint* center;
+				const BPoint* radii;
+				const float* startTheta;
+				const float* arcTheta;
+				BGradient* gradient;
+				if (callbacks.draw_arc_gradient == NULL || !reader.Get(center)
+					|| !reader.Get(radii) || !reader.Get(startTheta)
+					|| !reader.Get(arcTheta) || !reader.GetGradient(gradient)) {
+					break;
+				}
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_arc_gradient(userData, *center, *radii, *startTheta,
+					*arcTheta, *gradient, header->op == B_PIC_FILL_ARC_GRADIENT);
+				break;
+			}
+
+			case B_PIC_STROKE_ELLIPSE_GRADIENT:
+			case B_PIC_FILL_ELLIPSE_GRADIENT:
+			{
+				const BRect* rect;
+				BGradient* gradient;
+				if (callbacks.draw_ellipse_gradient == NULL || !reader.Get(rect) || !reader.GetGradient(gradient))
+					break;
+				ObjectDeleter<BGradient> gradientDeleter(gradient);
+
+				callbacks.draw_ellipse_gradient(userData, *rect, *gradient,
+					header->op == B_PIC_FILL_ELLIPSE_GRADIENT);
+				break;
+			}
+
 			case B_PIC_DRAW_STRING:
 			{
 				const float* escapementSpace;
@@ -868,6 +1202,24 @@ PicturePlayer::_Play(const picture_player_callbacks& callbacks, void* userData,
 
 				callbacks.draw_string(userData, string, length,
 					*escapementSpace, *escapementNonSpace);
+				break;
+			}
+
+			case B_PIC_DRAW_STRING_LOCATIONS:
+			{
+				const uint32* pointCount;
+				const BPoint* pointList;
+				const char* string;
+				size_t length;
+				if (callbacks.draw_string_locations == NULL
+					|| !reader.Get(pointCount)
+					|| !reader.Get(pointList, *pointCount)
+					|| !reader.GetRemaining(string, length)) {
+					break;
+				}
+
+				callbacks.draw_string_locations(userData, string, length,
+					pointList, *pointCount);
 				break;
 			}
 
@@ -1200,6 +1552,18 @@ PicturePlayer::_Play(const picture_player_callbacks& callbacks, void* userData,
 				callbacks.set_blending_mode(userData,
 					(source_alpha)*alphaSourceMode,
 					(alpha_function)*alphaFunctionMode);
+				break;
+			}
+
+			case B_PIC_SET_FILL_RULE:
+			{
+				const uint32* fillRule;
+				if (callbacks.set_fill_rule == NULL
+					|| !reader.Get(fillRule)) {
+					break;
+				}
+
+				callbacks.set_fill_rule(userData, *fillRule);
 				break;
 			}
 

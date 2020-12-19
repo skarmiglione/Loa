@@ -25,14 +25,14 @@
 #define INTEL_GROUP_MASK	0x00fffff0
 #define INTEL_MODEL_MASK	0x00ffffff
 #define INTEL_TYPE_MASK		0x0000000f
+
 // families
-#define INTEL_FAMILY_7xx	0x00010000	// First Gen
 #define INTEL_FAMILY_8xx	0x00020000	// Second Gen
 #define INTEL_FAMILY_9xx	0x00040000	// Third Gen +
 #define INTEL_FAMILY_SER5	0x00080000	// Intel5 Series
-#define INTEL_FAMILY_POVR	0x00100000	// PowerVR (uugh)
 #define INTEL_FAMILY_SOC0	0x00200000  // Atom SOC
 #define INTEL_FAMILY_LAKE	0x00400000	// Intel Lakes
+
 // groups
 #define INTEL_GROUP_83x		(INTEL_FAMILY_8xx  | 0x0010)
 #define INTEL_GROUP_85x		(INTEL_FAMILY_8xx  | 0x0020)
@@ -46,8 +46,6 @@
 #define INTEL_GROUP_SNB		(INTEL_FAMILY_SER5 | 0x0020)  // SandyBridge
 #define INTEL_GROUP_IVB		(INTEL_FAMILY_SER5 | 0x0040)  // IvyBridge
 #define INTEL_GROUP_HAS		(INTEL_FAMILY_SER5 | 0x0080)  // Haswell
-#define INTEL_GROUP_SLT		(INTEL_FAMILY_POVR | 0x0010)  // Saltwell
-#define INTEL_GROUP_FSM		(INTEL_FAMILY_POVR | 0x0020)  // Fu.Silvermont
 #define INTEL_GROUP_VLV		(INTEL_FAMILY_SOC0 | 0x0010)  // ValleyView
 #define INTEL_GROUP_CHV		(INTEL_FAMILY_SOC0 | 0x0020)  // CherryView
 #define INTEL_GROUP_BDW		(INTEL_FAMILY_SOC0 | 0x0040)  // Broadwell
@@ -191,8 +189,6 @@ struct DeviceType {
 
 	int Generation() const
 	{
-		if (InFamily(INTEL_FAMILY_7xx))
-			return 1;
 		if (InFamily(INTEL_FAMILY_8xx))
 			return 2;
 		if (InGroup(INTEL_GROUP_91x) || InGroup(INTEL_GROUP_94x)
@@ -211,7 +207,7 @@ struct DeviceType {
 		if (InFamily(INTEL_FAMILY_LAKE))
 			return 9;
 
-		// Generation 0 means somethins is wrong :-)
+		// Generation 0 means something is wrong :-)
 		return 0;
 	}
 };
@@ -491,6 +487,13 @@ struct intel_free_graphics_memory {
 #define DISPLAY_MONITOR_POSITIVE_VSYNC	(2UL << 3)
 #define DISPLAY_MONITOR_PORT_DETECTED	(1UL << 2) // TMDS/DisplayPort only
 
+// Cougar Point transcoder pipe selection
+// (replaces DISPLAY_MONITOR_PIPE_B)
+#define  PORT_TRANS_A_SEL_CPT			0
+#define  PORT_TRANS_B_SEL_CPT			(1<<29)
+#define  PORT_TRANS_C_SEL_CPT			(2<<29)
+#define  PORT_TRANS_SEL_MASK			(3<<29)
+
 #define LVDS_POST2_RATE_SLOW			14 // PLL Divisors
 #define LVDS_POST2_RATE_FAST			7
 #define LVDS_B0B3_POWER_MASK			(3UL << 2)
@@ -518,8 +521,10 @@ struct intel_free_graphics_memory {
 #define DISPLAY_PLL_POST1_DIVIDE_2		(1UL << 21)
 #define DISPLAY_PLL_POST1_DIVISOR_MASK	0x001f0000
 #define DISPLAY_PLL_9xx_POST1_DIVISOR_MASK	0x00ff0000
+#define DISPLAY_PLL_SNB_FP0_POST1_DIVISOR_MASK	0x000000ff
 #define DISPLAY_PLL_IGD_POST1_DIVISOR_MASK  0x00ff8000
 #define DISPLAY_PLL_POST1_DIVISOR_SHIFT	16
+#define DISPLAY_PLL_SNB_FP0_POST1_DIVISOR_SHIFT	0
 #define DISPLAY_PLL_IGD_POST1_DIVISOR_SHIFT	15
 #define DISPLAY_PLL_DIVISOR_1			(1UL << 8)
 #define DISPLAY_PLL_N_DIVISOR_MASK		0x001f0000
@@ -549,14 +554,8 @@ struct intel_free_graphics_memory {
 #define INTEL_DISPLAY_B_VBLANK			(0x1010 | REGS_NORTH_PIPE_AND_PORT)
 #define INTEL_DISPLAY_B_VSYNC			(0x1014 | REGS_NORTH_PIPE_AND_PORT)
 
-#define INTEL_DISPLAY_A_IMAGE_SIZE		(0x001c | REGS_NORTH_PIPE_AND_PORT)
-#define INTEL_DISPLAY_B_IMAGE_SIZE		(0x101c | REGS_NORTH_PIPE_AND_PORT)
-
-// Cougar Point transcoder pipe selection
-#define  PORT_TRANS_A_SEL_CPT			0
-#define  PORT_TRANS_B_SEL_CPT			(1<<29)
-#define  PORT_TRANS_C_SEL_CPT			(2<<29)
-#define  PORT_TRANS_SEL_MASK			(3<<29)
+#define INTEL_DISPLAY_A_PIPE_SIZE		(0x001c | REGS_NORTH_PIPE_AND_PORT)
+#define INTEL_DISPLAY_B_PIPE_SIZE		(0x101c | REGS_NORTH_PIPE_AND_PORT)
 
 // on PCH we also have to set the transcoder
 #define INTEL_TRANSCODER_A_HTOTAL		(0x0000 | REGS_SOUTH_TRANSCODER_PORT)
@@ -650,8 +649,7 @@ struct intel_free_graphics_memory {
 
 // planes
 #define INTEL_PIPE_ENABLED				(1UL << 31)
-#define INTEL_PIPE_CONTROL				0x0008
-#define INTEL_PIPE_STATUS				0x0024
+#define INTEL_PIPE_STATE				(1UL << 30)
 
 #define INTEL_PLANE_OFFSET				0x1000
 
@@ -668,7 +666,7 @@ struct intel_free_graphics_memory {
 #define INTEL_DISPLAY_A_BYTES_PER_ROW	(0x0188 | REGS_NORTH_PLANE_CONTROL)
 #define INTEL_DISPLAY_A_POS				(0x018c | REGS_NORTH_PLANE_CONTROL)
 	// reserved on A
-#define INTEL_DISPLAY_A_PIPE_SIZE		(0x0190 | REGS_NORTH_PLANE_CONTROL)
+#define INTEL_DISPLAY_A_IMAGE_SIZE		(0x0190 | REGS_NORTH_PLANE_CONTROL)
 #define INTEL_DISPLAY_A_SURFACE			(0x019c | REGS_NORTH_PLANE_CONTROL)
 	// i965 and up only
 
@@ -676,7 +674,7 @@ struct intel_free_graphics_memory {
 #define INTEL_DISPLAY_B_BASE			(0x1184 | REGS_NORTH_PLANE_CONTROL)
 #define INTEL_DISPLAY_B_BYTES_PER_ROW	(0x1188 | REGS_NORTH_PLANE_CONTROL)
 #define INTEL_DISPLAY_B_POS				(0x118c | REGS_NORTH_PLANE_CONTROL)
-#define INTEL_DISPLAY_B_PIPE_SIZE		(0x1190 | REGS_NORTH_PLANE_CONTROL)
+#define INTEL_DISPLAY_B_IMAGE_SIZE		(0x1190 | REGS_NORTH_PLANE_CONTROL)
 #define INTEL_DISPLAY_B_SURFACE			(0x119c | REGS_NORTH_PLANE_CONTROL)
 	// i965 and up only
 
@@ -722,11 +720,6 @@ struct intel_free_graphics_memory {
 #define INTEL_DISPLAY_A_PALETTE			(0xa000 | REGS_NORTH_SHARED)
 #define INTEL_DISPLAY_B_PALETTE			(0xa800 | REGS_NORTH_SHARED)
 
-// PLL registers
-#define INTEL_DISPLAY_A_PLL				(0x6014 | REGS_SOUTH_SHARED)
-#define INTEL_DISPLAY_B_PLL				(0x6018 | REGS_SOUTH_SHARED)
-#define CHV_DISPLAY_C_PLL				(0x6030 | REGS_SOUTH_SHARED)
-
 // Ironlake PCH reference clk control
 #define PCH_DREF_CONTROL					(0x6200 | REGS_SOUTH_SHARED)
 #define DREF_CONTROL_MASK					0x7fc3
@@ -751,15 +744,21 @@ struct intel_free_graphics_memory {
 #define DREF_SSC4_DISABLE					(0 << 0)
 #define DREF_SSC4_ENABLE					(1 << 0)
 
+// PLL registers
 //  Multiplier Divisor
+#define INTEL_DISPLAY_A_PLL				(0x6014 | REGS_SOUTH_SHARED)
+#define INTEL_DISPLAY_B_PLL				(0x6018 | REGS_SOUTH_SHARED)
 #define INTEL_DISPLAY_A_PLL_MD			(0x601C | REGS_SOUTH_SHARED)
 #define INTEL_DISPLAY_B_PLL_MD			(0x6020 | REGS_SOUTH_SHARED)
+#define CHV_DISPLAY_C_PLL				(0x6030 | REGS_SOUTH_SHARED)
 #define CHV_DISPLAY_B_PLL_MD			(0x603C | REGS_SOUTH_SHARED)
 
 #define INTEL_DISPLAY_A_PLL_DIVISOR_0	(0x6040 | REGS_SOUTH_SHARED)
 #define INTEL_DISPLAY_A_PLL_DIVISOR_1	(0x6044 | REGS_SOUTH_SHARED)
 #define INTEL_DISPLAY_B_PLL_DIVISOR_0	(0x6048 | REGS_SOUTH_SHARED)
 #define INTEL_DISPLAY_B_PLL_DIVISOR_1	(0x604c | REGS_SOUTH_SHARED)
+
+#define SNB_DPLL_SEL					(0x7000 | REGS_SOUTH_SHARED)
 
 // i2c
 #define INTEL_I2C_IO_A					(0x5010 | REGS_SOUTH_SHARED)
@@ -993,7 +992,11 @@ struct intel_free_graphics_memory {
 #define PCH_PANEL_FITTER_H_SCALE		0x90
 
 #define PANEL_FITTER_ENABLED			(1 << 31)
-#define PANEL_FITTER_FILTER_MASK		(3 << 23)
+#define PANEL_FITTER_PIPE_MASK			(3 << 29)
+#define PANEL_FITTER_PIPE_A				(0 << 29)
+#define PANEL_FITTER_PIPE_B				(1 << 29)
+#define PANEL_FITTER_SCALING_MODE_MASK	(7 << 26)
+#define PANEL_FITTER_FILTER_MASK		(3 << 24)
 
 struct overlay_scale {
 	uint32 _reserved0 : 3;

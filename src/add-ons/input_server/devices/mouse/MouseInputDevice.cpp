@@ -183,9 +183,8 @@ MouseDevice::MouseDevice(MouseInputDevice& target, const char* driverPath)
 	fDeviceRef.cookie = this;
 
 #ifdef HAIKU_TARGET_PLATFORM_HAIKU
-	fSettings.map.button[0] = B_PRIMARY_MOUSE_BUTTON;
-	fSettings.map.button[1] = B_SECONDARY_MOUSE_BUTTON;
-	fSettings.map.button[2] = B_TERTIARY_MOUSE_BUTTON;
+	for (int i = 0; i < B_MAX_MOUSE_BUTTONS; i++)
+		fSettings.map.button[i] = B_MOUSE_BUTTON(i + 1);
 #endif
 };
 
@@ -300,12 +299,18 @@ MouseDevice::UpdateTouchpadSettings(const BMessage* message)
 char*
 MouseDevice::_BuildShortName() const
 {
+	// TODO It would be simpler and better to use B_GET_DEVICE_NAME, but...
+	// - This is currently called before the device is open
+	// - We need to implement that in our input drivers first
 	BString string(fPath);
+	BString deviceName;
 	BString name;
 
 	int32 slash = string.FindLast("/");
-	string.CopyInto(name, slash + 1, string.Length() - slash);
-	int32 index = atoi(name.String()) + 1;
+	string.CopyInto(deviceName, slash + 1, string.Length() - slash);
+	// FIXME the device name may be more than just a number (for example
+	// ibm_trackpoint_0)
+	int32 index = atoi(deviceName.String()) + 1;
 
 	int32 previousSlash = string.FindLast("/", slash);
 	string.CopyInto(name, previousSlash + 1, slash - previousSlash - 1);
@@ -313,15 +318,21 @@ MouseDevice::_BuildShortName() const
 	if (name == "ps2")
 		name = "PS/2";
 
-	if (name.Length() < 4)
+	if (name.Length() <= 4)
 		name.ToUpper();
 	else
 		name.Capitalize();
 
+	// Check the whole string for "touchpad" because it's a different directory
+	// FIXME use MS_IS_TOUCHPAD ioctl instead (or fIsTouchpad which caches its
+	// result) but this can only be done after the control thread is running
 	if (string.FindFirst("touchpad") >= 0) {
 		name << " Touchpad ";
+	} else if (deviceName.FindFirst("trackpoint") >= 0) {
+		// That's always PS/2, so don't keep the bus name
+		name = "Trackpoint ";
 	} else {
-		if (string.FindFirst("intelli") >= 0)
+		if (deviceName.FindFirst("intelli") >= 0)
 			name.Prepend("Extended ");
 
 		name << " Mouse ";
@@ -504,7 +515,6 @@ void
 MouseDevice::_UpdateSettings()
 {
 	MD_CALLED();
-
 	// retrieve current values
 
 	if (get_mouse_map(&fSettings.map) != B_OK)
@@ -519,7 +529,7 @@ MouseDevice::_UpdateSettings()
 	else
 		ioctl(fDevice, MS_SET_CLICKSPEED, &fSettings.click_speed);
 
-	if (get_mouse_speed(&fSettings.accel.speed) != B_OK)
+	if (get_mouse_speed_by_name(fDeviceRef.name, &fSettings.accel.speed) != B_OK)
 		LOG_ERR("error when get_mouse_speed\n");
 	else {
 		if (get_mouse_acceleration(&fSettings.accel.accel_factor) != B_OK)
@@ -533,7 +543,7 @@ MouseDevice::_UpdateSettings()
 		}
 	}
 
-	if (get_mouse_type(&fSettings.type) != B_OK)
+	if (get_mouse_type_by_name(fDeviceRef.name, &fSettings.type) != B_OK)
 		LOG_ERR("error when get_mouse_type\n");
 	else
 		ioctl(fDevice, MS_SET_TYPE, &fSettings.type);

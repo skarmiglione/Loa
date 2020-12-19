@@ -23,6 +23,7 @@
 // void (KernelExport.h) and once with int (stdio.h).
 #include <cstdio>
 #include <cstring>
+#include <arpa/inet.h>
 
 #include <ByteOrder.h>
 #include <net_buffer.h>
@@ -261,7 +262,7 @@ KPPPInterface::~KPPPInterface()
 	while (true) {
 		Down();
 		{
-			MutexLocker (fLock);
+			MutexLocker locker(fLock);
 			if (State() == PPP_INITIAL_STATE && Phase() == PPP_DOWN_PHASE)
 				break;
 		}
@@ -2013,10 +2014,12 @@ KPPPInterface::CalculateBaudRate()
 		Device()->OutputTransferRate());
 	else {
 		fIfnet->link_speed = 0;
-		for (int32 index = 0; index < CountChildren(); index++)
-			if (ChildAt(index)->Ifnet())
-				fIfnet->link_speed += ChildAt(index)->Ifnet()->link_speed;
+		for (int32 index = 0; index < CountChildren(); index++) {
+			if (ChildAt(index)->Ifnet()) {
+				fIfnet->link_speed = ChildAt(index)->Ifnet()->link_speed;
 				return;
+			}
+		}
 	}
 }
 

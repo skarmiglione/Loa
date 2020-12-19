@@ -506,7 +506,7 @@ read_frames(int fd, off_t firstFrame, uint8 *buffer, size_t count)
 		read.buffer = (char *)buffer;
 		read.play = false;
 
-		if (ioctl(fd, B_SCSI_READ_CD, &read) < 0) {
+		if (ioctl(fd, B_SCSI_READ_CD, &read, sizeof(scsi_read_cd)) < 0) {
 			// drive couldn't read data - try again to read with a smaller block size
 			if (count == 1)
 				return errno;
@@ -559,7 +559,7 @@ read_table_of_contents(int fd, uint32 track, uint8 format, uint8 *buffer,
 	raw.sense_data = senseData;
 	raw.sense_data_length = sizeof(kSenseSize);
 
-	if (ioctl(fd, B_RAW_DEVICE_COMMAND, &raw) == 0
+	if (ioctl(fd, B_RAW_DEVICE_COMMAND, &raw, sizeof(raw)) == 0
 		&& raw.scsi_status == 0 && raw.cam_status == 1) {
 		free(senseData);
 		return B_OK;

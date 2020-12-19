@@ -112,6 +112,7 @@ status_t	vfs_synchronous_io(io_request* request,
 				void* cookie);
 status_t	vfs_get_vnode_cache(struct vnode *vnode, struct VMCache **_cache,
 				bool allocate);
+status_t	vfs_set_vnode_cache(struct vnode *vnode, struct VMCache *_cache);
 status_t	vfs_get_file_map(struct vnode *vnode, off_t offset, size_t size,
 				struct file_io_vec *vecs, size_t *_count);
 status_t	vfs_get_fs_node_from_path(fs_volume *volume, const char *path,
@@ -251,6 +252,7 @@ int			_user_dup(int fd);
 int			_user_dup2(int ofd, int nfd);
 status_t	_user_lock_node(int fd);
 status_t	_user_unlock_node(int fd);
+status_t	_user_preallocate(int fd, off_t offset, off_t length);
 
 /* socket user prototypes (implementation in socket.cpp) */
 int			_user_socket(int family, int type, int protocol);

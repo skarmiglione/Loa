@@ -7,7 +7,7 @@
 
 
 #include "efi_platform.h"
-#include "efiser.h"
+#include <efi/protocol/serial-io.h>
 #include "serial.h"
 
 #include <boot/platform.h>
@@ -18,10 +18,10 @@
 #include <string.h>
 
 
-static EFI_GUID sSerialIOProtocolGUID = SERIAL_IO_PROTOCOL;
+static efi_guid sSerialIOProtocolGUID = EFI_SERIAL_IO_PROTOCOL_GUID;
 static const uint32 kSerialBaudRate = 115200;
 
-static SERIAL_IO_INTERFACE *sSerial = NULL;
+static efi_serial_io_protocol *sSerial = NULL;
 static bool sSerialEnabled = false;
 static bool sSerialUsesEFI = true;
 
@@ -48,14 +48,17 @@ serial_putc(char ch)
 		return;
 
 	if (sSerialUsesEFI) {
-		UINTN bufSize = 1;
+		size_t bufSize = 1;
 		sSerial->Write(sSerial, &bufSize, &ch);
-	} else {
-		while ((in8(sSerialBasePort + SERIAL_LINE_STATUS) & 0x20) == 0)
-			asm volatile ("pause;");
-
-		out8(ch, sSerialBasePort + SERIAL_TRANSMIT_BUFFER);
+		return;
 	}
+
+	#if defined(__x86__) || defined(__x86_64__)
+	while ((in8(sSerialBasePort + SERIAL_LINE_STATUS) & 0x20) == 0)
+		asm volatile ("pause;");
+
+	out8(ch, sSerialBasePort + SERIAL_TRANSMIT_BUFFER);
+	#endif
 }
 
 
@@ -96,7 +99,7 @@ serial_enable(void)
 extern "C" void
 serial_init(void)
 {
-	EFI_STATUS status = kSystemTable->BootServices->LocateProtocol(
+	efi_status status = kSystemTable->BootServices->LocateProtocol(
 		&sSerialIOProtocolGUID, NULL, (void**)&sSerial);
 
 	if (status != EFI_SUCCESS || sSerial == NULL) {
@@ -115,6 +118,7 @@ serial_init(void)
 }
 
 
+#if defined(__x86__) || defined(__x86_64__)
 extern "C" void
 serial_switch_to_legacy(void)
 {
@@ -135,3 +139,4 @@ serial_switch_to_legacy(void)
 	out8(3, sSerialBasePort + SERIAL_LINE_CONTROL);
 		// 8N1
 }
+#endif

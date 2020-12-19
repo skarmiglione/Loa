@@ -43,7 +43,7 @@ AVCodecEncoder::AVCodecEncoder(uint32 codecID, int bitRateScale)
 	fBitRateScale(bitRateScale),
 	fCodecID((CodecID)codecID),
 	fCodec(NULL),
-	fCodecContext(avcodec_alloc_context3(NULL)),
+	fCodecContext(NULL),
 	fCodecInitStatus(CODEC_INIT_NEEDED),
 	fFrame(av_frame_alloc()),
 	fSwsContext(NULL),
@@ -110,7 +110,10 @@ AVCodecEncoder::~AVCodecEncoder()
 		av_frame_free(&fFrame);
 	}
 
-	avcodec_free_context(&fCodecContext);
+	if (fCodecContext != NULL) {
+		avcodec_close(fCodecContext);
+		avcodec_free_context(&fCodecContext);
+	}
 
 	delete[] fChunkBuffer;
 }
@@ -139,9 +142,6 @@ status_t
 AVCodecEncoder::SetUp(const media_format* inputFormat)
 {
 	TRACE("AVCodecEncoder::SetUp()\n");
-
-	if (fCodecContext == NULL)
-		return B_NO_INIT;
 
 	if (inputFormat == NULL)
 		return B_BAD_VALUE;
@@ -271,8 +271,21 @@ AVCodecEncoder::_Setup()
 
 	int rawBitRate;
 
+	fCodecContext = avcodec_alloc_context3(fCodec);
+	if (fCodecContext == NULL)
+		return B_NO_INIT;
+
 	if (fInputFormat.type == B_MEDIA_RAW_VIDEO) {
 		TRACE("  B_MEDIA_RAW_VIDEO\n");
+
+		// Check input parameters
+		AVPixelFormat pixFmt = colorspace_to_pixfmt(
+			fInputFormat.u.raw_video.display.format);
+		if (pixFmt == AV_PIX_FMT_NONE) {
+			TRACE("Invalid input colorspace\n");
+			return B_BAD_DATA;
+		}
+
 		// frame rate
 		fCodecContext->time_base = (AVRational){1, (int)fInputFormat.u.raw_video.field_rate};
 		fCodecContext->framerate = (AVRational){(int)fInputFormat.u.raw_video.field_rate, 1};
@@ -336,8 +349,8 @@ AVCodecEncoder::_Setup()
 		fFrame->linesize[2] = fDstFrame.linesize[2];
 		fFrame->linesize[3] = fDstFrame.linesize[3];
 
-		fSwsContext = sws_getContext(fCodecContext->width, fCodecContext->height,
-			colorspace_to_pixfmt(fInputFormat.u.raw_video.display.format),
+		fSwsContext = sws_getContext(fCodecContext->width,
+			fCodecContext->height, pixFmt,
 			fCodecContext->width, fCodecContext->height,
 			fCodecContext->pix_fmt, SWS_FAST_BILINEAR, NULL, NULL, NULL);
 

@@ -21,6 +21,8 @@ public:
 	virtual	VMArea*				NextArea(VMArea* area) const;
 
 	virtual	VMArea*				LookupArea(addr_t address) const;
+	virtual	VMArea*				FindClosestArea(addr_t address, bool less)
+									const;
 	virtual	VMArea*				CreateArea(const char* name, uint32 wiring,
 									uint32 protection, uint32 allocationFlags);
 	virtual	void				DeleteArea(VMArea* area,
@@ -69,8 +71,8 @@ private:
 	static	const addr_t		kMaxRandomize;
 	static	const addr_t		kMaxInitialRandomize;
 
-			VMUserAreaList		fAreas;
-	mutable	VMUserArea*			fAreaHint;
+			VMUserAreaTree		fAreas;
+			addr_t				fNextInsertHint;
 };
 
 

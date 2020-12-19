@@ -24,12 +24,8 @@
 using namespace BPrivate::Storage::Mime;
 
 
-#ifdef HAIKU_HOST_PLATFORM_SUNOS
-static const char* sProgramName = "mimeset";
-#else
 extern const char* __progname;
 static const char* sProgramName = __progname;
-#endif
 
 // options
 bool gFiles = true;
@@ -242,8 +238,10 @@ main(int argc, const char** argv)
 			// read file names from stdin
 			char name[B_PATH_NAME_LENGTH];
 			while (fgets(name, sizeof(name), stdin) != NULL) {
-				name[strlen(name) - 1] = '\0';
-					// remove trailing '\n'
+				if (name[0] != '\0') {
+					name[strlen(name) - 1] = '\0';
+						// remove trailing '\n'
+				}
 				if (process_file(name) != B_OK)
 					exit(1);
 			}

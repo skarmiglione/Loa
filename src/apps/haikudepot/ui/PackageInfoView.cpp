@@ -1,13 +1,12 @@
 /*
  * Copyright 2013-2014, Stephan Aßmus <superstippi@gmx.de>.
- * Copyright 2018, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2018-2020, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
 #include "PackageInfoView.h"
 
 #include <algorithm>
-#include <stdio.h>
 
 #include <Alert.h>
 #include <Autolock.h>
@@ -16,7 +15,6 @@
 #include <CardLayout.h>
 #include <Catalog.h>
 #include <ColumnListView.h>
-#include <DateFormat.h>
 #include <Font.h>
 #include <GridView.h>
 #include <LayoutBuilder.h>
@@ -36,10 +34,11 @@
 #include <package/hpkg/PackageContentHandler.h>
 #include <package/hpkg/PackageEntry.h>
 
-#include "BitmapButton.h"
 #include "BitmapView.h"
 #include "LinkView.h"
 #include "LinkedBitmapView.h"
+#include "LocaleUtils.h"
+#include "Logger.h"
 #include "MarkupTextView.h"
 #include "MessagePackageListener.h"
 #include "PackageActionHandler.h"
@@ -55,7 +54,14 @@
 #define B_TRANSLATION_CONTEXT "PackageInfoView"
 
 
-static const rgb_color kLightBlack = (rgb_color) { 60, 60, 60, 255 };
+enum {
+	TAB_ABOUT		= 0,
+	TAB_RATINGS		= 1,
+	TAB_CHANGELOG	= 2,
+	TAB_CONTENTS	= 3
+};
+
+
 static const float kContentTint = (B_NO_TINT + B_LIGHTEN_1_TINT) / 2.0f;
 
 
@@ -260,9 +266,10 @@ private:
 
 class TitleView : public BGroupView {
 public:
-	TitleView()
+	TitleView(PackageIconRepository& packageIconRepository)
 		:
-		BGroupView("title view", B_HORIZONTAL)
+		BGroupView("title view", B_HORIZONTAL),
+		fPackageIconRepository(packageIconRepository)
 	{
 		fIconView = new BitmapView("package icon view");
 		fTitleView = new BStringView("package title view", "");
@@ -283,7 +290,7 @@ public:
 		font.SetSize(std::max(9.0f, floorf(font.Size() * 0.92f)));
 		font.SetFamilyAndStyle(family, "Italic");
 		fPublisherView->SetFont(&font);
-		fPublisherView->SetHighColor(kLightBlack);
+		fPublisherView->SetHighUIColor(B_PANEL_TEXT_COLOR, B_LIGHTEN_1_TINT);
 
 		// slightly bigger font
 		GetFont(&font);
@@ -292,7 +299,7 @@ public:
 		// Version info
 		fVersionInfo = new BStringView("package version info", "");
 		fVersionInfo->SetFont(&font);
-		fVersionInfo->SetHighColor(kLightBlack);
+		fVersionInfo->SetHighUIColor(B_PANEL_TEXT_COLOR, B_LIGHTEN_1_TINT);
 
 		// Rating view
 		fRatingView = new TransitReportingRatingView(
@@ -300,14 +307,14 @@ public:
 
 		fAvgRating = new BStringView("package average rating", "");
 		fAvgRating->SetFont(&font);
-		fAvgRating->SetHighColor(kLightBlack);
+		fAvgRating->SetHighUIColor(B_PANEL_TEXT_COLOR, B_LIGHTEN_1_TINT);
 
 		fVoteInfo = new BStringView("package vote info", "");
 		// small font
 		GetFont(&font);
 		font.SetSize(std::max(9.0f, floorf(font.Size() * 0.85f)));
 		fVoteInfo->SetFont(&font);
-		fVoteInfo->SetHighColor(kLightBlack);
+		fVoteInfo->SetHighUIColor(B_PANEL_TEXT_COLOR, B_LIGHTEN_1_TINT);
 
 		// Rate button
 		fRateButton = new TransitReportingButton("rate",
@@ -387,19 +394,26 @@ public:
 
 	void SetPackage(const PackageInfo& package)
 	{
-		if (package.Icon().Get() != NULL)
-			fIconView->SetBitmap(package.Icon(), SharedBitmap::SIZE_32);
+		BitmapRef bitmap;
+		status_t iconResult = fPackageIconRepository.GetIcon(
+			package.Name(), BITMAP_SIZE_64, bitmap);
+
+		if (iconResult == B_OK)
+			fIconView->SetBitmap(bitmap, BITMAP_SIZE_32);
 		else
 			fIconView->UnsetBitmap();
 
 		fTitleView->SetText(package.Title());
 
 		BString publisher = package.Publisher().Name();
-		fPublisherView->SetText(publisher);
+		if (publisher.CountChars() > 45) {
+			fPublisherView->SetToolTip(publisher);
+			fPublisherView->SetText(publisher.TruncateChars(45)
+				.Append(B_UTF8_ELLIPSIS));
+		} else
+			fPublisherView->SetText(publisher);
 
-		BString version = B_TRANSLATE("%Version%");
-		version.ReplaceAll("%Version%", package.Version().ToString());
-		fVersionInfo->SetText(version);
+		fVersionInfo->SetText(package.Version().ToString());
 
 		RatingSummary ratingSummary = package.CalculateRatingSummary();
 
@@ -438,6 +452,8 @@ public:
 	}
 
 private:
+	PackageIconRepository&			fPackageIconRepository;
+
 	BitmapView*						fIconView;
 
 	BStringView*					fTitleView;
@@ -499,7 +515,6 @@ public:
 		} else {
 			AdoptActions(package);
 		}
-
 	}
 
 	void AdoptActions(const PackageInfo& package)
@@ -616,8 +631,8 @@ private:
 			= fPackageActionHandler->SchedulePackageActions(actions);
 
 		if (result != B_OK) {
-			fprintf(stderr, "Failed to schedule action: "
-				"%s '%s': %s\n", action->Label(),
+			HDERROR("Failed to schedule action: %s '%s': %s",
+				action->Label(),
 				action->Package()->Name().String(),
 				strerror(result));
 			BString message(B_TRANSLATE("The package action "
@@ -803,9 +818,9 @@ public:
 		fDescriptionView->SetText(package.ShortDescription(),
 			package.FullDescription());
 
-		fEmailIconView->SetBitmap(&fEmailIcon, SharedBitmap::SIZE_16);
+		fEmailIconView->SetBitmap(&fEmailIcon, BITMAP_SIZE_16);
 		_SetContactInfo(fEmailLinkView, package.Publisher().Email());
-		fWebsiteIconView->SetBitmap(&fWebsiteIcon, SharedBitmap::SIZE_16);
+		fWebsiteIconView->SetBitmap(&fWebsiteIcon, BITMAP_SIZE_16);
 		_SetContactInfo(fWebsiteLinkView, package.Publisher().Website());
 
 		bool hasScreenshot = false;
@@ -895,11 +910,9 @@ public:
 		}
 
 		{
-			BDateFormat dateFormat;
-			BString createTimestampPresentation;
-
-			dateFormat.Format(createTimestampPresentation,
-				rating.CreateTimestamp().Date(), B_MEDIUM_DATE_FORMAT);
+			BString createTimestampPresentation =
+				LocaleUtils::TimestampToDateTimeString(
+					rating.CreateTimestamp());
 
 			BString ratingContextDescription(
 				B_TRANSLATE("%hd.timestamp% (version %hd.version%)"));
@@ -1045,8 +1058,6 @@ public:
 			.Add(scrollView, 1.0f)
 			.SetInsets(B_USE_DEFAULT_SPACING, -1.0f, -1.0f, -1.0f)
 		;
-
-		_InitPreferredLanguages();
 	}
 
 	virtual ~UserRatingsView()
@@ -1109,32 +1120,8 @@ public:
 	}
 
 private:
-	void _InitPreferredLanguages()
-	{
-		fPreferredLanguages.Clear();
-
-		BLocaleRoster* localeRoster = BLocaleRoster::Default();
-		if (localeRoster == NULL)
-			return;
-
-		BMessage preferredLanguages;
-		if (localeRoster->GetPreferredLanguages(&preferredLanguages) != B_OK)
-			return;
-
-		BString language;
-		int32 index = 0;
-		while (preferredLanguages.FindString("language", index++,
-				&language) == B_OK) {
-			BString languageCode;
-			language.CopyInto(languageCode, 0, 2);
-				fPreferredLanguages.Add(languageCode);
-		}
-	}
-
-private:
 	BGroupLayout*			fRatingContainerLayout;
 	RatingSummaryView*		fRatingSummaryView;
-	StringList				fPreferredLanguages;
 };
 
 
@@ -1236,8 +1223,7 @@ class PagesView : public BTabView {
 public:
 	PagesView()
 		:
-		BTabView("pages view", B_WIDTH_FROM_WIDEST),
-		fLayout(new BCardLayout())
+		BTabView("pages view", B_WIDTH_FROM_WIDEST)
 	{
 		SetBorder(B_NO_BORDER);
 
@@ -1251,12 +1237,12 @@ public:
 		AddTab(fChangelogView);
 		AddTab(fContentsView);
 
-		TabAt(0)->SetLabel(B_TRANSLATE("About"));
-		TabAt(1)->SetLabel(B_TRANSLATE("Ratings"));
-		TabAt(2)->SetLabel(B_TRANSLATE("Changelog"));
-		TabAt(3)->SetLabel(B_TRANSLATE("Contents"));
+		TabAt(TAB_ABOUT)->SetLabel(B_TRANSLATE("About"));
+		TabAt(TAB_RATINGS)->SetLabel(B_TRANSLATE("Ratings"));
+		TabAt(TAB_CHANGELOG)->SetLabel(B_TRANSLATE("Changelog"));
+		TabAt(TAB_CONTENTS)->SetLabel(B_TRANSLATE("Contents"));
 
-		Select(0);
+		Select(TAB_ABOUT);
 	}
 
 	virtual ~PagesView()
@@ -1267,7 +1253,16 @@ public:
 	void SetPackage(const PackageInfoRef& package, bool switchToDefaultTab)
 	{
 		if (switchToDefaultTab)
-			Select(0);
+			Select(TAB_ABOUT);
+
+		TabAt(TAB_CHANGELOG)->SetEnabled(
+			package.Get() != NULL && package->HasChangelog());
+		TabAt(TAB_CONTENTS)->SetEnabled(
+			package.Get() != NULL
+				&& (package->State() == ACTIVATED || package->IsLocalFile()));
+		Invalidate(TabFrame(TAB_CHANGELOG));
+		Invalidate(TabFrame(TAB_CONTENTS));
+
 		fAboutView->SetPackage(*package.Get());
 		fUserRatingsView->SetPackage(*package.Get());
 		fChangelogView->SetPackage(*package.Get());
@@ -1283,8 +1278,6 @@ public:
 	}
 
 private:
-	BCardLayout*		fLayout;
-
 	AboutView*			fAboutView;
 	UserRatingsView*	fUserRatingsView;
 	ChangelogView*		fChangelogView;
@@ -1295,11 +1288,11 @@ private:
 // #pragma mark - PackageInfoView
 
 
-PackageInfoView::PackageInfoView(BLocker* modelLock,
+PackageInfoView::PackageInfoView(Model* model,
 		PackageActionHandler* handler)
 	:
 	BView("package info view", 0),
-	fModelLock(modelLock),
+	fModel(model),
 	fPackageListener(new(std::nothrow) OnePackageMessagePackageListener(this))
 {
 	fCardLayout = new BCardLayout();
@@ -1310,7 +1303,7 @@ PackageInfoView::PackageInfoView(BLocker* modelLock,
 
 	BStringView* noPackageView = new BStringView("no package view",
 		B_TRANSLATE("Click a package to view information"));
-	noPackageView->SetHighColor(kLightBlack);
+	noPackageView->SetHighUIColor(B_PANEL_TEXT_COLOR, B_LIGHTEN_1_TINT);
 	noPackageView->SetExplicitAlignment(BAlignment(
 		B_ALIGN_HORIZONTAL_CENTER, B_ALIGN_VERTICAL_CENTER));
 
@@ -1324,7 +1317,7 @@ PackageInfoView::PackageInfoView(BLocker* modelLock,
 
 	fCardLayout->SetVisibleItem((int32)0);
 
-	fTitleView = new TitleView();
+	fTitleView = new TitleView(fModel->GetPackageIconRepository());
 	fPackageActionView = new PackageActionView(handler);
 	fPackageActionView->SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED,
 		B_SIZE_UNSET));
@@ -1378,7 +1371,7 @@ PackageInfoView::MessageReceived(BMessage* message)
 			if (package->Name() != name)
 				break;
 
-			BAutolock _(fModelLock);
+			BAutolock _(fModel->Lock());
 
 			if ((changes & PKG_CHANGED_SUMMARY) != 0
 				|| (changes & PKG_CHANGED_DESCRIPTION) != 0
@@ -1395,9 +1388,8 @@ PackageInfoView::MessageReceived(BMessage* message)
 				fTitleView->SetPackage(*package.Get());
 			}
 
-			if ((changes & PKG_CHANGED_STATE) != 0) {
+			if ((changes & PKG_CHANGED_STATE) != 0)
 				fPackageActionView->SetPackage(*package.Get());
-			}
 
 			break;
 		}
@@ -1411,7 +1403,7 @@ PackageInfoView::MessageReceived(BMessage* message)
 void
 PackageInfoView::SetPackage(const PackageInfoRef& packageRef)
 {
-	BAutolock _(fModelLock);
+	BAutolock _(fModel->Lock());
 
 	if (packageRef.Get() == NULL) {
 		Clear();
@@ -1456,7 +1448,7 @@ PackageInfoView::SetPackage(const PackageInfoRef& packageRef)
 void
 PackageInfoView::Clear()
 {
-	BAutolock _(fModelLock);
+	BAutolock _(fModel->Lock());
 
 	fTitleView->Clear();
 	fPackageActionView->Clear();

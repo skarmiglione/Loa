@@ -91,19 +91,16 @@ main(int argc, char** argv)
 			return 0;
 
 		Settings settings;
-		if (!settings.GetSynchronizeAtBoot())
-			return 0;
-
 		const char* errorString = NULL;
 		int32 errorCode = 0;
 		if (update_time(settings, &errorString, &errorCode) == B_OK) {
-			printf("Synchronization successful\r\n");
+			printf("Synchronization successful\n");
 		} else if (errorCode != 0) {
 			printf("The following error occured "
-					"while synchronizing:\r\n%s: %s\r\n",
+					"while synchronizing:\n%s: %s\n",
 				errorString, strerror(errorCode));
 		} else {
-			printf("The following error occured while synchronizing:\r\n%s\r\n",
+			printf("The following error occured while synchronizing:\n%s\n",
 				errorString);
 		}
 	} else {

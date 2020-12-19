@@ -39,8 +39,9 @@
 #include "paging/X86VMTranslationMap.h"
 
 
-#define DUMP_FEATURE_STRING 1
+#define DUMP_FEATURE_STRING	1
 #define DUMP_CPU_TOPOLOGY	1
+#define DUMP_CPU_PATCHLEVEL	1
 
 
 /* cpu vendor info */
@@ -59,6 +60,7 @@ static const struct cpu_vendor_info vendor_info[VENDOR_NUM] = {
 	{ "Rise", { "RiseRiseRise" } },
 	{ "Transmeta", { "GenuineTMx86", "TransmetaCPU" } },
 	{ "NSC", { "Geode by NSC" } },
+	{ "Hygon", { "HygonGenuine" } },
 };
 
 #define K8_SMIONCMPHALT			(1ULL << 27)
@@ -83,6 +85,13 @@ struct set_mtrrs_parameter {
 #ifdef __x86_64__
 extern addr_t _stac;
 extern addr_t _clac;
+extern addr_t _xsave;
+extern addr_t _xsavec;
+extern addr_t _xrstor;
+uint64 gXsaveMask;
+uint64 gFPUSaveLength = 512;
+bool gHasXsave = false;
+bool gHasXsavec = false;
 #endif
 
 extern "C" void x86_reboot(void);
@@ -113,6 +122,11 @@ static uint32 sHierarchyShift[CPU_TOPOLOGY_LEVELS];
 
 /* Cache topology information */
 static uint32 sCacheSharingMask[CPU_MAX_CACHE_LEVEL];
+
+static void* sUcodeData = NULL;
+static size_t sUcodeDataSize = 0;
+static struct intel_microcode_header* sLoadedUcodeUpdate;
+static spinlock sUcodeUpdateLock = B_SPINLOCK_INITIALIZER;
 
 
 static status_t
@@ -462,6 +476,8 @@ dump_feature_string(int currentCPU, cpu_ent* cpu)
 		strlcat(features, "mmxext ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_EXT_AMD] & IA32_FEATURE_AMD_EXT_FFXSR)
 		strlcat(features, "ffxsr ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_EXT_AMD] & IA32_FEATURE_AMD_EXT_PDPE1GB)
+		strlcat(features, "pdpe1gb ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_EXT_AMD] & IA32_FEATURE_AMD_EXT_LONG)
 		strlcat(features, "long ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_EXT_AMD] & IA32_FEATURE_AMD_EXT_3DNOWEXT)
@@ -480,6 +496,32 @@ dump_feature_string(int currentCPU, cpu_ent* cpu)
 		strlcat(features, "ecmd ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_PTM)
 		strlcat(features, "ptm ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP)
+		strlcat(features, "hwp ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_NOTIFY)
+		strlcat(features, "hwp_notify ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_ACTWIN)
+		strlcat(features, "hwp_actwin ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_EPP)
+		strlcat(features, "hwp_epp ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_PLR)
+		strlcat(features, "hwp_plr ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HDC)
+		strlcat(features, "hdc ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_TBMT3)
+		strlcat(features, "tbmt3 ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_CAP)
+		strlcat(features, "hwp_cap ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_PECI)
+		strlcat(features, "hwp_peci ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_FLEX)
+		strlcat(features, "hwp_flex ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_FAST)
+		strlcat(features, "hwp_fast ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HW_FEEDBACK)
+		strlcat(features, "hw_feedback ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_6_EAX] & IA32_FEATURE_HWP_IGNIDL)
+		strlcat(features, "hwp_ignidl ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_6_ECX] & IA32_FEATURE_APERFMPERF)
 		strlcat(features, "aperfmperf ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_6_ECX] & IA32_FEATURE_EPB)
@@ -542,12 +584,62 @@ dump_feature_string(int currentCPU, cpu_ent* cpu)
 		strlcat(features, "avx512bw ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_7_EBX] & IA32_FEATURE_AVX512VI)
 		strlcat(features, "avx512vi ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_AVX512VMBI)
+		strlcat(features, "avx512vmbi ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_UMIP)
+		strlcat(features, "umip ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_PKU)
+		strlcat(features, "pku ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_OSPKE)
+		strlcat(features, "ospke ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_AVX512VMBI2)
+		strlcat(features, "avx512vmbi2 ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_GFNI)
+		strlcat(features, "gfni ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_VAES)
+		strlcat(features, "vaes ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_VPCLMULQDQ)
+		strlcat(features, "vpclmulqdq ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_AVX512_VNNI)
+		strlcat(features, "avx512vnni ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_AVX512_BITALG)
+		strlcat(features, "avx512bitalg ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_AVX512_VPOPCNTDQ)
+		strlcat(features, "avx512vpopcntdq ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_LA57)
+		strlcat(features, "la57 ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_RDPID)
+		strlcat(features, "rdpid ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_ECX] & IA32_FEATURE_SGX_LC)
+		strlcat(features, "sgx_lc ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_IBRS)
 		strlcat(features, "ibrs ", sizeof(features));
 	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_STIBP)
 		strlcat(features, "stibp ", sizeof(features));
-	if (cpu->arch.feature[FEATURE_EXT_8_EBX] & IA32_FEATURE_AMD_EXT_IBPB)
+	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_L1D_FLUSH)
+		strlcat(features, "l1d_flush ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_ARCH_CAPABILITIES)
+		strlcat(features, "msr_arch ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_7_EDX] & IA32_FEATURE_SSBD)
+		strlcat(features, "ssbd ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_D_1_EAX] & IA32_FEATURE_XSAVEOPT)
+		strlcat(features, "xsaveopt ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_D_1_EAX] & IA32_FEATURE_XSAVEC)
+		strlcat(features, "xsavec ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_D_1_EAX] & IA32_FEATURE_XGETBV1)
+		strlcat(features, "xgetbv1 ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_D_1_EAX] & IA32_FEATURE_XSAVES)
+		strlcat(features, "xsaves ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_EXT_8_EBX] & IA32_FEATURE_CLZERO)
+		strlcat(features, "clzero ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_EXT_8_EBX] & IA32_FEATURE_IBPB)
 		strlcat(features, "ibpb ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_EXT_8_EBX] & IA32_FEATURE_AMD_SSBD)
+		strlcat(features, "amd_ssbd ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_EXT_8_EBX] & IA32_FEATURE_VIRT_SSBD)
+		strlcat(features, "virt_ssbd ", sizeof(features));
+	if (cpu->arch.feature[FEATURE_EXT_8_EBX] & IA32_FEATURE_AMD_SSB_NO)
+		strlcat(features, "amd_ssb_no ", sizeof(features));
 	dprintf("CPU %d: features: %s\n", currentCPU, features);
 }
 #endif	// DUMP_FEATURE_STRING
@@ -622,7 +714,7 @@ detect_amd_cache_topology(uint32 maxExtendedLeaf)
 
 	if (maxExtendedLeaf < 0x8000001d)
 		return;
-	
+
 	uint8 hierarchyLevels[CPU_MAX_CACHE_LEVEL];
 	int maxCacheLevel = 0;
 
@@ -797,7 +889,8 @@ detect_cpu_topology(int currentCPU, cpu_ent* cpu, uint32 maxBasicLeaf,
 
 		status_t result = B_UNSUPPORTED;
 		if (x86_check_feature(IA32_FEATURE_HTT, FEATURE_COMMON)) {
-			if (cpu->arch.vendor == VENDOR_AMD) {
+			if (cpu->arch.vendor == VENDOR_AMD
+				|| cpu->arch.vendor == VENDOR_HYGON) {
 				result = detect_amd_cpu_topology(maxBasicLeaf, maxExtendedLeaf);
 
 				if (result == B_OK)
@@ -864,6 +957,174 @@ detect_cpu_topology(int currentCPU, cpu_ent* cpu, uint32 maxBasicLeaf,
 
 
 static void
+detect_intel_patch_level(cpu_ent* cpu)
+{
+	if (cpu->arch.feature[FEATURE_EXT] & IA32_FEATURE_EXT_HYPERVISOR) {
+		cpu->arch.patch_level = 0;
+		return;
+	}
+
+	x86_write_msr(IA32_MSR_UCODE_REV, 0);
+	cpuid_info cpuid;
+	get_current_cpuid(&cpuid, 1, 0);
+
+	uint64 value = x86_read_msr(IA32_MSR_UCODE_REV);
+	cpu->arch.patch_level = value >> 32;
+}
+
+
+static void
+detect_amd_patch_level(cpu_ent* cpu)
+{
+	if (cpu->arch.feature[FEATURE_EXT] & IA32_FEATURE_EXT_HYPERVISOR) {
+		cpu->arch.patch_level = 0;
+		return;
+	}
+
+	uint64 value = x86_read_msr(IA32_MSR_UCODE_REV);
+	cpu->arch.patch_level = value >> 32;
+}
+
+
+static struct intel_microcode_header*
+find_microcode_intel(addr_t data, size_t size, uint32 patchLevel)
+{
+	// 9.11.3 Processor Identification
+	cpuid_info cpuid;
+	get_current_cpuid(&cpuid, 1, 0);
+	uint32 signature = cpuid.regs.eax;
+	// 9.11.4 Platform Identification
+	uint64 platformBits = (x86_read_msr(IA32_MSR_PLATFORM_ID) >> 50) & 0x7;
+	uint64 mask = 1 << platformBits;
+
+	while (size > 0) {
+		if (size < sizeof(struct intel_microcode_header)) {
+			dprintf("find_microcode_intel update is too small for header\n");
+			break;
+		}
+		struct intel_microcode_header* header =
+			(struct intel_microcode_header*)data;
+
+		uint32 totalSize = header->total_size;
+		uint32 dataSize = header->data_size;
+		if (dataSize == 0) {
+			dataSize = 2000;
+			totalSize = sizeof(struct intel_microcode_header)
+				+ dataSize;
+		}
+		if (totalSize > size) {
+			dprintf("find_microcode_intel update is too small for data\n");
+			break;
+		}
+
+		uint32* dwords = (uint32*)data;
+		// prepare the next update
+		size -= totalSize;
+		data += totalSize;
+
+		if (header->loader_revision != 1) {
+			dprintf("find_microcode_intel incorrect loader version\n");
+			continue;
+		}
+		// 9.11.6 The microcode update data requires a 16-byte boundary
+		// alignment.
+		if (((addr_t)header % 16) != 0) {
+			dprintf("find_microcode_intel incorrect alignment\n");
+			continue;
+		}
+		uint32 sum = 0;
+		for (uint32 i = 0; i < totalSize / 4; i++) {
+			sum += dwords[i];
+		}
+		if (sum != 0) {
+			dprintf("find_microcode_intel incorrect checksum\n");
+			continue;
+		}
+		if (patchLevel > header->update_revision) {
+			dprintf("find_microcode_intel update_revision is lower\n");
+			continue;
+		}
+		if (signature == header->processor_signature
+			&& (mask & header->processor_flags) != 0) {
+			return header;
+		}
+		if (totalSize <= (sizeof(struct intel_microcode_header) + dataSize
+			+ sizeof(struct intel_microcode_extended_signature_header))) {
+			continue;
+		}
+		struct intel_microcode_extended_signature_header* extSigHeader =
+			(struct intel_microcode_extended_signature_header*)((addr_t)header
+				+ sizeof(struct intel_microcode_header) + dataSize);
+		struct intel_microcode_extended_signature* extended_signature =
+			(struct intel_microcode_extended_signature*)((addr_t)extSigHeader
+				+ sizeof(struct intel_microcode_extended_signature_header));
+		for (uint32 i = 0; i < extSigHeader->extended_signature_count; i++) {
+			if (signature == extended_signature[i].processor_signature
+				&& (mask & extended_signature[i].processor_flags) != 0)
+				return header;
+		}
+	}
+	return NULL;
+}
+
+
+static void
+load_microcode_intel(int currentCPU, cpu_ent* cpu)
+{
+	// serialize for HT cores
+	if (currentCPU != 0)
+		acquire_spinlock(&sUcodeUpdateLock);
+	detect_intel_patch_level(cpu);
+	uint32 revision = cpu->arch.patch_level;
+	struct intel_microcode_header* update = sLoadedUcodeUpdate;
+	if (update == NULL) {
+		update = find_microcode_intel((addr_t)sUcodeData, sUcodeDataSize,
+			revision);
+	}
+	if (update != NULL) {
+		addr_t data = (addr_t)update + sizeof(struct intel_microcode_header);
+		wbinvd();
+		x86_write_msr(IA32_MSR_UCODE_WRITE, data);
+		detect_intel_patch_level(cpu);
+		if (revision == cpu->arch.patch_level) {
+			dprintf("CPU %d: update failed\n", currentCPU);
+		} else {
+			if (sLoadedUcodeUpdate == NULL)
+				sLoadedUcodeUpdate = update;
+			dprintf("CPU %d: updated from revision %" B_PRIu32 " to %" B_PRIu32
+				"\n", currentCPU, revision, cpu->arch.patch_level);
+		}
+	} else {
+		dprintf("CPU %d: no update found\n", currentCPU);
+	}
+	if (currentCPU != 0)
+		release_spinlock(&sUcodeUpdateLock);
+}
+
+
+static void
+load_microcode_amd(int currentCPU, cpu_ent* cpu)
+{
+	dprintf("CPU %d: no update found\n", currentCPU);
+}
+
+
+static void
+load_microcode(int currentCPU)
+{
+	if (sUcodeData == NULL)
+		return;
+	cpu_ent* cpu = get_cpu_struct();
+	if ((cpu->arch.feature[FEATURE_EXT] & IA32_FEATURE_EXT_HYPERVISOR) != 0)
+		return;
+	if (cpu->arch.vendor == VENDOR_INTEL)
+		load_microcode_intel(currentCPU, cpu);
+	else if (cpu->arch.vendor == VENDOR_AMD)
+		load_microcode_amd(currentCPU, cpu);
+}
+
+
+static void
 detect_cpu(int currentCPU)
 {
 	cpu_ent* cpu = get_cpu_struct();
@@ -879,6 +1140,7 @@ detect_cpu(int currentCPU)
 	cpu->arch.feature[FEATURE_7_EBX] = 0;
 	cpu->arch.feature[FEATURE_7_ECX] = 0;
 	cpu->arch.feature[FEATURE_7_EDX] = 0;
+	cpu->arch.feature[FEATURE_D_1_EAX] = 0;
 	cpu->arch.model_name[0] = 0;
 
 	// print some fun data
@@ -995,6 +1257,11 @@ detect_cpu(int currentCPU)
 		cpu->arch.feature[FEATURE_7_EDX] = cpuid.regs.edx;
 	}
 
+	if (maxBasicLeaf >= 0xd) {
+		get_current_cpuid(&cpuid, 0xd, 1);
+		cpu->arch.feature[FEATURE_D_1_EAX] = cpuid.regs.eax;
+	}
+
 	if (maxExtendedLeaf >= 0x80000007) {
 		get_current_cpuid(&cpuid, 0x80000007, 0);
 		cpu->arch.feature[FEATURE_EXT_7_EDX] = cpuid.regs.edx;
@@ -1007,8 +1274,17 @@ detect_cpu(int currentCPU)
 
 	detect_cpu_topology(currentCPU, cpu, maxBasicLeaf, maxExtendedLeaf);
 
+	if (cpu->arch.vendor == VENDOR_INTEL)
+		detect_intel_patch_level(cpu);
+	else if (cpu->arch.vendor == VENDOR_AMD)
+		detect_amd_patch_level(cpu);
+
 #if DUMP_FEATURE_STRING
 	dump_feature_string(currentCPU, cpu);
+#endif
+#if DUMP_CPU_PATCHLEVEL
+	dprintf("CPU %d: patch_level %" B_PRIu32 "\n", currentCPU,
+		cpu->arch.patch_level);
 #endif
 }
 
@@ -1120,6 +1396,7 @@ detect_amdc1e_noarat()
 status_t
 arch_cpu_init_percpu(kernel_args* args, int cpu)
 {
+	load_microcode(cpu);
 	detect_cpu(cpu);
 
 	if (!gCpuIdleFunc) {
@@ -1129,13 +1406,30 @@ arch_cpu_init_percpu(kernel_args* args, int cpu)
 			gCpuIdleFunc = halt_idle;
 	}
 
-	return B_OK;
+	if (x86_check_feature(IA32_FEATURE_MCE, FEATURE_COMMON))
+		x86_write_cr4(x86_read_cr4() | IA32_CR4_MCE);
+
+#ifdef __x86_64__
+	// if RDTSCP is available write cpu number in TSC_AUX
+	if (x86_check_feature(IA32_FEATURE_AMD_EXT_RDTSCP, FEATURE_EXT_AMD))
+		x86_write_msr(IA32_MSR_TSC_AUX, cpu);
+#endif
+
+	return __x86_patch_errata_percpu(cpu);
 }
 
 
 status_t
 arch_cpu_init(kernel_args* args)
 {
+	if (args->ucode_data != NULL
+		&& args->ucode_data_size > 0) {
+		sUcodeData = args->ucode_data;
+		sUcodeDataSize = args->ucode_data_size;
+	} else {
+		dprintf("CPU: no microcode provided\n");
+	}
+
 	// init the TSC -> system_time() conversion factors
 
 	uint32 conversionFactor = args->arch_args.system_time_cv_factor;
@@ -1165,6 +1459,7 @@ arch_cpu_init(kernel_args* args)
 }
 
 
+#ifdef __x86_64__
 static void
 enable_smap(void* dummy, int cpu)
 {
@@ -1177,6 +1472,21 @@ enable_smep(void* dummy, int cpu)
 {
 	x86_write_cr4(x86_read_cr4() | IA32_CR4_SMEP);
 }
+
+
+static void
+enable_osxsave(void* dummy, int cpu)
+{
+	x86_write_cr4(x86_read_cr4() | IA32_CR4_OSXSAVE);
+}
+
+
+static void
+enable_xsavemask(void* dummy, int cpu)
+{
+	xsetbv(0, gXsaveMask);
+}
+#endif
 
 
 status_t
@@ -1229,6 +1539,33 @@ arch_cpu_init_post_vm(kernel_args* args)
 		} else
 			dprintf("SMAP disabled per safemode setting\n");
 	}
+
+	// if available enable XSAVE (XSAVE and extended states)
+	gHasXsave = x86_check_feature(IA32_FEATURE_EXT_XSAVE, FEATURE_EXT);
+	if (gHasXsave) {
+		gHasXsavec = x86_check_feature(IA32_FEATURE_XSAVEC,
+			FEATURE_D_1_EAX);
+
+		call_all_cpus_sync(&enable_osxsave, NULL);
+		gXsaveMask = IA32_XCR0_X87 | IA32_XCR0_SSE;
+		cpuid_info cpuid;
+		get_current_cpuid(&cpuid, 0xd, 0);
+		gXsaveMask |= (cpuid.regs.eax & IA32_XCR0_AVX);
+		call_all_cpus_sync(&enable_xsavemask, NULL);
+		get_current_cpuid(&cpuid, 0xd, 0);
+		gFPUSaveLength = cpuid.regs.ebx;
+		if (gFPUSaveLength > sizeof(((struct arch_thread *)0)->fpu_state))
+			gFPUSaveLength = 832;
+
+		arch_altcodepatch_replace(ALTCODEPATCH_TAG_XSAVE,
+			gHasXsavec ? &_xsavec : &_xsave, 4);
+		arch_altcodepatch_replace(ALTCODEPATCH_TAG_XRSTOR,
+			&_xrstor, 4);
+
+		dprintf("enable %s 0x%" B_PRIx64 " %" B_PRId64 "\n",
+			gHasXsavec ? "XSAVEC" : "XSAVE", gXsaveMask, gFPUSaveLength);
+	}
+
 #endif
 
 	return B_OK;

@@ -1,6 +1,6 @@
 /*
  * Copyright 2009, Stephan Aßmus <superstippi@gmx.de>
- * Copyright 2012-2017 Haiku, Inc. All rights reserved.
+ * Copyright 2012-2020 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -20,13 +20,13 @@
 #include <Region.h>
 #include <Shape.h>
 #include <String.h>
+#include <TabView.h>
 #include <View.h>
 #include <Window.h>
 #include <WindowPrivate.h>
 
 
 namespace BPrivate {
-
 
 static const float kEdgeBevelLightTint = 0.59;
 static const float kEdgeBevelShadowTint = 1.0735;
@@ -298,19 +298,16 @@ HaikuControlLook::DrawMenuBackground(BView* view, BRect& rect,
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
 
-	// surface top color
-	rgb_color background = tint_color(base, 0.75);
-
 	// inner bevel colors
 	rgb_color bevelLightColor;
 	rgb_color bevelShadowColor;
 
 	if ((flags & B_DISABLED) != 0) {
-		bevelLightColor = tint_color(background, 0.80);
-		bevelShadowColor = tint_color(background, 1.07);
+		bevelLightColor = tint_color(base, 0.80);
+		bevelShadowColor = tint_color(base, 1.07);
 	} else {
-		bevelLightColor = tint_color(background, 0.6);
-		bevelShadowColor = tint_color(background, 1.12);
+		bevelLightColor = tint_color(base, 0.6);
+		bevelShadowColor = tint_color(base, 1.12);
 	}
 
 	// draw inner bevel
@@ -320,7 +317,7 @@ HaikuControlLook::DrawMenuBackground(BView* view, BRect& rect,
 		borders);
 
 	// draw surface top
-	view->SetHighColor(background);
+	view->SetHighColor(base);
 	view->FillRect(rect);
 }
 
@@ -562,8 +559,92 @@ HaikuControlLook::DrawRadioButton(BView* view, BRect& rect, const BRect& updateR
 
 
 void
-HaikuControlLook::DrawScrollBarBackground(BView* view, BRect& rect1, BRect& rect2,
+HaikuControlLook::DrawScrollBarBorder(BView* view, BRect rect,
 	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	orientation orientation)
+{
+	if (!rect.IsValid() || !rect.Intersects(updateRect))
+		return;
+
+	view->PushState();
+
+	// set clipping constraints to updateRect
+	BRegion clipping(updateRect);
+	view->ConstrainClippingRegion(&clipping);
+
+	bool isEnabled = (flags & B_DISABLED) == 0;
+	bool isFocused = (flags & B_FOCUSED) != 0;
+
+	view->SetHighColor(tint_color(base, B_DARKEN_2_TINT));
+
+	// stroke a line around the entire scrollbar
+	// take care of border highlighting, scroll target is focus view
+	if (isEnabled && isFocused) {
+		rgb_color borderColor = view->HighColor();
+		rgb_color highlightColor = ui_color(B_KEYBOARD_NAVIGATION_COLOR);
+
+		view->BeginLineArray(4);
+
+		view->AddLine(BPoint(rect.left + 1, rect.bottom),
+			BPoint(rect.right, rect.bottom), borderColor);
+		view->AddLine(BPoint(rect.right, rect.top + 1),
+			BPoint(rect.right, rect.bottom - 1), borderColor);
+
+		if (orientation == B_HORIZONTAL) {
+			view->AddLine(BPoint(rect.left, rect.top + 1),
+				BPoint(rect.left, rect.bottom), borderColor);
+		} else {
+			view->AddLine(BPoint(rect.left, rect.top),
+				BPoint(rect.left, rect.bottom), highlightColor);
+		}
+
+		if (orientation == B_HORIZONTAL) {
+			view->AddLine(BPoint(rect.left, rect.top),
+				BPoint(rect.right, rect.top), highlightColor);
+		} else {
+			view->AddLine(BPoint(rect.left + 1, rect.top),
+				BPoint(rect.right, rect.top), borderColor);
+		}
+
+		view->EndLineArray();
+	} else
+		view->StrokeRect(rect);
+
+	view->PopState();
+}
+
+
+void
+HaikuControlLook::DrawScrollBarButton(BView* view, BRect rect,
+	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	int32 direction, orientation orientation, bool down)
+{
+	if (!rect.IsValid() || !rect.Intersects(updateRect))
+		return;
+
+	// clip to button
+	BRegion buttonRegion(rect);
+	view->ConstrainClippingRegion(&buttonRegion);
+
+	bool isEnabled = (flags & B_DISABLED) == 0;
+
+	rgb_color buttonColor = isEnabled ? base
+		: tint_color(base, B_LIGHTEN_1_TINT);
+	DrawButtonBackground(view, rect, updateRect, buttonColor, flags,
+		BControlLook::B_ALL_BORDERS, orientation);
+
+	rect.InsetBy(-1, -1);
+	DrawArrowShape(view, rect, updateRect, base, direction, flags, 1.9f);
+		// almost but not quite B_DARKEN_MAX_TINT
+
+	// revert clipping constraints
+	BRegion clipping(updateRect);
+	view->ConstrainClippingRegion(&clipping);
+}
+
+void
+HaikuControlLook::DrawScrollBarBackground(BView* view, BRect& rect1,
+	BRect& rect2, const BRect& updateRect, const rgb_color& base, uint32 flags,
 	orientation orientation)
 {
 	DrawScrollBarBackground(view, rect1, updateRect, base, flags, orientation);
@@ -579,22 +660,33 @@ HaikuControlLook::DrawScrollBarBackground(BView* view, BRect& rect,
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
 
+	view->PushState();
+
+	// set clipping constraints to updateRect
+	BRegion clipping(updateRect);
+	view->ConstrainClippingRegion(&clipping);
+
+	bool isEnabled = (flags & B_DISABLED) == 0;
+
+	// fill background, we'll draw arrows and thumb on top
+	view->SetDrawingMode(B_OP_COPY);
+
 	float gradient1Tint;
 	float gradient2Tint;
 	float darkEdge1Tint;
 	float darkEdge2Tint;
 	float shadowTint;
 
-	if ((flags & B_DISABLED) != 0) {
-		gradient1Tint = 0.9;
-		gradient2Tint = 0.8;
-		darkEdge1Tint = B_DARKEN_2_TINT;
-		darkEdge2Tint = B_DARKEN_2_TINT;
-		shadowTint = gradient1Tint;
-	} else {
+	if (isEnabled) {
 		gradient1Tint = 1.10;
 		gradient2Tint = 1.05;
 		darkEdge1Tint = B_DARKEN_3_TINT;
+		darkEdge2Tint = B_DARKEN_2_TINT;
+		shadowTint = gradient1Tint;
+	} else {
+		gradient1Tint = 0.9;
+		gradient2Tint = 0.8;
+		darkEdge1Tint = B_DARKEN_2_TINT;
 		darkEdge2Tint = B_DARKEN_2_TINT;
 		shadowTint = gradient1Tint;
 	}
@@ -652,6 +744,198 @@ HaikuControlLook::DrawScrollBarBackground(BView* view, BRect& rect,
 				orientation);
 		}
 	}
+
+	view->PopState();
+}
+
+
+void
+HaikuControlLook::DrawScrollBarThumb(BView* view, BRect& rect,
+	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	orientation orientation, uint32 knobStyle)
+{
+	if (!rect.IsValid() || !rect.Intersects(updateRect))
+		return;
+
+	view->PushState();
+
+	// set clipping constraints to updateRect
+	BRegion clipping(updateRect);
+	view->ConstrainClippingRegion(&clipping);
+
+	// flags
+	bool isEnabled = (flags & B_DISABLED) == 0;
+
+	// colors
+	rgb_color thumbColor = ui_color(B_SCROLL_BAR_THUMB_COLOR);
+	const float bgTint = 1.06;
+
+	rgb_color light, dark, dark1, dark2;
+	if (isEnabled) {
+		light = tint_color(base, B_LIGHTEN_MAX_TINT);
+		dark = tint_color(base, B_DARKEN_3_TINT);
+		dark1 = tint_color(base, B_DARKEN_1_TINT);
+		dark2 = tint_color(base, B_DARKEN_2_TINT);
+	} else {
+		light = tint_color(base, B_LIGHTEN_MAX_TINT);
+		dark = tint_color(base, B_DARKEN_2_TINT);
+		dark1 = tint_color(base, B_LIGHTEN_2_TINT);
+		dark2 = tint_color(base, B_LIGHTEN_1_TINT);
+	}
+
+	// draw thumb over background
+	view->SetDrawingMode(B_OP_OVER);
+	view->SetHighColor(dark1);
+
+	// draw scroll thumb
+	if (isEnabled) {
+		// fill the clickable surface of the thumb
+		DrawButtonBackground(view, rect, updateRect, thumbColor, 0,
+			B_ALL_BORDERS, orientation);
+	} else {
+		// thumb bevel
+		view->BeginLineArray(4);
+		view->AddLine(BPoint(rect.left, rect.bottom),
+			BPoint(rect.left, rect.top), light);
+		view->AddLine(BPoint(rect.left + 1, rect.top),
+			BPoint(rect.right, rect.top), light);
+		view->AddLine(BPoint(rect.right, rect.top + 1),
+			BPoint(rect.right, rect.bottom), dark2);
+		view->AddLine(BPoint(rect.right - 1, rect.bottom),
+			BPoint(rect.left + 1, rect.bottom), dark2);
+		view->EndLineArray();
+
+		// thumb fill
+		rect.InsetBy(1, 1);
+		view->SetHighColor(dark1);
+		view->FillRect(rect);
+	}
+
+	// draw knob style
+	if (knobStyle != B_KNOB_NONE) {
+		rgb_color knobLight = isEnabled
+			? tint_color(thumbColor, B_LIGHTEN_MAX_TINT)
+			: tint_color(dark1, bgTint);
+		rgb_color knobDark = isEnabled
+			? tint_color(thumbColor, 1.22)
+			: tint_color(knobLight, B_DARKEN_1_TINT);
+
+		if (knobStyle == B_KNOB_DOTS) {
+			// draw dots on the scroll bar thumb
+			float hcenter = rect.left + rect.Width() / 2;
+			float vmiddle = rect.top + rect.Height() / 2;
+			BRect knob(hcenter, vmiddle, hcenter, vmiddle);
+
+			if (orientation == B_HORIZONTAL) {
+				view->SetHighColor(knobDark);
+				view->FillRect(knob);
+				view->SetHighColor(knobLight);
+				view->FillRect(knob.OffsetByCopy(1, 1));
+
+				float spacer = rect.Height();
+
+				if (rect.left + 3 < hcenter - spacer) {
+					view->SetHighColor(knobDark);
+					view->FillRect(knob.OffsetByCopy(-spacer, 0));
+					view->SetHighColor(knobLight);
+					view->FillRect(knob.OffsetByCopy(-spacer + 1, 1));
+				}
+
+				if (rect.right - 3 > hcenter + spacer) {
+					view->SetHighColor(knobDark);
+					view->FillRect(knob.OffsetByCopy(spacer, 0));
+					view->SetHighColor(knobLight);
+					view->FillRect(knob.OffsetByCopy(spacer + 1, 1));
+				}
+			} else {
+				// B_VERTICAL
+				view->SetHighColor(knobDark);
+				view->FillRect(knob);
+				view->SetHighColor(knobLight);
+				view->FillRect(knob.OffsetByCopy(1, 1));
+
+				float spacer = rect.Width();
+
+				if (rect.top + 3 < vmiddle - spacer) {
+					view->SetHighColor(knobDark);
+					view->FillRect(knob.OffsetByCopy(0, -spacer));
+					view->SetHighColor(knobLight);
+					view->FillRect(knob.OffsetByCopy(1, -spacer + 1));
+				}
+
+				if (rect.bottom - 3 > vmiddle + spacer) {
+					view->SetHighColor(knobDark);
+					view->FillRect(knob.OffsetByCopy(0, spacer));
+					view->SetHighColor(knobLight);
+					view->FillRect(knob.OffsetByCopy(1, spacer + 1));
+				}
+			}
+		} else if (knobStyle == B_KNOB_LINES) {
+			// draw lines on the scroll bar thumb
+			if (orientation == B_HORIZONTAL) {
+				float middle = rect.Width() / 2;
+
+				view->BeginLineArray(6);
+				view->AddLine(
+					BPoint(rect.left + middle - 3, rect.top + 2),
+					BPoint(rect.left + middle - 3, rect.bottom - 2),
+					knobDark);
+				view->AddLine(
+					BPoint(rect.left + middle, rect.top + 2),
+					BPoint(rect.left + middle, rect.bottom - 2),
+					knobDark);
+				view->AddLine(
+					BPoint(rect.left + middle + 3, rect.top + 2),
+					BPoint(rect.left + middle + 3, rect.bottom - 2),
+					knobDark);
+				view->AddLine(
+					BPoint(rect.left + middle - 2, rect.top + 2),
+					BPoint(rect.left + middle - 2, rect.bottom - 2),
+					knobLight);
+				view->AddLine(
+					BPoint(rect.left + middle + 1, rect.top + 2),
+					BPoint(rect.left + middle + 1, rect.bottom - 2),
+					knobLight);
+				view->AddLine(
+					BPoint(rect.left + middle + 4, rect.top + 2),
+					BPoint(rect.left + middle + 4, rect.bottom - 2),
+					knobLight);
+				view->EndLineArray();
+			} else {
+				// B_VERTICAL
+				float middle = rect.Height() / 2;
+
+				view->BeginLineArray(6);
+				view->AddLine(
+					BPoint(rect.left + 2, rect.top + middle - 3),
+					BPoint(rect.right - 2, rect.top + middle - 3),
+					knobDark);
+				view->AddLine(
+					BPoint(rect.left + 2, rect.top + middle),
+					BPoint(rect.right - 2, rect.top + middle),
+					knobDark);
+				view->AddLine(
+					BPoint(rect.left + 2, rect.top + middle + 3),
+					BPoint(rect.right - 2, rect.top + middle + 3),
+					knobDark);
+				view->AddLine(
+					BPoint(rect.left + 2, rect.top + middle - 2),
+					BPoint(rect.right - 2, rect.top + middle - 2),
+					knobLight);
+				view->AddLine(
+					BPoint(rect.left + 2, rect.top + middle + 1),
+					BPoint(rect.right - 2, rect.top + middle + 1),
+					knobLight);
+				view->AddLine(
+					BPoint(rect.left + 2, rect.top + middle + 4),
+					BPoint(rect.right - 2, rect.top + middle + 4),
+					knobLight);
+				view->EndLineArray();
+			}
+		}
+	}
+
+	view->PopState();
 }
 
 
@@ -740,8 +1024,9 @@ HaikuControlLook::DrawScrollViewFrame(BView* view, BRect& rect,
 
 
 void
-HaikuControlLook::DrawArrowShape(BView* view, BRect& rect, const BRect& updateRect,
-	const rgb_color& base, uint32 direction, uint32 flags, float tint)
+HaikuControlLook::DrawArrowShape(BView* view, BRect& rect,
+	const BRect& updateRect, const rgb_color& base, uint32 direction,
+	uint32 flags, float tint)
 {
 	BPoint tri1, tri2, tri3;
 	float hInset = rect.Width() / 3;
@@ -1004,20 +1289,24 @@ HaikuControlLook::DrawSliderBar(BView* view, BRect rect, const BRect& updateRect
 
 	view->BeginLineArray(4);
 	if (orientation == B_HORIZONTAL) {
-		view->AddLine(barRect.LeftTop(), barRect.RightTop(), edgeShadowColor);
+		view->AddLine(barRect.LeftTop(), barRect.RightTop(),
+			edgeShadowColor);
 		view->AddLine(barRect.LeftBottom(), barRect.RightBottom(),
 			edgeLightColor);
 		barRect.InsetBy(0, 1);
-		view->AddLine(barRect.LeftTop(), barRect.RightTop(), frameShadowColor);
+		view->AddLine(barRect.LeftTop(), barRect.RightTop(),
+			frameShadowColor);
 		view->AddLine(barRect.LeftBottom(), barRect.RightBottom(),
 			frameLightColor);
 		barRect.InsetBy(0, 1);
 	} else {
-		view->AddLine(barRect.LeftTop(), barRect.LeftBottom(), edgeShadowColor);
+		view->AddLine(barRect.LeftTop(), barRect.LeftBottom(),
+			edgeShadowColor);
 		view->AddLine(barRect.RightTop(), barRect.RightBottom(),
 			edgeLightColor);
 		barRect.InsetBy(1, 0);
-		view->AddLine(barRect.LeftTop(), barRect.LeftBottom(), frameShadowColor);
+		view->AddLine(barRect.LeftTop(), barRect.LeftBottom(),
+			frameShadowColor);
 		view->AddLine(barRect.RightTop(), barRect.RightBottom(),
 			frameLightColor);
 		barRect.InsetBy(1, 0);
@@ -1333,8 +1622,43 @@ HaikuControlLook::DrawSliderHashMarks(BView* view, BRect& rect,
 
 
 void
-HaikuControlLook::DrawActiveTab(BView* view, BRect& rect, const BRect& updateRect,
-	const rgb_color& base, uint32 flags, uint32 borders, uint32 side)
+HaikuControlLook::DrawTabFrame(BView* view, BRect& rect,
+	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	uint32 borders, border_style borderStyle, uint32 side)
+{
+	if (!rect.IsValid() || !rect.Intersects(updateRect))
+		return;
+
+	if (side == BTabView::kTopSide || side == BTabView::kBottomSide) {
+		// draw an inactive tab frame behind all tabs
+		borders = B_TOP_BORDER | B_BOTTOM_BORDER;
+		if (borderStyle != B_NO_BORDER)
+			borders |= B_LEFT_BORDER | B_RIGHT_BORDER;
+
+		// DrawInactiveTab draws 2px border
+		// draw tab frame wider to align B_PLAIN_BORDER with it
+		if (borderStyle == B_PLAIN_BORDER)
+			rect.InsetBy(-1, 0);
+	} else if (side == BTabView::kLeftSide || side == BTabView::kRightSide) {
+		// draw an inactive tab frame behind all tabs
+		borders = B_LEFT_BORDER | B_RIGHT_BORDER;
+		if (borderStyle != B_NO_BORDER)
+			borders |= B_TOP_BORDER | B_BOTTOM_BORDER;
+
+		// DrawInactiveTab draws 2px border
+		// draw tab frame wider to align B_PLAIN_BORDER with it
+		if (borderStyle == B_PLAIN_BORDER)
+			rect.InsetBy(0, -1);
+	}
+
+	DrawInactiveTab(view, rect, rect, base, 0, borders, side);
+}
+
+
+void
+HaikuControlLook::DrawActiveTab(BView* view, BRect& rect,
+	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	uint32 borders, uint32 side, int32, int32, int32, int32)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -1512,8 +1836,9 @@ HaikuControlLook::DrawActiveTab(BView* view, BRect& rect, const BRect& updateRec
 
 
 void
-HaikuControlLook::DrawInactiveTab(BView* view, BRect& rect, const BRect& updateRect,
-	const rgb_color& base, uint32 flags, uint32 borders, uint32 side)
+HaikuControlLook::DrawInactiveTab(BView* view, BRect& rect,
+	const BRect& updateRect, const rgb_color& base, uint32 flags,
+	uint32 borders, uint32 side, int32, int32, int32, int32)
 {
 	if (!rect.IsValid() || !rect.Intersects(updateRect))
 		return;
@@ -1550,22 +1875,26 @@ HaikuControlLook::DrawInactiveTab(BView* view, BRect& rect, const BRect& updateR
 
 	BRect background = rect;
 	switch (side) {
+		default:
 		case B_TOP_BORDER:
 			rect.top += 4;
 			background.bottom = rect.top;
 			break;
+
 		case B_BOTTOM_BORDER:
 			rect.bottom -= 4;
 			background.top = rect.bottom;
 			break;
+
 		case B_LEFT_BORDER:
 			rect.left += 4;
 			background.right = rect.left;
 			break;
+
 		case B_RIGHT_BORDER:
 			rect.right -= 4;
 			background.left = rect.right;
-		break;
+			break;
 	}
 
 	// active tabs stand out at the top, but this is an inactive tab
@@ -1579,22 +1908,20 @@ HaikuControlLook::DrawInactiveTab(BView* view, BRect& rect, const BRect& updateR
 	_DrawFrame(view, rect, frameLightColor, frameLightColor, frameShadowColor,
 		frameShadowColor, borders);
 
-	if (rect.IsValid()) {
-		if (side == B_TOP_BORDER || side == B_BOTTOM_BORDER) {
+	if ((side == B_TOP_BORDER || side == B_BOTTOM_BORDER)
+		&& (borders & B_LEFT_BORDER) != 0) {
+		if (rect.IsValid()) {
 			_DrawFrame(view, rect, bevelShadowColor, bevelShadowColor,
 				bevelLightColor, bevelLightColor, B_LEFT_BORDER & ~borders);
-		} else if (side == B_LEFT_BORDER || side == B_RIGHT_BORDER) {
+		} else if ((B_LEFT_BORDER & ~borders) != 0)
+			rect.left++;
+	} else if ((side == B_LEFT_BORDER || side == B_RIGHT_BORDER)
+		&& (borders & B_TOP_BORDER) != 0) {
+		if (rect.IsValid()) {
 			_DrawFrame(view, rect, bevelShadowColor, bevelShadowColor,
 				bevelLightColor, bevelLightColor, B_TOP_BORDER & ~borders);
-		}
-	} else {
-		if (side == B_TOP_BORDER || side == B_BOTTOM_BORDER) {
-			if ((B_LEFT_BORDER & ~borders) != 0)
-				rect.left++;
-		} else if (side == B_LEFT_BORDER || side == B_RIGHT_BORDER) {
-			if ((B_TOP_BORDER & ~borders) != 0)
-				rect.top++;
-		}
+		} else if ((B_TOP_BORDER & ~borders) != 0)
+			rect.top++;
 	}
 
 	view->FillRect(rect, fillGradient);
@@ -1725,6 +2052,10 @@ HaikuControlLook::DrawBorder(BView* view, BRect& rect, const BRect& updateRect,
 		return;
 
 	rgb_color scrollbarFrameColor = tint_color(base, B_DARKEN_2_TINT);
+	if (base.red + base.green + base.blue <= 128 * 3) {
+		scrollbarFrameColor = tint_color(base, B_LIGHTEN_1_TINT);
+	}
+
 	if ((flags & B_FOCUSED) != 0)
 		scrollbarFrameColor = ui_color(B_KEYBOARD_NAVIGATION_COLOR);
 
@@ -2081,6 +2412,8 @@ HaikuControlLook::GetFrameInsets(frame_type frameType, uint32 flags, float& _lef
 			inset = 2;
 			break;
 	}
+
+	inset = ceilf(inset * (be_plain_font->Size() / 12.0f));
 
 	_left = inset;
 	_top = inset;
@@ -3558,7 +3891,6 @@ HaikuControlLook::_MakeButtonGradient(BGradientLinear& gradient, BRect& rect,
 }
 
 
-
 bool
 HaikuControlLook::_RadioButtonAndCheckBoxMarkColor(const rgb_color& base,
 	rgb_color& color, uint32 flags) const
@@ -3596,6 +3928,5 @@ HaikuControlLook::_RadioButtonAndCheckBoxMarkColor(const rgb_color& base,
 
 	return true;
 }
-
 
 } // namespace BPrivate

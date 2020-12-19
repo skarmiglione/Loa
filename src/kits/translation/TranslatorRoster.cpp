@@ -168,8 +168,8 @@ BTranslatorRoster::Private::Private()
 			}
 	}
 
-	// we're sneaking us into the BApplication
-	if (be_app != NULL && be_app->Lock()) {
+	// we're sneaking ourselves into the BApplication, if it's running
+	if (be_app != NULL && !be_app->IsLaunching() && be_app->Lock()) {
 		be_app->AddHandler(this);
 		be_app->Unlock();
 	}
@@ -1088,7 +1088,6 @@ BTranslatorRoster::Private::_RemoveTranslators(const node_ref* nodeRef,
 
 	TranslatorMap::iterator iterator = fTranslators.begin();
 	BMessage update(B_TRANSLATOR_REMOVED);
-	image_id image = -1;
 
 	while (iterator != fTranslators.end()) {
 		TranslatorMap::iterator next = iterator;
@@ -1099,7 +1098,6 @@ BTranslatorRoster::Private::_RemoveTranslators(const node_ref* nodeRef,
 			|| (nodeRef != NULL && item.ref.device == nodeRef->device
 				&& item.node == nodeRef->node)) {
 			item.translator->Release();
-			image = item.image;
 			update.AddInt32("translator_id", iterator->first);
 
 			fTranslators.erase(iterator);

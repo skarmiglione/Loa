@@ -10,7 +10,7 @@
 #if FS_SHELL
 #	include "fssh_api_wrapper.h"
 
-#	include "KOpenHashTable.h"
+#	include "OpenHashTable.h"
 #	include "list.h"
 #else
 #	include <stdio.h>
@@ -867,10 +867,11 @@ rootfs_read_link(fs_volume* _volume, fs_vnode* _link, char* buffer,
 	if (!S_ISLNK(link->stream.type))
 		return B_BAD_VALUE;
 
-	if (link->stream.symlink.length < *_bufferSize)
-		*_bufferSize = link->stream.symlink.length;
+	memcpy(buffer, link->stream.symlink.path, min_c(*_bufferSize,
+		link->stream.symlink.length));
 
-	memcpy(buffer, link->stream.symlink.path, *_bufferSize);
+	*_bufferSize = link->stream.symlink.length;
+
 	return B_OK;
 }
 

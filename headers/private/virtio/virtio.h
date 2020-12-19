@@ -10,17 +10,21 @@
 #include <KernelExport.h>
 
 
-#define VIRTIO_DEVICE_ID_NETWORK	0x01
-#define VIRTIO_DEVICE_ID_BLOCK		0x02
-#define VIRTIO_DEVICE_ID_CONSOLE	0x03
-#define VIRTIO_DEVICE_ID_ENTROPY	0x04
-#define VIRTIO_DEVICE_ID_BALLOON	0x05
-#define VIRTIO_DEVICE_ID_IOMEMORY	0x06
-#define VIRTIO_DEVICE_ID_RP_MESSAGE	0x07
-#define VIRTIO_DEVICE_ID_SCSI		0x08
-#define VIRTIO_DEVICE_ID_9P			0x09
-#define VIRTIO_DEVICE_ID_RP_SERIAL	0x0b
-#define VIRTIO_DEVICE_ID_CAIF		0x0c
+#define VIRTIO_DEVICE_ID_NETWORK	1
+#define VIRTIO_DEVICE_ID_BLOCK		2
+#define VIRTIO_DEVICE_ID_CONSOLE	3
+#define VIRTIO_DEVICE_ID_ENTROPY	4
+#define VIRTIO_DEVICE_ID_BALLOON	5
+#define VIRTIO_DEVICE_ID_IOMEMORY	6
+#define VIRTIO_DEVICE_ID_RP_MESSAGE	7
+#define VIRTIO_DEVICE_ID_SCSI		8
+#define VIRTIO_DEVICE_ID_9P			9
+#define VIRTIO_DEVICE_ID_RP_SERIAL	11
+#define VIRTIO_DEVICE_ID_CAIF		12
+#define VIRTIO_DEVICE_ID_GPU		16
+#define VIRTIO_DEVICE_ID_INPUT		18
+#define VIRTIO_DEVICE_ID_VSOCK		19
+#define VIRTIO_DEVICE_ID_CRYPTO		20
 
 #define VIRTIO_FEATURE_TRANSPORT_MASK	((1 << 28) - 1)
 
@@ -97,6 +101,8 @@ typedef struct {
 	status_t (*negotiate_features)(virtio_device cookie, uint32 supported,
 		uint32* negotiated, const char* (*get_feature_name)(uint32));
 
+	status_t (*clear_feature)(virtio_device cookie, uint32 feature);
+
 	status_t (*read_device_config)(virtio_device cookie, uint8 offset,
 		void* buffer, size_t bufferSize);
 	status_t (*write_device_config)(virtio_device cookie, uint8 offset,
@@ -130,7 +136,8 @@ typedef struct {
 
 	uint16 (*queue_size)(virtio_queue queue);
 
-	void* (*queue_dequeue)(virtio_queue queue, uint16* _size);
+	bool (*queue_dequeue)(virtio_queue queue, void** _cookie,
+		uint32* _usedLength);
 
 } virtio_device_interface;
 

@@ -147,7 +147,6 @@ public:
 	virtual						~URLTextView();
 
 	virtual	void				MessageReceived(BMessage* message);
-	virtual	void				FrameResized(float width, float height);
 	virtual	void				MouseDown(BPoint where);
 	virtual	void				KeyDown(const char* bytes, int32 numBytes);
 	virtual	void				MakeFocus(bool focused = true);
@@ -162,9 +161,6 @@ protected:
 									int32 inOffset,
 									const text_run_array* inRuns);
 	virtual	void				DeleteText(int32 fromOffset, int32 toOffset);
-
-private:
-			void				_AlignTextRect();
 
 private:
 			URLInputGroup*		fURLInputGroup;
@@ -183,6 +179,7 @@ URLInputGroup::URLTextView::URLTextView(URLInputGroup* parent)
 {
 	MakeResizable(true);
 	SetStylable(true);
+	SetInsets(be_control_look->DefaultLabelSpacing(), 2, 0, 2);
 	fURLAutoCompleter->SetModificationsReported(true);
 }
 
@@ -205,14 +202,6 @@ URLInputGroup::URLTextView::MessageReceived(BMessage* message)
 			BTextView::MessageReceived(message);
 			break;
 	}
-}
-
-
-void
-URLInputGroup::URLTextView::FrameResized(float width, float height)
-{
-	BTextView::FrameResized(width, height);
-	_AlignTextRect();
 }
 
 
@@ -382,17 +371,20 @@ URLInputGroup::URLTextView::InsertText(const char* inText, int32 inLength,
 
 	BFont font;
 	GetFont(&font);
-	const rgb_color black = (rgb_color) { 0, 0, 0, 255 };
-	const rgb_color gray = (rgb_color) { 60, 60, 60, 255 };
+	const rgb_color hostColor = ui_color(B_DOCUMENT_TEXT_COLOR);
+	const rgb_color urlColor = tint_color(hostColor,
+		(hostColor.Brightness() < 128 ? B_LIGHTEN_1_TINT : B_DARKEN_1_TINT));
 	if (baseUrlStart > 0)
-		SetFontAndColor(0, baseUrlStart, &font, B_FONT_ALL, &gray);
+		SetFontAndColor(0, baseUrlStart, &font, B_FONT_ALL, &urlColor);
 	if (baseUrlEnd > baseUrlStart) {
 		font.SetFace(B_BOLD_FACE);
-		SetFontAndColor(baseUrlStart, baseUrlEnd, &font, B_FONT_ALL, &black);
+		SetFontAndColor(baseUrlStart, baseUrlEnd, &font, B_FONT_ALL,
+			&hostColor);
 	}
 	if (baseUrlEnd < TextLength()) {
 		font.SetFace(B_REGULAR_FACE);
-		SetFontAndColor(baseUrlEnd, TextLength(), &font, B_FONT_ALL, &gray);
+		SetFontAndColor(baseUrlEnd, TextLength(), &font, B_FONT_ALL,
+			&urlColor);
 	}
 
 	fURLAutoCompleter->TextModified(fUpdateAutoCompleterChoices);
@@ -405,25 +397,6 @@ URLInputGroup::URLTextView::DeleteText(int32 fromOffset, int32 toOffset)
 	BTextView::DeleteText(fromOffset, toOffset);
 
 	fURLAutoCompleter->TextModified(fUpdateAutoCompleterChoices);
-}
-
-
-void
-URLInputGroup::URLTextView::_AlignTextRect()
-{
-	// Layout the text rect to be in the middle, normally this means there
-	// is one pixel spacing on each side.
-	BRect textRect(Bounds());
-	textRect.left = 0.0;
-	float vInset = max_c(1,
-		floorf((textRect.Height() - LineHeight(0)) / 2.0 + 0.5));
-	float hInset = kHorizontalTextRectInset;
-
-	if (be_control_look)
-		hInset = be_control_look->DefaultLabelSpacing();
-
-	textRect.InsetBy(hInset, vInset);
-	SetTextRect(textRect);
 }
 
 
@@ -606,7 +579,7 @@ URLInputGroup::URLInputGroup(BMessage* goMessage)
 // TODO: Fix in Haiku, no in-built support for archived BBitmaps from
 // resources?
 //	fGoButton = new BitmapButton("kActionGo", NULL);
-	fGoButton = new BitmapButton(kGoBitmapBits, kGoBitmapWidth,
+	fGoButton = new BBitmapButton(kGoBitmapBits, kGoBitmapWidth,
 		kGoBitmapHeight, kGoBitmapFormat, goMessage);
 	GroupLayout()->AddView(fGoButton, 0.0f);
 

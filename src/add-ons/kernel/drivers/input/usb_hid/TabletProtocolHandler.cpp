@@ -28,7 +28,8 @@
 TabletProtocolHandler::TabletProtocolHandler(HIDReport &report,
 	HIDReportItem &xAxis, HIDReportItem &yAxis)
 	:
-	ProtocolHandler(report.Device(), "input/tablet/usb/", 0),
+	ProtocolHandler(report.Device(), "input/tablet/" DEVICE_PATH_SUFFIX "/",
+		0),
 	fReport(report),
 
 	fXAxis(xAxis),
@@ -86,7 +87,7 @@ TabletProtocolHandler::TabletProtocolHandler(HIDReport &report,
 	fYTilt = report.FindItem(B_HID_USAGE_PAGE_DIGITIZER,
 		B_HID_UID_DIG_Y_TILT);
 
-	TRACE("tablet device with %lu buttons, %stip, %seraser, "
+	TRACE("tablet device with %" B_PRIu32 " buttons, %stip, %seraser, "
 		"%spressure, and %stilt\n",
 		buttonCount,
 		fTip == NULL ? "no " : "",
@@ -289,12 +290,12 @@ TabletProtocolHandler::_ReadReport(void *buffer, uint32 *cookie)
 		yTilt = fYTilt->ScaledFloatData();
 
 	bool inRange = true;
-	if (fRange != NULL)
-		inRange = fRange->Extract() == B_OK && fRange->Valid();
+	if (fRange != NULL && fRange->Extract() == B_OK && fRange->Valid())
+		inRange = ((fRange->Data() & 1) != 0);
 
 	bool eraser = false;
 	if (fEraser != NULL && fEraser->Extract() == B_OK && fEraser->Valid())
-		eraser = (fEraser->Data() & 1) != 0;
+		eraser = ((fEraser->Data() & 1) != 0);
 
 	fReport.DoneProcessing();
 	TRACE("got tablet report\n");

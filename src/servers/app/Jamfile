@@ -5,6 +5,7 @@ UsePrivateHeaders app graphics input interface kernel shared storage support ;
 
 UseHeaders [ FDirName $(HAIKU_TOP) src servers app drawing ] ;
 UseHeaders [ FDirName $(HAIKU_TOP) src servers app drawing Painter ] ;
+UseHeaders [ FDirName $(HAIKU_TOP) src servers app drawing Painter drawing_modes ] ;
 UseHeaders [ FDirName $(HAIKU_TOP) src servers app drawing interface local ] ;
 UseHeaders [ FDirName $(HAIKU_TOP) src servers app drawing interface remote ] ;
 UseHeaders [ FDirName $(HAIKU_TOP) src servers app stackandtile ] ;
@@ -70,7 +71,6 @@ Server app_server :
 	DrawState.cpp
 	EventDispatcher.cpp
 	EventStream.cpp
-	HashTable.cpp
 	InputManager.cpp
 	IntPoint.cpp
 	IntRect.cpp

@@ -963,10 +963,8 @@ NetFSServer::_LoadSettings()
 		RETURN_ERROR(B_NO_MEMORY);
 	ObjectDeleter<SecurityContext> securityContextDeleter(securityContext);
 	error = securityContext->InitCheck();
-	if (error != B_OK) {
-		delete securityContext;
+	if (error != B_OK)
 		RETURN_ERROR(error);
-	}
 
 	// set it
 	delete fSecurityContext;
@@ -1150,7 +1148,7 @@ NetFSServer::_ConnectionDeleter()
 		ClientConnection* connection = NULL;
 		if (error == B_OK) {
 			AutoLocker<Locker> _(fLock);
-			connection = (ClientConnection*)fClosedConnections.RemoveItem(0L);
+			connection = (ClientConnection*)fClosedConnections.RemoveItem((int32)0);
 		}
 		if (connection)
 			delete connection;

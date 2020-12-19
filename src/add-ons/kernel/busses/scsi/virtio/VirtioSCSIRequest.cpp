@@ -109,8 +109,8 @@ VirtioSCSIRequest::Finish(bool resubmit)
 	} else if (fStatus == SCSI_REQ_CMP && fResponse->status != 0
 		&& HasSense()) {
 		// when the request completed and has set sense
-    	// data, report this to the scsi stack by setting
-    	// CHECK CONDITION status
+		// data, report this to the scsi stack by setting
+		// CHECK CONDITION status
 		TRACE("setting check condition\n");
 
 		fCCB->subsys_status = SCSI_REQ_CMP_ERR;
@@ -126,16 +126,28 @@ VirtioSCSIRequest::Finish(bool resubmit)
 		}
 	}
 
+	scsi_ccb *ccb = fCCB;
 	mutex_unlock(&fLock);
 
 	if (resubmit)
-		gSCSI->resubmit(fCCB);
+		gSCSI->resubmit(ccb);
 	else
-		gSCSI->finished(fCCB, 1);
+		gSCSI->finished(ccb, 1);
 
 	TRACE("VirtioSCSIRequest::Finish() done\n");
 
 	return B_OK;
+}
+
+
+void
+VirtioSCSIRequest::Abort()
+{
+	scsi_ccb *ccb = fCCB;
+	mutex_unlock(&fLock);
+
+	ccb->subsys_status = SCSI_REQ_ABORTED;
+	gSCSI->finished(ccb, 1);
 }
 
 

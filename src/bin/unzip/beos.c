@@ -504,7 +504,7 @@ int mapname(__G__ renamed)
         != (RO_extra_block *)NULL)
     {
         /* file *must* have a RISC OS extra field */
-        long ft = (long)makelong((ef_spark->loadaddr);
+        long ft = (long)makelong(ef_spark->loadaddr);
         /*32-bit*/
         if (lastcomma) {
             pp = lastcomma + 1;
@@ -1030,7 +1030,7 @@ void version(__G)
 #ifdef __POWERPC__
       "(PowerPC)",
 #else
-# ifdef __INTEL__
+# ifdef __i386__
       "(x86)",
 # else
       "(unknown)",   /* someday we may have other architectures... */

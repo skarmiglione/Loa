@@ -15,7 +15,7 @@
 
 #include "pci_controller.h"
 
-#if defined(__INTEL__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 #include "pci_arch_info.h"
 #endif
 
@@ -47,7 +47,7 @@ struct PCIDev {
 	uint8				device;
 	uint8				function;
 	pci_info			info;
-#if defined(__INTEL__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 	pci_arch_info		arch_info;
 #endif
 };
@@ -114,6 +114,9 @@ public:
 
 			void			ClearDeviceStatus(PCIBus *bus, bool dumpStatus);
 
+			uint8			GetPowerstate(PCIDev *device);
+			void			SetPowerstate(PCIDev *device, uint8 state);
+
 			void			RefreshDeviceInfo();
 
 			status_t		UpdateInterruptLine(uint8 domain, uint8 bus,
@@ -143,13 +146,16 @@ private:
 			void			_ConfigureBridges(PCIBus *bus);
 			void			_RefreshDeviceInfo(PCIBus *bus);
 
-			uint32			_BarSize(uint32 bits, uint32 mask);
+			uint64			_BarSize(uint64 bits);
 			size_t			_GetBarInfo(PCIDev *dev, uint8 offset,
-								uint32 *address, uint32 *size = 0,
-								uint8 *flags = 0, uint32 *highAddress = 0);
+								uint32 &ramAddress, uint32 &pciAddress,
+								uint32 &size, uint8 &flags,
+								uint32 *highRAMAddress = NULL,
+								uint32 *highPCIAddress = NULL,
+								uint32 *highSize = NULL);
 			void			_GetRomBarInfo(PCIDev *dev, uint8 offset,
-								uint32 *address, uint32 *size = 0,
-								uint8 *flags = 0);
+								uint32 &address, uint32 *size = NULL,
+								uint8 *flags = NULL);
 
 			domain_data *	_GetDomainData(uint8 domain);
 

@@ -1,6 +1,5 @@
 SubDir HAIKU_TOP src preferences filetypes ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 UseLibraryHeaders icon ;
@@ -25,7 +24,7 @@ Preference FileTypes :
 
 	PreferredAppMenu.cpp
 	StringView.cpp
-	: be tracker [ TargetLibsupc++ ] localestub
+	: be tracker [ TargetLibstdc++ ] [ TargetLibsupc++ ] localestub
 	: FileTypes.rdef FileTypes.icons.rdef
 	;
 
@@ -34,6 +33,7 @@ DoCatalogs FileTypes :
 	:
 	ApplicationTypeWindow.cpp
 	ApplicationTypesWindow.cpp
+	AttributeListView.cpp
 	AttributeWindow.cpp
 	ExtensionWindow.cpp
 	FileTypes.cpp

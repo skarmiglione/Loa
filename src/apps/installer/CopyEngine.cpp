@@ -55,9 +55,6 @@ CopyEngine::CopyEngine(ProgressReporter* reporter, EntryFilter* entryFilter)
 	fBytesWritten(0),
 	fTimeWritten(0),
 
-	fBytesToCopy(0),
-	fItemsToCopy(0),
-
 	fCurrentTargetFolder(NULL),
 	fCurrentItem(NULL),
 
@@ -108,9 +105,6 @@ CopyEngine::ResetTargets(const char* source)
 	fBytesWritten = 0;
 	fTimeWritten = 0;
 
-	fBytesToCopy = 0;
-	fItemsToCopy = 0;
-
 	fCurrentTargetFolder = NULL;
 	fCurrentItem = NULL;
 }
@@ -119,25 +113,62 @@ CopyEngine::ResetTargets(const char* source)
 status_t
 CopyEngine::CollectTargets(const char* source, sem_id cancelSemaphore)
 {
-	int32 level = 0;
-	status_t ret = _CollectCopyInfo(source, level, cancelSemaphore);
+	off_t bytesToCopy = 0;
+	uint64 itemsToCopy = 0;
+	status_t ret = _CollectCopyInfo(source, cancelSemaphore, bytesToCopy,
+			itemsToCopy);
 	if (ret == B_OK && fProgressReporter != NULL)
-		fProgressReporter->AddItems(fItemsToCopy, fBytesToCopy);
+		fProgressReporter->AddItems(itemsToCopy, bytesToCopy);
 	return ret;
 }
 
 
 status_t
-CopyEngine::CopyFolder(const char* source, const char* destination,
-	sem_id cancelSemaphore)
+CopyEngine::Copy(const char* _source, const char* _destination,
+	sem_id cancelSemaphore, bool copyAttributes)
 {
-	int32 level = 0;
-	return _CopyFolder(source, destination, level, cancelSemaphore);
+	status_t ret;
+
+	BEntry source(_source);
+	ret = source.InitCheck();
+	if (ret != B_OK)
+		return ret;
+
+	BEntry destination(_destination);
+	ret = destination.InitCheck();
+	if (ret != B_OK)
+		return ret;
+
+	return _Copy(source, destination, cancelSemaphore, copyAttributes);
 }
 
 
 status_t
-CopyEngine::CopyFile(const BEntry& _source, const BEntry& _destination,
+CopyEngine::RemoveFolder(BEntry& entry)
+{
+	BDirectory directory(&entry);
+	status_t ret = directory.InitCheck();
+	if (ret != B_OK)
+		return ret;
+
+	BEntry subEntry;
+	while (directory.GetNextEntry(&subEntry) == B_OK) {
+		if (subEntry.IsDirectory()) {
+			ret = CopyEngine::RemoveFolder(subEntry);
+			if (ret != B_OK)
+				return ret;
+		} else {
+			ret = subEntry.Remove();
+			if (ret != B_OK)
+				return ret;
+		}
+	}
+	return entry.Remove();
+}
+
+
+status_t
+CopyEngine::_CopyData(const BEntry& _source, const BEntry& _destination,
 	sem_id cancelSemaphore)
 {
 	SemaphoreLocker lock(cancelSemaphore);
@@ -221,218 +252,210 @@ CopyEngine::CopyFile(const BEntry& _source, const BEntry& _destination,
 
 
 status_t
-CopyEngine::_CollectCopyInfo(const char* _source, int32& level,
-	sem_id cancelSemaphore)
+CopyEngine::_CollectCopyInfo(const char* _source, sem_id cancelSemaphore,
+	off_t& bytesToCopy, uint64& itemsToCopy)
 {
-	level++;
-
-	BDirectory source(_source);
+	BEntry source(_source);
 	status_t ret = source.InitCheck();
 	if (ret < B_OK)
 		return ret;
 
-	BEntry entry;
-	while (source.GetNextEntry(&entry) == B_OK) {
-		SemaphoreLocker lock(cancelSemaphore);
-		if (cancelSemaphore >= 0 && !lock.IsLocked()) {
-			// We are supposed to quit
-			return B_CANCELED;
-		}
+	struct stat statInfo;
+	ret = source.GetStat(&statInfo);
+	if (ret < B_OK)
+		return ret;
 
-		struct stat statInfo;
-		entry.GetStat(&statInfo);
+	SemaphoreLocker lock(cancelSemaphore);
+	if (cancelSemaphore >= 0 && !lock.IsLocked()) {
+		// We are supposed to quit
+		return B_CANCELED;
+	}
 
-		BPath sourceEntryPath;
-		status_t ret = entry.GetPath(&sourceEntryPath);
+	if (fEntryFilter != NULL
+		&& !fEntryFilter->ShouldCopyEntry(source,
+			_RelativeEntryPath(_source), statInfo)) {
+		// Skip this entry
+		return B_OK;
+	}
+
+	if (cancelSemaphore >= 0)
+		lock.Unlock();
+
+	if (S_ISDIR(statInfo.st_mode)) {
+		BDirectory srcFolder(&source);
+		ret = srcFolder.InitCheck();
 		if (ret < B_OK)
 			return ret;
 
-		if (fEntryFilter != NULL
-			&& !fEntryFilter->ShouldCopyEntry(entry,
-				_RelativeEntryPath(sourceEntryPath.Path()), statInfo, level)) {
-			continue;
-		}
-
-		if (S_ISDIR(statInfo.st_mode)) {
-			// handle recursive directory copy
-			BPath srcFolder;
-			ret = entry.GetPath(&srcFolder);
+		BEntry entry;
+		while (srcFolder.GetNextEntry(&entry) == B_OK) {
+			BPath entryPath;
+			ret = entry.GetPath(&entryPath);
 			if (ret < B_OK)
 				return ret;
 
-			if (cancelSemaphore >= 0)
-				lock.Unlock();
-
-			ret = _CollectCopyInfo(srcFolder.Path(), level, cancelSemaphore);
+			ret = _CollectCopyInfo(entryPath.Path(), cancelSemaphore,
+					bytesToCopy, itemsToCopy);
 			if (ret < B_OK)
 				return ret;
-		} else if (S_ISLNK(statInfo.st_mode)) {
-			// link, ignore size
-		} else {
-			// file data
-			fBytesToCopy += statInfo.st_size;
 		}
-
-		fItemsToCopy++;
+	} else if (S_ISLNK(statInfo.st_mode)) {
+		// link, ignore size
+	} else {
+		bytesToCopy += statInfo.st_size;
 	}
 
-	level--;
+	itemsToCopy++;
 	return B_OK;
 }
 
 
 status_t
-CopyEngine::_CopyFolder(const char* _source, const char* _destination,
-	int32& level, sem_id cancelSemaphore)
+CopyEngine::_Copy(BEntry &source, BEntry &destination,
+	sem_id cancelSemaphore, bool copyAttributes)
 {
-	level++;
-	fCurrentTargetFolder = _destination;
-
-	BDirectory source(_source);
-	status_t ret = source.InitCheck();
-	if (ret < B_OK)
+	struct stat sourceInfo;
+	status_t ret = source.GetStat(&sourceInfo);
+	if (ret != B_OK)
 		return ret;
 
-	ret = create_directory(_destination, 0777);
-	if (ret < B_OK && ret != B_FILE_EXISTS) {
-		fprintf(stderr, "Could not create '%s': %s\n", _destination,
-			strerror(ret));
-		return ret;
+	SemaphoreLocker lock(cancelSemaphore);
+	if (cancelSemaphore >= 0 && !lock.IsLocked()) {
+		// We are supposed to quit
+		return B_CANCELED;
 	}
 
-	BDirectory destination(_destination);
-	ret = destination.InitCheck();
-	if (ret < B_OK)
+	BPath sourcePath(&source);
+	ret = sourcePath.InitCheck();
+	if (ret != B_OK)
 		return ret;
 
-	BEntry entry;
-	while (source.GetNextEntry(&entry) == B_OK) {
-		SemaphoreLocker lock(cancelSemaphore);
-		if (cancelSemaphore >= 0 && !lock.IsLocked()) {
-			// We are supposed to quit
-			return B_CANCELED;
-		}
+	BPath destPath(&destination);
+	ret = destPath.InitCheck();
+	if (ret != B_OK)
+		return ret;
 
-		const char* name = entry.Name();
-		BPath sourceEntryPath;
-		status_t ret = entry.GetPath(&sourceEntryPath);
+	const char *relativeSourcePath = _RelativeEntryPath(sourcePath.Path());
+	if (fEntryFilter != NULL
+		&& !fEntryFilter->ShouldCopyEntry(source, relativeSourcePath,
+			sourceInfo)) {
+		// Silently skip the filtered entry.
+		return B_OK;
+	}
+
+	if (cancelSemaphore >= 0)
+		lock.Unlock();
+
+	bool copyAttributesToTarget = copyAttributes;
+		// attributes of the current source to the destination will be copied
+		// when copyAttributes is set to true, but there may be exceptions, so
+		// allow the recursively used copyAttribute parameter to be overridden
+		// for the current target.
+	if (S_ISDIR(sourceInfo.st_mode)) {
+		BDirectory sourceDirectory(&source);
+		ret = sourceDirectory.InitCheck();
 		if (ret != B_OK)
 			return ret;
-		const char* relativeSourceEntryPath
-			= _RelativeEntryPath(sourceEntryPath.Path());
 
-		struct stat statInfo;
-		entry.GetStat(&statInfo);
+		if (destination.Exists()) {
+			if (destination.IsDirectory()) {
+				// Do not overwrite attributes on folders that exist.
+				// This should work better when the install target
+				// already contains a Haiku installation.
+				copyAttributesToTarget = false;
+			} else {
+				ret = destination.Remove();
+			}
 
-		if (fEntryFilter != NULL
-			&& !fEntryFilter->ShouldCopyEntry(entry, relativeSourceEntryPath,
-				statInfo, level)) {
-			continue;
+			if (ret != B_OK) {
+				fprintf(stderr, "Failed to make room for folder '%s': "
+					"%s\n", sourcePath.Path(), strerror(ret));
+				return ret;
+			}
+		}
+
+		ret = create_directory(destPath.Path(), 0777);
+			// Make sure the target path exists, it may have been deleted if
+			// the existing destination was a file instead of a directory.
+		if (ret != B_OK && ret != B_FILE_EXISTS) {
+			fprintf(stderr, "Could not create '%s': %s\n", destPath.Path(),
+				strerror(ret));
+			return ret;
+		}
+
+		BDirectory destDirectory(&destination);
+		ret = destDirectory.InitCheck();
+		if (ret != B_OK)
+			return ret;
+
+		BEntry entry;
+		while (sourceDirectory.GetNextEntry(&entry) == B_OK) {
+			BEntry dest(&destDirectory, entry.Name());
+			ret = dest.InitCheck();
+			if (ret != B_OK)
+				return ret;
+			ret = _Copy(entry, dest, cancelSemaphore, copyAttributes);
+			if (ret != B_OK)
+				return ret;
+		}
+	} else {
+		if (destination.Exists()) {
+			if (destination.IsDirectory())
+				ret = CopyEngine::RemoveFolder(destination);
+			else
+				ret = destination.Remove();
+			if (ret != B_OK) {
+				fprintf(stderr, "Failed to make room for entry '%s': "
+					"%s\n", sourcePath.Path(), strerror(ret));
+				return ret;
+			}
 		}
 
 		fItemsCopied++;
-		fCurrentItem = name;
-		_UpdateProgress();
-
-		BEntry copy(&destination, name);
-		bool copyAttributes = true;
-
-		if (S_ISDIR(statInfo.st_mode)) {
-			// handle recursive directory copy
-
-			if (copy.Exists()) {
-				ret = B_OK;
-				if (copy.IsDirectory()) {
-					if (fEntryFilter
-						&& fEntryFilter->ShouldClobberFolder(entry,
-							relativeSourceEntryPath, statInfo, level)) {
-						ret = _RemoveFolder(copy);
-					} else {
-						// Do not overwrite attributes on folders that exist.
-						// This should work better when the install target
-						// already contains a Haiku installation.
-						copyAttributes = false;
-					}
-				} else
-					ret = copy.Remove();
-
-				if (ret != B_OK) {
-					fprintf(stderr, "Failed to make room for folder '%s': "
-						"%s\n", name, strerror(ret));
-					return ret;
-				}
-			}
-
-			BPath dstFolder;
-			ret = copy.GetPath(&dstFolder);
-			if (ret < B_OK)
-				return ret;
-
-			if (cancelSemaphore >= 0)
-				lock.Unlock();
-
-			ret = _CopyFolder(sourceEntryPath.Path(), dstFolder.Path(), level,
-				cancelSemaphore);
-			if (ret < B_OK)
-				return ret;
-
-			if (cancelSemaphore >= 0 && !lock.Lock()) {
-				// We are supposed to quit
-				return B_CANCELED;
-			}
-		} else {
-			if (copy.Exists()) {
-				if (copy.IsDirectory())
-					ret = _RemoveFolder(copy);
-				else
-					ret = copy.Remove();
-				if (ret != B_OK) {
-					fprintf(stderr, "Failed to make room for entry '%s': "
-						"%s\n", name, strerror(ret));
-					return ret;
-				}
-			}
-			if (S_ISLNK(statInfo.st_mode)) {
-				// copy symbolic links
-				BSymLink srcLink(&entry);
-				if (ret < B_OK)
-					return ret;
-
-				char linkPath[B_PATH_NAME_LENGTH];
-				ssize_t read = srcLink.ReadLink(linkPath, B_PATH_NAME_LENGTH - 1);
-				if (read < 0)
-					return (status_t)read;
-
-				// just in case it already exists...
-				copy.Remove();
-
-				BSymLink dstLink;
-				ret = destination.CreateSymLink(name, linkPath, &dstLink);
-				if (ret < B_OK)
-					return ret;
-			} else {
-				// copy file data
-				// NOTE: Do not pass the locker, we simply keep holding the lock!
-				ret = CopyFile(entry, copy);
-				if (ret < B_OK)
-					return ret;
-			}
-		}
-
-		if (!copyAttributes)
-			continue;
-
-		ret = copy.SetTo(&destination, name);
+		BPath destDirectory;
+		ret = destPath.GetParent(&destDirectory);
 		if (ret != B_OK)
 			return ret;
+		fCurrentTargetFolder = destDirectory.Path();
+		fCurrentItem = sourcePath.Leaf();
+		_UpdateProgress();
 
-		// copy attributes
-		BNode sourceNode(&entry);
-		BNode targetNode(&copy);
+		if (S_ISLNK(sourceInfo.st_mode)) {
+			// copy symbolic links
+			BSymLink srcLink(&source);
+			ret = srcLink.InitCheck();
+			if (ret != B_OK)
+				return ret;
+
+			char linkPath[B_PATH_NAME_LENGTH];
+			ssize_t read = srcLink.ReadLink(linkPath, B_PATH_NAME_LENGTH - 1);
+			if (read < 0)
+				return (status_t)read;
+
+			BDirectory dstFolder;
+			ret = destination.GetParent(&dstFolder);
+			if (ret != B_OK)
+				return ret;
+			ret = dstFolder.CreateSymLink(sourcePath.Leaf(), linkPath, NULL);
+			if (ret != B_OK)
+				return ret;
+		} else {
+			// copy file data
+			// NOTE: Do not pass the locker, we simply keep holding the lock!
+			ret = _CopyData(source, destination);
+			if (ret != B_OK)
+				return ret;
+		}
+	}
+
+	if (copyAttributesToTarget) {
+		// copy attributes to the current target
+		BNode sourceNode(&source);
+		BNode targetNode(&destination);
 		char attrName[B_ATTR_NAME_LENGTH];
 		while (sourceNode.GetNextAttrName(attrName) == B_OK) {
 			attr_info info;
-			if (sourceNode.GetAttrInfo(attrName, &info) < B_OK)
+			if (sourceNode.GetAttrInfo(attrName, &info) != B_OK)
 				continue;
 			size_t size = 4096;
 			uint8 buffer[size];
@@ -452,39 +475,14 @@ CopyEngine::_CopyFolder(const char* _source, const char* _destination,
 		}
 
 		// copy basic attributes
-		copy.SetPermissions(statInfo.st_mode);
-		copy.SetOwner(statInfo.st_uid);
-		copy.SetGroup(statInfo.st_gid);
-		copy.SetModificationTime(statInfo.st_mtime);
-		copy.SetCreationTime(statInfo.st_crtime);
+		destination.SetPermissions(sourceInfo.st_mode);
+		destination.SetOwner(sourceInfo.st_uid);
+		destination.SetGroup(sourceInfo.st_gid);
+		destination.SetModificationTime(sourceInfo.st_mtime);
+		destination.SetCreationTime(sourceInfo.st_crtime);
 	}
 
-	level--;
 	return B_OK;
-}
-
-
-status_t
-CopyEngine::_RemoveFolder(BEntry& entry)
-{
-	BDirectory directory(&entry);
-	status_t ret = directory.InitCheck();
-	if (ret != B_OK)
-		return ret;
-
-	BEntry subEntry;
-	while (directory.GetNextEntry(&subEntry) == B_OK) {
-		if (subEntry.IsDirectory()) {
-			ret = _RemoveFolder(subEntry);
-			if (ret != B_OK)
-				return ret;
-		} else {
-			ret = subEntry.Remove();
-			if (ret != B_OK)
-				return ret;
-		}
-	}
-	return entry.Remove();
 }
 
 
@@ -576,7 +574,7 @@ CopyEngine::_WriteThread()
 	}
 
 	double megaBytes = (double)fBytesWritten / (1024 * 1024);
-	double seconds = (fTimeWritten / 1000000);
+	double seconds = (double)fTimeWritten / 1000000;
 	if (seconds > 0) {
 		printf("%.2f MB written (%.2f MB/s)\n", megaBytes,
 			megaBytes / seconds);

@@ -786,7 +786,7 @@ public:
 	{
 		free(fStateChoiceText);
 		fStateChoiceText = NULL;
-	
+
 		if (volumeState != NULL && volumeState->Name() != NULL) {
 			char nameBuffer[128];
 			snprintf(nameBuffer, sizeof(nameBuffer), "%s (%s)", Label(),
@@ -923,25 +923,39 @@ get_continue_booting_menu_item()
 }
 
 
-static bool
-user_menu_boot_volume(Menu* menu, MenuItem* item)
+static void
+update_continue_booting_menu_item(status_t status)
 {
 	MenuItem* bootItem = get_continue_booting_menu_item();
 	if (bootItem == NULL) {
 		// huh?
-		return true;
+		return;
 	}
 
+	if (status == B_OK) {
+		bootItem->SetLabel("Continue booting");
+		bootItem->SetEnabled(true);
+		bootItem->Select(true);
+	} else {
+		char label[128];
+		snprintf(label, sizeof(label), "Cannot continue booting (%s)",
+			strerror(status));
+		bootItem->SetLabel(label);
+		bootItem->SetEnabled(false);
+	}
+}
+
+
+static bool
+user_menu_boot_volume(Menu* menu, MenuItem* item)
+{
 	if (sBootVolume->IsValid() && sBootVolume->RootDirectory() == item->Data())
 		return true;
 
 	sPathBlacklist->MakeEmpty();
 
-	bool valid = sBootVolume->SetTo((Directory*)item->Data()) == B_OK;
-
-	bootItem->SetEnabled(valid);
-	if (valid)
-		bootItem->Select(true);
+	status_t status = sBootVolume->SetTo((Directory*)item->Data());
+	update_continue_booting_menu_item(status);
 
 	gBootVolume.SetBool(BOOT_VOLUME_USER_SELECTED, true);
 	return true;
@@ -951,12 +965,6 @@ user_menu_boot_volume(Menu* menu, MenuItem* item)
 static bool
 user_menu_boot_volume_state(Menu* menu, MenuItem* _item)
 {
-	MenuItem* bootItem = get_continue_booting_menu_item();
-	if (bootItem == NULL) {
-		// huh?
-		return true;
-	}
-
 	PackageVolumeStateMenuItem* item = static_cast<PackageVolumeStateMenuItem*>(
 		_item);
 	if (sBootVolume->IsValid() && sBootVolume->GetPackageVolumeState() != NULL
@@ -972,12 +980,9 @@ user_menu_boot_volume_state(Menu* menu, MenuItem* _item)
 
 	sPathBlacklist->MakeEmpty();
 
-	bool valid = sBootVolume->SetTo((Directory*)item->Data(),
-		item->VolumeInfo(), item->VolumeState()) == B_OK;
-
-	bootItem->SetEnabled(valid);
-	if (valid)
-		bootItem->Select(true);
+	status_t status = sBootVolume->SetTo((Directory*)item->Data(),
+		item->VolumeInfo(), item->VolumeState());
+	update_continue_booting_menu_item(status);
 
 	gBootVolume.SetBool(BOOT_VOLUME_USER_SELECTED, true);
 	return true;
@@ -1189,7 +1194,7 @@ add_boot_volume_item(Menu* menu, Directory* volume, const char* name)
 
 	Menu* subMenu = NULL;
 
-	if (volumeInfo != NULL) {
+	if (volumeInfo != NULL && volumeInfo->LoadOldStates() == B_OK) {
 		subMenu = new(std::nothrow) Menu(CHOICE_MENU, "Select Haiku version");
 
 		for (PackageVolumeStateList::ConstIterator it
@@ -1606,6 +1611,7 @@ user_menu(BootVolume& _bootVolume, PathBlacklist& _pathBlacklist)
 
 	menu->AddItem(item = new(std::nothrow) MenuItem("Continue booting"));
 	if (!_bootVolume.IsValid()) {
+		item->SetLabel("Cannot continue booting (Boot volume is not valid)");
 		item->SetEnabled(false);
 		menu->ItemAt(0)->Select(true);
 	} else

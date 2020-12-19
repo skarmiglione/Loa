@@ -1,23 +1,25 @@
-1	italian	x-vnd.Haiku-Mandelbrot	1781779654
-About	MandelbrotWindow		Informazioni
-Julia	MandelbrotWindow		Julia
+1	italian	x-vnd.Haiku-Mandelbrot	3875916167
+Burning Ship	MandelbrotWindow		Burning Ship
 Grassland	MandelbrotWindow		Prateria
-Spring	MandelbrotWindow		Primavera
-High contrast	MandelbrotWindow		Alto contrasto
-Fire	MandelbrotWindow		Fuoco
-Royal	MandelbrotWindow		Regale
-File	MandelbrotWindow		File
 Lightning	MandelbrotWindow		Fulmine
-Midnight	MandelbrotWindow		Mezzanotte
+About	MandelbrotWindow		Informazioni
 Palette	MandelbrotWindow		Tavolozza
-Mandelbrot	MandelbrotWindow		Mandelbrot
-Burning Ship	MandelbrotWindow		Nave in fiamme
-Quit	MandelbrotWindow		Esci
-Frost	MandelbrotWindow		Gelo
 Set	MandelbrotWindow		Imposta
-Iterations	MandelbrotWindow		Iterazioni
-Mandelbrot	System name		Mandelbrot
-Deepfrost	MandelbrotWindow		Profondità gelate
 Tricorn	MandelbrotWindow		Tricorn
-Multibrot	MandelbrotWindow		Multibrot
+Royal	MandelbrotWindow		Regale
 Orbit Trap	MandelbrotWindow		Orbit Trap
+Deepfrost	MandelbrotWindow		Profondità gelate
+Subsampling	MandelbrotWindow		Campionamento
+1 (none)	MandelbrotWindow		1 (nessuno)
+Quit	MandelbrotWindow		Esci
+File	MandelbrotWindow		File
+Julia	MandelbrotWindow		Julia
+Frost	MandelbrotWindow		Gelo
+Fire	MandelbrotWindow		Fuoco
+Mandelbrot	System name		Mandelbrot
+Iterations	MandelbrotWindow		Iterazioni
+High contrast	MandelbrotWindow		Alto contrasto
+Multibrot	MandelbrotWindow		Multibrot
+Spring	MandelbrotWindow		Primavera
+Midnight	MandelbrotWindow		Mezzanotte
+Mandelbrot	MandelbrotWindow		Mandelbrot

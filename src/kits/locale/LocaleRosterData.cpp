@@ -36,6 +36,9 @@
 #include <unicode/timezone.h>
 
 
+U_NAMESPACE_USE
+
+
 namespace BPrivate {
 
 
@@ -129,7 +132,7 @@ LocaleRosterData::LocaleRosterData(const BLanguage& language,
 	:
 	fLock("LocaleRosterData"),
 	fDefaultLocale(&language, &conventions),
-	fIsFilesystemTranslationPreferred(false),
+	fIsFilesystemTranslationPreferred(true),
 	fAreResourcesLoaded(false)
 {
 	fInitStatus = _Initialize();

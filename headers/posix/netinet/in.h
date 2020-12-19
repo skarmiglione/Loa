@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2012 Haiku, Inc. All Rights Reserved.
+ * Copyright 2002-2019, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _NETINET_IN_H_
@@ -22,21 +22,24 @@ extern "C" {
 typedef uint16_t in_port_t;
 typedef uint32_t in_addr_t;
 
-/* We can't include <ByteOrder.h> since we are a posix file,
- * and we are not allowed to import all the BeOS types here.
- */
-#ifndef htonl
-#	ifdef __HAIKU_BEOS_COMPATIBLE_TYPES
-		extern unsigned long __swap_int32(unsigned long);	/* private */
-#	else
-		extern unsigned int __swap_int32(unsigned int);	/* private */
-#	endif
+/* We can't include <ByteOrder.h> since we are a POSIX file,
+ * and we are not allowed to import all the BeOS types here. */
+#if __GNUC__ >= 4
+#	define __net_swap_int32(arg)	(uint32_t)__builtin_bswap32(arg)
+#	define __net_swap_int16(arg)	(uint16_t)__builtin_bswap16(arg)
+#else
+	extern unsigned long __swap_int32(unsigned long); /* private */
 	extern uint16_t __swap_int16(uint16_t);	/* private */
+#	define __net_swap_int32(arg)	__swap_int32(arg)
+#	define __net_swap_int16(arg)	__swap_int16(arg)
+#endif
+
+#ifndef htonl
 #	if BYTE_ORDER == LITTLE_ENDIAN
-#		define htonl(x) ((uint32_t)__swap_int32(x))
-#		define ntohl(x) ((uint32_t)__swap_int32(x))
-#		define htons(x) __swap_int16(x)
-#		define ntohs(x) __swap_int16(x)
+#		define htonl(x) ((uint32_t)__net_swap_int32(x))
+#		define ntohl(x) ((uint32_t)__net_swap_int32(x))
+#		define htons(x) __net_swap_int16(x)
+#		define ntohs(x) __net_swap_int16(x)
 #	elif BYTE_ORDER == BIG_ENDIAN
 #		define htonl(x) (x)
 #		define ntohl(x) (x)

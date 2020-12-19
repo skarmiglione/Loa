@@ -50,6 +50,7 @@ All rights reserved.
 #include <Catalog.h>
 #include <CheckBox.h>
 #include <ControlLook.h>
+#include <Cursor.h>
 #include <Debug.h>
 #include <Directory.h>
 #include <FindDirectory.h>
@@ -92,12 +93,6 @@ All rights reserved.
 
 const char* kAllMimeTypes = "mime/ALLTYPES";
 
-const BRect kInitialRect(0, 0, 0, 0);
-const int32 kInitialAttrModeWindowHeight = 140;
-const int32 kIncrementPerAttribute = 30;
-const float kMoreOptionsDelta = 20;
-
-const uint32 kMoreOptionsMessage = 'mrop';
 const uint32 kNameModifiedMessage = 'nmmd';
 const uint32 kSwitchToQueryTemplate = 'swqt';
 const uint32 kRunSaveAsTemplatePanel = 'svtm';
@@ -217,7 +212,7 @@ MoreOptionsStruct::QueryTemporary(const BNode* node)
 
 FindWindow::FindWindow(const entry_ref* newRef, bool editIfTemplateOnly)
 	:
-	BWindow(kInitialRect, B_TRANSLATE("Find"), B_TITLED_WINDOW,
+	BWindow(BRect(), B_TRANSLATE("Find"), B_TITLED_WINDOW,
 		B_NOT_RESIZABLE | B_NOT_ZOOMABLE | B_CLOSE_ON_ESCAPE
 			| B_AUTO_UPDATE_SIZE_LIMITS),
 	fFile(TryOpening(newRef)),
@@ -329,14 +324,14 @@ const char*
 FindWindow::QueryName() const
 {
 	if (fFromTemplate) {
-		if (!fQueryNameFromTemplate.Length()) {
+		if (!fQueryNameFromTemplate.Length() && fFile != NULL) {
 			fFile->ReadAttrString(kAttrQueryTemplateName,
 				&fQueryNameFromTemplate);
 		}
 
 		return fQueryNameFromTemplate.String();
 	}
-	if (!fFile)
+	if (fFile == NULL)
 		return "";
 
 	return fRef.name;
@@ -785,6 +780,8 @@ FindPanel::FindPanel(BFile* node, FindWindow* parent, bool fromTemplate,
 		fDraggableIcon->SetExplicitMaxSize(
 			BSize(draggableRect.right - draggableRect.left,
 				draggableRect.bottom - draggableRect.top));
+		BCursor grabCursor(B_CURSOR_ID_GRAB);
+		fDraggableIcon->SetViewCursor(&grabCursor);
 	}
 
 	fQueryName = new BTextControl("query name", B_TRANSLATE("Query name:"),
@@ -810,14 +807,6 @@ FindPanel::FindPanel(BFile* node, FindWindow* parent, bool fromTemplate,
 			.Add(checkboxGroup, 1, 1)
 			.End()
 		.View());
-
-	fLatch = new PaneSwitch("optionsLatch", true, B_WILL_DRAW);
-	fLatch->SetLabels(B_TRANSLATE("Fewer options"), B_TRANSLATE("More options"));
-	fLatch->SetValue(0);
-	fLatch->SetMessage(new BMessage(kLatchChanged));
-	fLatch->SetExplicitAlignment(BAlignment(B_ALIGN_LEFT,
-		B_ALIGN_VERTICAL_CENTER));
-	fMoreOptions->Hide();
 
 	// add Search button
 	BButton* button;
@@ -869,15 +858,15 @@ FindPanel::FindPanel(BFile* node, FindWindow* parent, bool fromTemplate,
 		.SetInsets(B_USE_WINDOW_SPACING)
 		.Add(queryBox)
 		.AddGroup(B_HORIZONTAL, B_USE_DEFAULT_SPACING)
-			.Add(icon)
 			.AddGroup(B_VERTICAL)
-				.AddGroup(B_HORIZONTAL)
-					.Add(fLatch)
-					.Add(new BSeparatorView(B_HORIZONTAL, B_PLAIN_BORDER))
-					.End()
-				.Add(fMoreOptions)
-				.End()
-			.Add(button)
+				.Add(icon)
+				.AddGlue()
+			.End()
+			.Add(fMoreOptions)
+			.AddGlue()
+			.AddGroup(B_VERTICAL)
+				.AddGlue()
+				.Add(button)
 			.End();
 
 	if (initialMode != kByAttributeItem)
@@ -908,7 +897,6 @@ FindPanel::AttachedToWindow()
 	BNode* node = findWindow->QueryNode();
 	fSearchModeMenu->SetTargetForItems(this);
 	fQueryName->SetTarget(this);
-	fLatch->SetTarget(this);
 	RestoreMimeTypeMenuSelection(node);
 		// preselect the mime we used the last time have to do it here
 		// because AddByAttributeItems will build different menus based
@@ -1414,8 +1402,8 @@ FindPanel::BuildAttrQuery(BQuery* query, bool &dynamicDate) const
 							"true") == 0) {
 						value = 1;
 					} else if (strcasecmp(textControl->Text(),
-							"true") == 0) {
-						value = 1;
+							"false") == 0) {
+						value = 0;
 					} else
 						value = (uint32)atoi(textControl->Text());
 
@@ -2280,8 +2268,6 @@ FindPanel::SaveWindowState(BNode* node, bool editTemplate)
 		(int32*)&mode, sizeof(int32));
 
 	MoreOptionsStruct saveMoreOptions;
-	saveMoreOptions.showMoreOptions = fLatch->Value() != 0;
-
 	saveMoreOptions.searchTrash = fSearchTrashCheck->Value() != 0;
 	saveMoreOptions.temporary = fTemporaryCheck->Value() != 0;
 
@@ -2390,14 +2376,7 @@ FindPanel::RestoreWindowState(const BNode* node)
 		// need to sanitize to true or false here, could have picked
 		// up garbage from attributes
 
-		saveMoreOptions.showMoreOptions =
-			(saveMoreOptions.showMoreOptions != 0);
-
-		fLatch->SetValue(saveMoreOptions.showMoreOptions);
-		if (saveMoreOptions.showMoreOptions == 1 && fMoreOptions->IsHidden())
-			fMoreOptions->Show();
-		else if (saveMoreOptions.showMoreOptions == 0 && !fMoreOptions->IsHidden())
-			fMoreOptions->Hide();
+		saveMoreOptions.showMoreOptions = true; // Now unused
 
 		fSearchTrashCheck->SetValue(saveMoreOptions.searchTrash);
 		fTemporaryCheck->SetValue(saveMoreOptions.temporary);

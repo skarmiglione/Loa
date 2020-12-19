@@ -8,7 +8,6 @@
  */
 
 
-#include <memory>
 #include <new>
 #include <syslog.h>
 
@@ -24,6 +23,7 @@
 #include <Path.h>
 #include <Resources.h>
 #include <Roster.h>
+#include <StackOrHeapArray.h>
 
 #include <DefaultCatalog.h>
 #include <LocaleRoster.h>
@@ -32,7 +32,6 @@
 
 
 using BPrivate::DefaultCatalog;
-using std::auto_ptr;
 
 
 /*!	This file implements the default catalog-type for the opentracker locale
@@ -58,6 +57,9 @@ const char *DefaultCatalog::kCatMimeType
 
 static int16 kCatArchiveVersion = 1;
 	// version of the catalog archive structure, bump this if you change it!
+
+const uint8 DefaultCatalog::kDefaultCatalogAddOnPriority = 1;
+	// give highest priority to our embedded catalog-add-on
 
 
 /*!	Constructs a DefaultCatalog with given signature and language and reads
@@ -87,9 +89,6 @@ DefaultCatalog::DefaultCatalog(entry_ref *appOrAddOnRef)
 	HashMapCatalog("", "", 0)
 {
 	fInitCheck = ReadFromResource(*appOrAddOnRef);
-	// fprintf(stderr,
-	//	"trying to load embedded catalog from resources results in %s",
-	//	strerror(fInitCheck));
 }
 
 
@@ -150,23 +149,25 @@ DefaultCatalog::ReadFromFile(const char *path)
 		return res;
 	}
 
-	auto_ptr<char> buf(new(std::nothrow) char [sz]);
-	if (buf.get() == NULL) {
-		fprintf(stderr, "couldn't allocate array of %Ld chars\n", sz);
+	BStackOrHeapArray<char, 0> buf(sz);
+	if (!buf.IsValid()) {
+		fprintf(stderr, "couldn't allocate array of %" B_PRIdOFF " chars\n",
+			sz);
 		return B_NO_MEMORY;
 	}
-	res = catalogFile.Read(buf.get(), sz);
+	res = catalogFile.Read(buf, sz);
 	if (res < B_OK) {
 		fprintf(stderr, "couldn't read from catalog-file %s\n", path);
 		return res;
 	}
 	if (res < sz) {
 		fprintf(stderr,
-			"only got %u instead of %Lu bytes from catalog-file %s\n", res, sz,
-			path);
+			"only got %u instead of %" B_PRIdOFF " bytes "
+			"from catalog-file %s\n",
+			res, sz, path);
 		return res;
 	}
-	BMemoryIO memIO(buf.get(), sz);
+	BMemoryIO memIO(buf, sz);
 	res = Unflatten(&memIO);
 
 	if (res == B_OK) {
@@ -177,16 +178,6 @@ DefaultCatalog::ReadFromFile(const char *path)
 	}
 
 	return res;
-}
-
-
-/*!	This method is not currently being used, but it may be useful in the
-	future...
-*/
-status_t
-DefaultCatalog::ReadFromAttribute(const entry_ref &appOrAddOnRef)
-{
-	return B_NOT_SUPPORTED;
 }
 
 
@@ -226,16 +217,6 @@ DefaultCatalog::WriteToFile(const char *path)
 	UpdateAttributes(catalogFile);
 
 	return B_OK;
-}
-
-
-/*!	This method is not currently being used, but it may be useful in the
-	future...
-*/
-status_t
-DefaultCatalog::WriteToAttribute(const entry_ref &appOrAddOnRef)
-{
-	return B_NOT_SUPPORTED;
 }
 
 
@@ -289,7 +270,7 @@ DefaultCatalog::Flatten(BDataIO *dataIO)
 
 	status_t res;
 	BMessage archive;
-	uint32 count = fCatMap.Size();
+	int32 count = fCatMap.Size();
 	res = archive.AddString("class", "DefaultCatalog");
 	if (res == B_OK)
 		res = archive.AddInt32("c:sz", count);
@@ -321,6 +302,7 @@ DefaultCatalog::Flatten(BDataIO *dataIO)
 		if (res == B_OK)
 			res = archive.Flatten(dataIO);
 	}
+
 	return res;
 }
 
@@ -366,7 +348,8 @@ DefaultCatalog::Unflatten(BDataIO *dataIO)
 		const char *translated;
 
 		// fCatMap.resize(count);
-			// There is no resize method in Haiku Hash Map to prealloc space
+			// There is no resize method in Haiku's HashMap to preallocate
+			// memory.
 		for (int i=0; res == B_OK && i < count; ++i) {
 			res = archiveMsg.Unflatten(dataIO);
 			if (res == B_OK)
@@ -426,10 +409,6 @@ DefaultCatalog::Create(const char *signature, const char *language)
 	}
 	return catalog;
 }
-
-
-const uint8 DefaultCatalog::kDefaultCatalogAddOnPriority = 1;
-	// give highest priority to our embedded catalog-add-on
 
 
 } // namespace BPrivate

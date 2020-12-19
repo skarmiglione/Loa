@@ -12,6 +12,8 @@
 #include <CheckBox.h>
 #include <Entry.h>
 #include <List.h>
+#include <Path.h>
+#include <String.h>
 #include <StringView.h>
 
 
@@ -30,15 +32,15 @@ private:
 
 class Package : public Group {
 public:
-								Package(const char* folder);
+								Package(const BPath &path);
 	virtual						~Package();
 
-			void				SetFolder(const char* folder)
-									{ strcpy(fFolder, folder); }
-			void				SetName(const char* name)
-									{ strcpy(fName, name); }
-			void				SetDescription(const char* description)
-									{ strcpy(fDescription, description); }
+			void				SetPath(const BPath &path)
+									{ fPath = path; }
+			void				SetName(const BString name)
+									{ fName = name; }
+			void				SetDescription(const BString description)
+									{ fDescription = description; }
 			void				SetSize(const int32 size)
 									{ fSize = size; }
 			void				SetIcon(BBitmap* icon)
@@ -47,11 +49,11 @@ public:
 									{ fOnByDefault = onByDefault; }
 			void				SetAlwaysOn(bool alwaysOn)
 									{ fAlwaysOn = alwaysOn; }
-			const char*			Folder() const
-									{ return fFolder; }
-			const char*			Name() const
+			BPath				Path() const
+									{ return fPath; }
+			BString				Name() const
 									{ return fName; }
-			const char*			Description() const
+			BString				Description() const
 									{ return fDescription; }
 			const int32			Size() const
 									{ return fSize; }
@@ -67,9 +69,9 @@ public:
 	static	Package*			PackageFromEntry(BEntry &dir);
 
 private:
-			char				fFolder[64];
-			char				fName[64];
-			char				fDescription[64];
+			BPath				fPath;
+			BString				fName;
+			BString				fDescription;
 			int32				fSize;
 			BBitmap*			fIcon;
 			bool				fAlwaysOn;
@@ -79,7 +81,7 @@ private:
 
 class PackageCheckBox : public BCheckBox {
 public:
-								PackageCheckBox(BRect rect, Package* item);
+								PackageCheckBox(Package* item);
 	virtual						~PackageCheckBox();
 
 	virtual	void				Draw(BRect updateRect);
@@ -95,7 +97,7 @@ private:
 
 class GroupView : public BStringView {
 public:
-								GroupView(BRect rect, Group* group);
+								GroupView(Group* group);
 	virtual						~GroupView();
 
 private:
@@ -105,7 +107,6 @@ private:
 
 class PackagesView : public BView {
 public:
-								PackagesView(BRect rect, const char* name);
 								PackagesView(const char* name);
 	virtual						~PackagesView();
 
@@ -115,13 +116,7 @@ public:
 									size_t stringSize);
 			void				GetPackagesToInstall(BList* list, int32* size);
 
-	virtual	void				FrameResized(float width, float height);
 	virtual	void				Draw(BRect updateRect);
-	virtual	void				GetPreferredSize(float* _width, float* _height);
-	virtual	BSize				MaxSize();
-
-private:
-			BList				fViews;
 };
 
 #endif	// __PACKAGEVIEWS_H__

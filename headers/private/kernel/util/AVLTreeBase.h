@@ -9,7 +9,6 @@
 #ifndef FS_SHELL
 #	include <SupportDefs.h>
 #else
-#	include <algorithm>
 #	include "fssh_api_wrapper.h"
 #endif
 
@@ -47,7 +46,9 @@ public:
 
 	inline	AVLTreeNode*		Root() const	{ return fRoot; }
 
+	inline	AVLTreeNode*		LeftMost() const;
 			AVLTreeNode*		LeftMost(AVLTreeNode* node) const;
+	inline	AVLTreeNode*		RightMost() const;
 			AVLTreeNode*		RightMost(AVLTreeNode* node) const;
 
 			AVLTreeNode*		Previous(AVLTreeNode* node) const;
@@ -191,11 +192,25 @@ protected:
 };
 
 
+inline AVLTreeNode*
+AVLTreeBase::LeftMost() const
+{
+	return LeftMost(fRoot);
+}
+
+
+inline AVLTreeNode*
+AVLTreeBase::RightMost() const
+{
+	return RightMost(fRoot);
+}
+
+
 // GetIterator
 inline AVLTreeIterator
 AVLTreeBase::GetIterator() const
 {
-	return AVLTreeIterator(this, NULL, LeftMost(fRoot));
+	return AVLTreeIterator(this, NULL, LeftMost());
 }
 
 

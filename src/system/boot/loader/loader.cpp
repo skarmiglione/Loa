@@ -55,7 +55,7 @@ static const char *sAddonPaths[] = {
 };
 
 
-static int
+int
 open_maybe_packaged(BootVolume& volume, const char* path, int openMode)
 {
 	if (strncmp(path, kSystemDirectoryPrefix, strlen(kSystemDirectoryPrefix))
@@ -173,61 +173,6 @@ load_modules_from(BootVolume& volume, const char* path)
 }
 
 
-/** Loads a module by module name. This basically works in the same
- *	way as the kernel module loader; it will cut off the last part
- *	of the module name until it could find a module and loads it.
- *	It tests both, kernel and user module directories.
- */
-
-static status_t
-load_module(BootVolume& volume, const char* name)
-{
-	char moduleName[B_FILE_NAME_LENGTH];
-	if (strlcpy(moduleName, name, sizeof(moduleName)) > sizeof(moduleName))
-		return B_NAME_TOO_LONG;
-
-	for (int32 i = 0; sAddonPaths[i]; i++) {
-		// get base path
-		int baseFD = open_maybe_packaged(volume, sAddonPaths[i], O_RDONLY);
-		if (baseFD < B_OK)
-			continue;
-
-		Directory *base = (Directory *)get_node_from(baseFD);
-		if (base == NULL) {
-			close(baseFD);
-			continue;
-		}
-
-		while (true) {
-			int fd = open_from(base, moduleName, O_RDONLY);
-			if (fd >= B_OK) {
-				struct stat stat;
-				if (fstat(fd, &stat) != 0 || !S_ISREG(stat.st_mode))
-					return B_BAD_VALUE;
-
-				status_t status = elf_load_image(base, moduleName);
-
-				close(fd);
-				close(baseFD);
-				return status;
-			}
-
-			// cut off last name element (or stop trying if there are no more)
-
-			char *last = strrchr(moduleName, '/');
-			if (last != NULL)
-				last[0] = '\0';
-			else
-				break;
-		}
-
-		close(baseFD);
-	}
-
-	return B_OK;
-}
-
-
 status_t
 load_modules(stage2_args* args, BootVolume& volume)
 {
@@ -258,29 +203,11 @@ load_modules(stage2_args* args, BootVolume& volume)
 	}
 
 	// and now load all partitioning and file system modules
-	// needed to identify the boot volume
-
-	if (!gBootVolume.GetBool(BOOT_VOLUME_BOOTED_FROM_IMAGE, false)) {
-		// iterate over the mounted volumes and load their file system
-		Partition *partition;
-		if (gRoot->GetPartitionFor(volume.RootDirectory(), &partition)
-				== B_OK) {
-			while (partition != NULL) {
-				load_module(volume, partition->ModuleName());
-				partition = partition->Parent();
-			}
-		}
-	} else {
-		// The boot image should only contain the file system
-		// needed to boot the system, so we just load it.
-		// ToDo: this is separate from the fall back from above
-		//	as this piece will survive a more intelligent module
-		//	loading approach...
-		char path[B_FILE_NAME_LENGTH];
-		snprintf(path, sizeof(path), "%s/%s", sAddonPaths[0], "file_systems");
-		load_modules_from(volume, path);
-	}
+	char path[B_FILE_NAME_LENGTH];
+	snprintf(path, sizeof(path), "%s/%s", sAddonPaths[0], "file_systems");
+	load_modules_from(volume, path);
+	snprintf(path, sizeof(path), "%s/%s", sAddonPaths[0], "partitioning_systems");
+	load_modules_from(volume, path);
 
 	return B_OK;
 }
-

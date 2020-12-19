@@ -28,8 +28,8 @@ extern status_t platform_init_heap(struct stage2_args *args, void **_base, void 
 extern status_t platform_allocate_region(void **_virtualAddress, size_t size,
 	uint8 protection, bool exactAddress);
 extern status_t platform_free_region(void *address, size_t size);
-extern status_t platform_bootloader_address_to_kernel_address(void *address, uint64_t *_result);
-extern status_t platform_kernel_address_to_bootloader_address(uint64_t address, void **_result);
+extern status_t platform_bootloader_address_to_kernel_address(void *address, addr_t *_result);
+extern status_t platform_kernel_address_to_bootloader_address(addr_t address, void **_result);
 
 /* boot options */
 #define BOOT_OPTION_MENU			1
@@ -43,6 +43,7 @@ extern void platform_switch_to_logo(void);
 extern void platform_switch_to_text_mode(void);
 extern void platform_start_kernel(void);
 extern void platform_exit(void);
+extern void platform_load_ucode(BootVolume& volume);
 
 #ifdef __cplusplus
 }
@@ -58,9 +59,10 @@ namespace boot {
 
 extern status_t platform_add_boot_device(struct stage2_args *args, NodeList *devicesList);
 extern status_t platform_add_block_devices(struct stage2_args *args, NodeList *devicesList);
-extern status_t platform_get_boot_partitions(struct stage2_args *args, Node *bootDevice,
-					NodeList *partitions, NodeList *bootPartitions);
+extern status_t platform_get_boot_partition(struct stage2_args *args, Node *bootDevice,
+					NodeList *partitions, boot::Partition **_partition);
 extern status_t platform_register_boot_device(Node *device);
+extern void platform_cleanup_devices();
 
 /* menu functions */
 

@@ -18,6 +18,8 @@
 
 #include <util/SplayTree.h>
 
+#include <locks.h>
+
 
 /*!	This is a very simple malloc()/free() implementation - it only
 	manages a free list.
@@ -39,6 +41,9 @@ const static size_t kAlignment = 8;
 
 const static size_t kInitialHeapSize = 64 * 1024;
 const static size_t kHeapGrowthAlignment = 32 * 1024;
+
+static const char* const kLockName = "runtime_loader heap";
+static recursive_lock sLock = RECURSIVE_LOCK_INITIALIZER(kLockName);
 
 
 class Chunk {
@@ -283,9 +288,17 @@ grow_heap(size_t bytes)
 
 
 status_t
-heap_init(void)
+heap_init()
 {
 	return add_area(kInitialHeapSize);
+}
+
+
+status_t
+heap_reinit_after_fork()
+{
+	recursive_lock_init(&sLock, kLockName);
+	return B_OK;
 }
 
 
@@ -309,6 +322,8 @@ malloc(size_t size)
 {
 	if (size == 0)
 		return NULL;
+
+	RecursiveLocker _(sLock);
 
 	// align the size requirement to a kAlignment bytes boundary
 	if (size < sizeof(FreeChunkData))
@@ -362,6 +377,8 @@ realloc(void* oldBuffer, size_t newSize)
 		return NULL;
 	}
 
+	RecursiveLocker _(sLock);
+
 	size_t oldSize = 0;
 	if (oldBuffer != NULL) {
 		FreeChunk* oldChunk = FreeChunk::SetToAllocated(oldBuffer);
@@ -395,6 +412,8 @@ free(void* allocated)
 {
 	if (allocated == NULL)
 		return;
+
+	RecursiveLocker _(sLock);
 
 	TRACE(("free(%p)\n", allocated));
 

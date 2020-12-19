@@ -47,6 +47,29 @@ search_path_for_type(image_type type)
 {
 	const char *path = NULL;
 
+	// If "user add-ons" are disabled via safemode settings, we bypass the
+	// environment and defaults and return a different set of paths without
+	// the user or non-packaged ones.
+	if (gProgramArgs->disable_user_addons) {
+		switch (type) {
+			case B_APP_IMAGE:
+				return kGlobalBinDirectory
+					":" kSystemAppsDirectory
+					":" kSystemPreferencesDirectory;
+
+			case B_LIBRARY_IMAGE:
+				return kAppLocalLibDirectory
+					":" kSystemLibDirectory;
+
+			case B_ADD_ON_IMAGE:
+				return kAppLocalAddonsDirectory
+					":" kSystemAddonsDirectory;
+
+			default:
+				return NULL;
+		}
+	}
+
 	// TODO: The *PATH variables should not include the standard system paths.
 	// Instead those paths should always be used after the directories specified
 	// via the variables.
@@ -73,30 +96,20 @@ search_path_for_type(image_type type)
 	// Since the kernel does not set any variables, this is also needed
 	// to start the root shell.
 
-	// TODO: The user specific paths should not be used by default.
 	switch (type) {
 		case B_APP_IMAGE:
-			return kUserNonpackagedBinDirectory
-				":" kUserBinDirectory
-						// TODO: Remove!
-				":" kSystemNonpackagedBinDirectory
+			return kSystemNonpackagedBinDirectory
 				":" kGlobalBinDirectory
 				":" kSystemAppsDirectory
 				":" kSystemPreferencesDirectory;
 
 		case B_LIBRARY_IMAGE:
 			return kAppLocalLibDirectory
-				":" kUserNonpackagedLibDirectory
-				":" kUserLibDirectory
-					// TODO: Remove!
 				":" kSystemNonpackagedLibDirectory
 				":" kSystemLibDirectory;
 
 		case B_ADD_ON_IMAGE:
 			return kAppLocalAddonsDirectory
-				":" kUserNonpackagedAddonsDirectory
-				":" kUserAddonsDirectory
-					// TODO: Remove!
 				":" kSystemNonpackagedAddonsDirectory
 				":" kSystemAddonsDirectory;
 
@@ -371,8 +384,8 @@ fixup_shebang(char *invoker)
 		++current;
 	}
 
-	// replace /usr/bin/env with /bin/env
-	if (memcmp(commandStart, "/usr/bin/env", current - commandStart) == 0)
+	// replace /usr/bin/ with /bin/
+	if (memcmp(commandStart, "/usr/bin/", strlen("/usr/bin/")) == 0)
 		memmove(commandStart, commandStart + 4, strlen(commandStart + 4) + 1);
 }
 

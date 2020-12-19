@@ -105,7 +105,8 @@ static bool do_VIPFifoRead(device_info *di, uint8 channel, uint32 address, uint3
 		return false;
 	}
 		
-	SHOW_FLOW( 2, "address=%lx, count=%ld ", address, count );
+	SHOW_FLOW( 2, "address=%" B_PRIx32 ", count=%" B_PRIu32 " ",
+		address, count );
 	
 	Radeon_WaitForFifo( di, 2);
 	SHOW_FLOW0( 2, "1");
@@ -223,41 +224,50 @@ bool Radeon_VIPWrite(device_info *di, uint8 channel, uint address, uint32 data, 
 }
 
 
-static bool do_VIPFifoWrite(device_info *di, uint8 channel, uint32 address, uint32 count, uint8 *buffer)
+static bool do_VIPFifoWrite(device_info *di, uint8 channel, uint32 address,
+	uint32 count, uint8 *buffer)
 {
 	vuint8 *regs = di->regs;
-    
-    uint32 status;
-	uint32 i;
-	
-	SHOW_FLOW( 2, "address=%lx, count=%ld, ", address, count );
 
-    Radeon_WaitForFifo( di, 2 );
-    OUTREG( regs, RADEON_VIPH_REG_ADDR, ((channel << 14) | address | 0x1000) & ~0x2000 );
-   	SHOW_FLOW0( 2, "1");
-    while(B_BUSY == (status = RADEON_VIPFifoIdle( di, 0x0f)));
-	
-    
-    if(B_OK != status){
-		SHOW_FLOW( 2 ,"cannot write %x to VIPH_REG_ADDR\n", (unsigned int)address);
+	uint32 status;
+	uint32 i;
+
+	SHOW_FLOW( 2, "address=%" B_PRIx32 ", count=%" B_PRIu32 ", ",
+		address, count );
+
+	Radeon_WaitForFifo( di, 2 );
+	OUTREG( regs, RADEON_VIPH_REG_ADDR,
+		((channel << 14) | address | 0x1000) & ~0x2000 );
+	SHOW_FLOW0( 2, "1");
+	do {
+		status = RADEON_VIPFifoIdle(di, 0x0f);
+	} while (status == B_BUSY);
+
+	if(B_OK != status){
+		SHOW_FLOW( 2 ,"cannot write %x to VIPH_REG_ADDR\n",
+			(unsigned int)address);
 		return false;
 	}
-    
-    SHOW_FLOW0( 2, "2");
+
+	SHOW_FLOW0( 2, "2");
 	for (i = 0; i < count; i+=4)
 	{
 		Radeon_WaitForFifo( di, 2);
-		SHOW_FLOW( 2, "count %ld", count);
+		SHOW_FLOW( 2, "count %" B_PRIu32, count);
 		OUTREG( regs, RADEON_VIPH_REG_DATA, *(uint32*)(buffer + i));
-		while(B_BUSY == (status = RADEON_VIPFifoIdle( di, 0x0f)));
+
+		do {
+			status = RADEON_VIPFifoIdle(di, 0x0f);
+		} while (status == B_BUSY);
+
     	if(B_OK != status)
 		{
     		SHOW_FLOW0( 2 , "cannot write to VIPH_REG_DATA\n");
 			return false;
-	 	}
+		}
 	}
 				
-    return true;
+	return true;
 }
 
 bool Radeon_VIPFifoWrite(device_info *di, uint8 channel, uint32 address, uint32 count, uint8 *buffer, bool lock)
@@ -423,7 +433,8 @@ int Radeon_FindVIPDevice(
 		
 		// compare device id directly
 		if( cur_device_id == device_id ) {
-			SHOW_FLOW( 3, "Device %08lx found on channel %d", device_id, channel);
+			SHOW_FLOW( 3, "Device %08" B_PRIx32 " found on channel %d",
+				device_id, channel);
 			RELEASE_BEN( di->si->cp.lock );
 			return channel;
 		}

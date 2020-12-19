@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2009, Haiku Inc. All Rights Reserved.
+ * Copyright 2004-2019, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
 #ifndef _OS_H
@@ -7,8 +7,8 @@
 
 /** Kernel specific structures and functions */
 
-#include <pthread.h>
 #include <stdarg.h>
+#include <sys/types.h>
 
 #include <SupportDefs.h>
 #include <StorageDefs.h>
@@ -83,13 +83,14 @@ typedef struct area_info {
 #define B_RANDOMIZED_BASE_ADDRESS	7
 
 /* area protection */
-#define B_READ_AREA				1
-#define B_WRITE_AREA			2
-#define B_EXECUTE_AREA			4
-#define B_STACK_AREA			8
+#define B_READ_AREA				(1 << 0)
+#define B_WRITE_AREA			(1 << 1)
+#define B_EXECUTE_AREA			(1 << 2)
+#define B_STACK_AREA			(1 << 3)
 	/* "stack" protection is not available on most platforms - it's used
 	   to only commit memory as needed, and have guard pages at the
 	   bottom of the stack. */
+#define B_CLONEABLE_AREA		(1 << 8)
 
 extern area_id		create_area(const char *name, void **startAddress,
 						uint32 addressSpec, size_t size, uint32 lock,
@@ -498,7 +499,8 @@ enum cpu_vendor {
 	B_CPU_VENDOR_VIA,
 	B_CPU_VENDOR_IBM,
 	B_CPU_VENDOR_MOTOROLA,
-	B_CPU_VENDOR_NEC
+	B_CPU_VENDOR_NEC,
+	B_CPU_VENDOR_HYGON
 };
 
 typedef struct {
@@ -534,7 +536,7 @@ extern status_t		get_cpu_info(uint32 firstCPU, uint32 cpuCount,
 extern status_t		get_cpu_topology_info(cpu_topology_node_info* topologyInfos,
 						uint32* topologyInfoCount);
 
-#if defined(__INTEL__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 typedef union {
 	struct {
 		uint32	max_eax;

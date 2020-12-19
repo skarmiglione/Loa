@@ -35,6 +35,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			posix_pthread.o
 			posix_signal.o
 			posix_stdio.o
+			posix_musl.o
 			posix_gnu_arch_$(TARGET_ARCH).o
 			posix_gnu_ctype.o
 			posix_gnu_ext.o
@@ -46,7 +47,6 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			posix_gnu_regex.o
 			posix_gnu_stdio.o
 			posix_gnu_stdlib.o
-			posix_gnu_string.o
 			posix_gnu_wcsmbs.o
 			posix_stdlib.o
 			posix_string.o
@@ -101,6 +101,8 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			[ TargetLibgcc ]
 			;
 
+		# These are defined in POSIX for c99 support, so fake'em
+		StaticLibrary [ MultiArchDefaultGristFiles libc.a ] : empty.c ;
 		StaticLibrary [ MultiArchDefaultGristFiles libm.a ] : empty.c ;
 		StaticLibrary [ MultiArchDefaultGristFiles libpthread.a ] : empty.c ;
 

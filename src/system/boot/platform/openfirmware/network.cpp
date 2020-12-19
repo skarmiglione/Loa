@@ -1,6 +1,7 @@
 /*
  * Copyright 2005, Ingo Weinhold <bonefish@cs.tu-berlin.de>.
  * Copyright 2010, Andreas Faerber <andreas.faerber@web.de>
+ * Copyright 2002, Adrien Destugues <pulkomandy@pulkomandy.tk>
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
@@ -30,22 +31,25 @@
 
 class OFEthernetInterface : public EthernetInterface {
 public:
-	OFEthernetInterface();
-	virtual ~OFEthernetInterface();
+						OFEthernetInterface();
+	virtual				~OFEthernetInterface();
 
-	status_t Init(const char *device, const char *parameters);
+			status_t	Init(const char *device, const char *parameters);
 
-	virtual mac_addr_t MACAddress() const;
+	virtual mac_addr_t	MACAddress() const;
 
-	virtual	void *AllocateSendReceiveBuffer(size_t size);
-	virtual	void FreeSendReceiveBuffer(void *buffer);
+	virtual	void *		AllocateSendReceiveBuffer(size_t size);
+	virtual	void		FreeSendReceiveBuffer(void *buffer);
 
-	virtual ssize_t Send(const void *buffer, size_t size);
-	virtual ssize_t Receive(void *buffer, size_t size);
+	virtual ssize_t		Send(const void *buffer, size_t size);
+	virtual ssize_t		Receive(void *buffer, size_t size);
 
 private:
-	int			fHandle;
-	mac_addr_t	fMACAddress;
+			status_t	FindMACAddress();
+
+private:
+			intptr_t	fHandle;
+			mac_addr_t	fMACAddress;
 };
 
 
@@ -97,6 +101,40 @@ OFEthernetInterface::~OFEthernetInterface()
 
 
 status_t
+OFEthernetInterface::FindMACAddress()
+{
+	intptr_t package = of_instance_to_package(fHandle);
+
+	// get MAC address
+	int bytesRead = of_getprop(package, "local-mac-address", &fMACAddress,
+		sizeof(fMACAddress));
+	if (bytesRead == (int)sizeof(fMACAddress))
+		return B_OK;
+
+	// Failed to get the MAC address of the network device. The system may
+	// have a global standard MAC address.
+	bytesRead = of_getprop(gChosen, "mac-address", &fMACAddress,
+		sizeof(fMACAddress));
+	if (bytesRead == (int)sizeof(fMACAddress)) {
+		return B_OK;
+	}
+
+	// On Sun machines, there is a global word 'mac-address' which returns
+	// the size and a pointer to the MAC address
+	size_t size;
+	void* ptr;
+	if (of_interpret("mac-address", 0, 2, &size, &ptr) != OF_FAILED) {
+		if (size == sizeof(fMACAddress)) {
+			memcpy(&fMACAddress, ptr, size);
+			return B_OK;
+		}
+	}
+
+	return B_ERROR;
+}
+
+
+status_t
 OFEthernetInterface::Init(const char *device, const char *parameters)
 {
 	if (!device)
@@ -109,20 +147,9 @@ OFEthernetInterface::Init(const char *device, const char *parameters)
 		return B_ERROR;
 	}
 
-	int package = of_instance_to_package(fHandle);
-
-	// get MAC address
-	int bytesRead = of_getprop(package, "local-mac-address", &fMACAddress,
-		sizeof(fMACAddress));
-	if (bytesRead == OF_FAILED || bytesRead < (int)sizeof(fMACAddress)) {
-		// Failed to get the MAC address of the network device. The system may
-		// have a global standard MAC address.
-		bytesRead = of_getprop(gChosen, "mac-address", &fMACAddress,
-			sizeof(fMACAddress));
-		if (bytesRead == OF_FAILED || bytesRead < (int)sizeof(fMACAddress)) {
-			printf("Failed to get MAC address\n");
-			return B_ERROR;
-		}
+	if (FindMACAddress() != B_OK) {
+		printf("Failed to get MAC address\n");
+		return B_ERROR;
 	}
 
 	// get IP address
@@ -130,38 +157,41 @@ OFEthernetInterface::Init(const char *device, const char *parameters)
 	// Note: This is a non-standardized way. On my Mac mini the response of the
 	// DHCP server is stored as property of /chosen. We try to get it and use
 	// the IP address we find in there.
+	// TODO Sun machines may use bootp-response instead?
 	struct {
 		uint8	irrelevant[16];
 		uint32	ip_address;
 		// ...
 	} dhcpResponse;
-	bytesRead = of_getprop(gChosen, "dhcp-response", &dhcpResponse,
+	int bytesRead = of_getprop(gChosen, "dhcp-response", &dhcpResponse,
 		sizeof(dhcpResponse));
 	if (bytesRead != OF_FAILED && bytesRead == (int)sizeof(dhcpResponse)) {
 		SetIPAddress(ntohl(dhcpResponse.ip_address));
-	} else {
-		// try to read manual client IP from boot path
-		if (parameters != NULL) {
-			char *comma = strrchr(parameters, ',');
-			if (comma != NULL && comma != strchr(parameters, ',')) {
-				SetIPAddress(ip_parse_address(comma + 1));
-			}
-		}
-		if (fIPAddress == 0) {
-			// try to read default-client-ip setting
-			char defaultClientIP[16];
-			package = of_finddevice("/options");
-			bytesRead = of_getprop(package, "default-client-ip",
-				defaultClientIP, sizeof(defaultClientIP) - 1);
-			if (bytesRead != OF_FAILED && bytesRead > 1) {
-				defaultClientIP[bytesRead] = '\0';
-				ip_addr_t address = ip_parse_address(defaultClientIP);
-				SetIPAddress(address);
-			}
+		return B_OK;
+	}
+
+	// try to read manual client IP from boot path
+	if (parameters != NULL) {
+		char *comma = strrchr(parameters, ',');
+		if (comma != NULL && comma != strchr(parameters, ',')) {
+			SetIPAddress(ip_parse_address(comma + 1));
+			return B_OK;
 		}
 	}
 
-	return B_OK;
+	// try to read default-client-ip setting
+	char defaultClientIP[16];
+	intptr_t package = of_finddevice("/options");
+	bytesRead = of_getprop(package, "default-client-ip",
+		defaultClientIP, sizeof(defaultClientIP) - 1);
+	if (bytesRead != OF_FAILED && bytesRead > 1) {
+		defaultClientIP[bytesRead] = '\0';
+		ip_addr_t address = ip_parse_address(defaultClientIP);
+		SetIPAddress(address);
+		return B_OK;
+	}
+
+	return B_ERROR;
 }
 
 
@@ -175,12 +205,32 @@ OFEthernetInterface::MACAddress() const
 void *
 OFEthernetInterface::AllocateSendReceiveBuffer(size_t size)
 {
-	void *dmaMemory;
+	void *dmaMemory = NULL;
+
 	if (of_call_method(fHandle, "dma-alloc", 1, 1, size, &dmaMemory)
-			== OF_FAILED) {
-		return NULL;
+			!= OF_FAILED) {
+		return dmaMemory;
 	}
-	return dmaMemory;
+
+	// The dma-alloc method could be on the parent node (PCI bus, for example),
+	// rather than the device itself
+	intptr_t parentPackage = of_parent(of_instance_to_package(fHandle));
+
+	// FIXME surely there's a way to create an instance without going through
+	// the path?
+	char path[256];
+	of_package_to_path(parentPackage, path, sizeof(path));
+	intptr_t parentInstance = of_open(path);
+
+	if (of_call_method(parentInstance, "dma-alloc", 1, 1, size, &dmaMemory)
+			!= OF_FAILED) {
+		of_close(parentInstance);
+		return dmaMemory;
+	}
+
+	of_close(parentInstance);
+
+	return NULL;
 }
 
 
@@ -250,7 +300,7 @@ platform_net_stack_init()
 		*parameters = '\0';
 
 	// get device node
-	int node = of_finddevice(bootPath);
+	intptr_t node = of_finddevice(bootPath);
 	if (node == OF_FAILED)
 		return B_ERROR;
 

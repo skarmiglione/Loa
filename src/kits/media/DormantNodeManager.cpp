@@ -56,7 +56,7 @@
 #include <Entry.h>
 #include <Path.h>
 
-#include <debug.h>
+#include <MediaDebug.h>
 #include <MediaMisc.h>
 #include <ServerInterface.h>
 #include <DataExchange.h>
@@ -212,12 +212,6 @@ DormantNodeManager::RegisterAddOn(const char* path)
 	status = QueryServer(SERVER_REGISTER_ADD_ON, &request, sizeof(request),
 		&reply, sizeof(reply));
 	if (status != B_OK) {
-		ERROR("DormantNodeManager::RegisterAddon failed, couldn't talk to "
-			"media server\n");
-		return 0;
-	}
-
-	if (status < B_OK) {
 		ERROR("DormantNodeManager::RegisterAddon failed, couldn't talk to "
 			"media server: %s\n", strerror(status));
 		return 0;

@@ -16,7 +16,7 @@
 
 
 class TLSBlock {
-public:	
+public:
 	inline				TLSBlock();
 	inline				TLSBlock(void* pointer);
 

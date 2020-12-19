@@ -4,17 +4,23 @@
 # Hardlink only packages used in the build from one directory to another,
 # and updates the RemotePackageRepository file at the same time.
 #
-# Copyright 2017 Augustin Cavalier <waddlesplash>
+# Copyright 2017-2020 Augustin Cavalier <waddlesplash>
 # Distributed under the terms of the MIT License.
 
-import sys, os, re, hashlib
+import sys, os, subprocess, re, hashlib
+from distutils.version import LooseVersion
 
-if len(sys.argv) < 5:
+if len(sys.argv) != 5:
 	print("usage: hardlink_packages.py [arch] [jam RemotePackageRepository file] "
 		+ "[prebuilt packages directory] [destination root directory]")
 	print("note that the [jam RemotePackageRepository file] will be modified.")
 	print("note that [target directory] is assumed to have a 'packages' subdirectory, "
 		+ " and a repo.info.template file (using $ARCH$)")
+	sys.exit(1)
+
+if subprocess.run(['package_repo'], None, None, None,
+		subprocess.DEVNULL, subprocess.PIPE).returncode != 1:
+	print("package_repo command does not seem to exist.")
 	sys.exit(1)
 
 args_arch = sys.argv[1]
@@ -63,7 +69,8 @@ with open(args_jamf) as f:
 		greatestVersion = None
 		for pkgVersion in packageVersions:
 			if (pkgVersion.startswith(pkgname + '-') and
-					((greatestVersion == None) or (pkgVersion > greatestVersion))):
+					((greatestVersion == None)
+						or (LooseVersion(pkgVersion) > LooseVersion(greatestVersion)))):
 				greatestVersion = pkgVersion
 		if (greatestVersion == None):
 			print("not found: " + pkg)

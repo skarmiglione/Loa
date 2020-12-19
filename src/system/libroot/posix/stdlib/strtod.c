@@ -126,7 +126,8 @@
 #if defined(__i386__) || defined(__ia64__) || defined(__alpha__) || \
     defined(__sparc64__) || defined(__powerpc__) || defined(__POWERPC__) || \
     defined(__m68k__) || defined(__M68K__) || defined(__arm__) || \
-    defined(__mipsel__) || defined(__MIPSEL__) || defined(__x86_64__)
+    defined(__mipsel__) || defined(__MIPSEL__) || defined(__x86_64__) || \
+    defined(__riscv64__) || defined(__aarch64__) || defined(__arm64__)
 #	include <sys/types.h>
 #	if BYTE_ORDER == BIG_ENDIAN
 #		define IEEE_BIG_ENDIAN
@@ -541,7 +542,7 @@ lo0bits(ULong *y)
 	if (!(x & 1)) {
 		k++;
 		x >>= 1;
-		if (!x & 1)
+		if (!(x & 1))
 			return 32;
 	}
 	*y = x;

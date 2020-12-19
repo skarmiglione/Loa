@@ -31,24 +31,27 @@
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../../images/flags/jp.png" alt="" /> 日本語</li>
-<li><a href="../../ca/applications/installer.html"><img src="../../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../../de/applications/installer.html"><img src="../../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../../en/applications/installer.html"><img src="../../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../../es/applications/installer.html"><img src="../../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../../fr/applications/installer.html"><img src="../../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../../it/applications/installer.html"><img src="../../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../../hu/applications/installer.html"><img src="../../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../../pl/applications/installer.html"><img src="../../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../../pt_PT/applications/installer.html"><img src="../../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../../pt_BR/applications/installer.html"><img src="../../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../../ro/applications/installer.html"><img src="../../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../../sk/applications/installer.html"><img src="../../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../../fi/applications/installer.html"><img src="../../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../../sv_SE/applications/installer.html"><img src="../../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../../zh_CN/applications/installer.html"><img src="../../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../../ru/applications/installer.html"><img src="../../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../../uk/applications/installer.html"><img src="../../images/flags/uk.png" alt="" />Українська</a></li>
+<li class="now">日本語&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../../id/applications/installer.html">Bahasa Indonesia</a></li>
+<li><a href="../../ca/applications/installer.html">Català</a></li>
+<li><a href="../../de/applications/installer.html">Deutsch</a></li>
+<li><a href="../../en/applications/installer.html">English</a></li>
+<li><a href="../../es/applications/installer.html">Español</a></li>
+<li><a href="../../fr/applications/installer.html">Français</a></li>
+<li><a href="../../fur/applications/installer.html">Furlan</a></li>
+<li><a href="../../it/applications/installer.html">Italiano</a></li>
+<li><a href="../../hu/applications/installer.html">Magyar</a></li>
+<li><a href="../../pl/applications/installer.html">Polski</a></li>
+<li><a href="../../pt_PT/applications/installer.html">Português</a></li>
+<li><a href="../../pt_BR/applications/installer.html">Português (Brazil)</a></li>
+<li><a href="../../ro/applications/installer.html">Română</a></li>
+<li><a href="../../sk/applications/installer.html">Slovenčina</a></li>
+<li><a href="../../fi/applications/installer.html">Suomi</a></li>
+<li><a href="../../sv_SE/applications/installer.html">Svenska</a></li>
+<li><a href="../../tr/applications/installer.html">Türkçe</a></li>
+<li><a href="../../zh_CN/applications/installer.html"> 中文 ［中文］</a></li>
+<li><a href="../../ru/applications/installer.html">Русский</a></li>
+<li><a href="../../uk/applications/installer.html">Українська</a></li>
 </ul>
 <span>
  «  <a href="icon-o-matic.html">Icon-O-Matic</a> 
@@ -70,8 +73,8 @@
 <p>インストーラー (Installer) は Haiku を別のボリュームにコピーするのに使用します。<br />
 起動とともにウィンドウに注意事項が表示されるので、よくお読みください。 </p>
 <ul>
-<li><p>まだ開発途中のソフトウェアです。バックアップを取っておかないと、あとから苦しむことになるでしょう。</p></li>
-<li><p>インストーラーを使用する前にパーティションを作成しておく必要があります。パーティション編集には、Haiku の DriveSetup が安定するまで <a href="http://gparted.sourceforge.net/livecd.php">GParted LiveCD</a> のようなツールを使ったほうがいいかもしれません。</p></li>
+<li><p>まだ β 品質のソフトウェアです。バックアップを取っておかないと、あとから苦しむことになります。</p></li>
+<li><p>インストーラーを使用する前にパーティションを用意しておく必要があります。<a href="drivesetup.html">DriveSetup</a> でパーティションの作成とフォーマットができますが、既存のパーティションのリサイズはできません。そのためには、<a href="http://gparted.sourceforge.net/livecd.php">GParted LiveCD</a> または同様のツールをいまのところ使う必要があるでしょう。</p></li>
 <li>Haiku は、<a href="http://www.gnu.org/software/grub/manual/grub.html">GRUB</a> ブートマネージャーに手動で設定できます。詳しくは<a href="http://www.haiku-os.org/get-haiku/installation-guide">オンラインガイド</a>を参照ください。</li>
 </ul>
 <p><br /><br /></p>
@@ -85,7 +88,7 @@
 
 <h2><a href="#"><img src="../../images/up.png" style="border:none;float:right" alt="index" /></a>
 <a id="tools" name="tools">ツール</a></h2>
-<p>インストールが完了するとパーティションは自動的に起動可能に設定されますが、ほかのオペレーティングシステムやパーティショニングツールがパーティションのブートセクターを書き換えてしまうことがあるかもしれません。その際はインストール CD から起動して、インストーラーの<span class="menu">インストール先: インストール先の選択 (Onto: Please choose target)</span> の部分で、Haiku のパーティションを選択した後に、<span class="menu">ツール (Tools)</span> の<span class="menu">ブートセクターを書き込む (Write boot sector)</span> からパーティションを起動可能に再設定してください。</p>
+<p>インストールプロセス完了後、パーティションは自動的に起動可能に設定されますが、ほかのオペレーティングシステムやパーティショニングツールがパーティションのブートセクターを書き換えてしまうかもしれません。その際はインストール CD から起動して、インストーラーの<span class="menu">インストール先: インストール先の選択 (Onto: Please choose target)</span> から、Haiku の起動パーティションを選択した後に、<span class="menu">ツール (Tools)</span> の<span class="menu">ブートセクターを書き込む (Write boot sector)</span> からパーティションを起動可能に再設定してください。</p>
 <p><span class="menu">ツール (Tools)</span> の他のメニューは<span class="menu">ブートメニューの設定 (Set up boot menu)</span> で、起動するオペレーティングシステムの選択メニューをブートセクターに書き込むために使われています。詳しくは、<a href="bootmanager.html">ブートマネージャー</a>をお読みください。<br />
 すでに GRUB のようなブートマネージャーを利用して手動で Haiku の項目を追加した場合や、そのマシンで Haiku しか実行しない場合は、<span class="app">ブートマネージャー</span>を使用する必要はありません。</p>
 

@@ -6,7 +6,7 @@ Hide clock	TimeView		時計を隠す
 Applications	PreferencesWindow		アプリケーション
 Time preferences…	TimeView		日付と時刻の設定…
 About Haiku	DeskbarMenu		Haiku について
-Edit in Tracker…	PreferencesWindow		Tracker 中で編集…
+Edit in Tracker…	PreferencesWindow		Tracker で編集…
 Recent documents:	PreferencesWindow		最近使ったドキュメント:
 Recent applications	DeskbarMenu		最近使ったアプリケーション
 Applications	B_USER_DESKBAR_DIRECTORY/Applications		アプリケーション
@@ -17,7 +17,7 @@ Defaults	PreferencesWindow		デフォルト値
 Menu	PreferencesWindow		メニュー
 Recent documents	DeskbarMenu		最近使ったドキュメント
 Auto-hide	PreferencesWindow		自動的に隠す
-Always on top	PreferencesWindow		常に手前に
+Always on top	PreferencesWindow		常に最前面
 <Deskbar folder is empty>	DeskbarMenu		<Deskbar フォルダーは空です>
 Show all	WindowMenu		すべて表示
 No windows	WindowMenu		ウィンドウ無し
@@ -25,12 +25,12 @@ Deskbar	System name		Deskbar
 Restart system	DeskbarMenu		再起動
 Large	PreferencesWindow		大
 Auto-raise	PreferencesWindow		マウスオーバーで手前に
-Recent folders:	PreferencesWindow		最近開いたフォルダー:
+Recent folders:	PreferencesWindow		最近使ったフォルダー:
 Show application expander	PreferencesWindow		エキスパンダーを表示
 Close all	WindowMenu		すべて閉じる
 Deskbar preferences	PreferencesWindow		Deskbar の設定
 Mount	DeskbarMenu		マウント
-Revert	PreferencesWindow		取り消し
+Revert	PreferencesWindow		戻す
 Small	PreferencesWindow		小
 Recent applications:	PreferencesWindow		最近使ったアプリケーション:
 Shutdown…	DeskbarMenu		シャットダウン…
@@ -44,7 +44,7 @@ Expand new applications	PreferencesWindow		新しいアプリケーションを�
 Show replicants	DeskbarMenu		レプリカントを表示
 Hide application names	PreferencesWindow		アプリケーション名を隠す
 Demos	B_USER_DESKBAR_DIRECTORY/Demos		デモ
-Icon size	PreferencesWindow		アイコンのサイズ
+Icon size	PreferencesWindow		アイコンサイズ
 Desktop applets	B_USER_DESKBAR_DIRECTORY/Desktop applets		デスクトップアプレット
 Hide all	WindowMenu		すべて隠す
 Quit application	WindowMenu		アプリケーションを終了

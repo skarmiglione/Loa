@@ -195,10 +195,9 @@ AssociatedTypes::SetFileExtensions(const char *type, const BMessage *extensions)
 	std::set<std::string> oldExtensions;
 	std::set<std::string> &newExtensions = fFileExtensions[type];
 	// Make a copy of the previous extensions
-	if (!err)
+	if (!err) {
 		oldExtensions = newExtensions;
 
-	if (!err) {
 		// Read through the list of new extensions, creating the new
 		// file extensions list and adding the type as an associated type
 		// for each extension
@@ -377,7 +376,8 @@ AssociatedTypes::BuildAssociatedTypesTable()
 									BPrivate::Storage::to_lower(subtype);
 
 									char fulltype[B_PATH_NAME_LENGTH];
-									sprintf(fulltype, "%s/%s", supertype, subtype);
+									snprintf(fulltype, B_PATH_NAME_LENGTH, "%s/%s",
+										supertype, subtype);
 
 									// Process the subtype
 									ProcessType(fulltype);

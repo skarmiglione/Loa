@@ -21,52 +21,54 @@
 <body>
 
 <div id="banner">
-<div><span>User guide</span></div>
+<div><span>Guida dell'utente</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/it.png" alt="" /> Italiano</li>
-<li><a href="../ca/tracker-add-ons.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/tracker-add-ons.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/tracker-add-ons.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/tracker-add-ons.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../fr/tracker-add-ons.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../hu/tracker-add-ons.html"><img src="../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../pl/tracker-add-ons.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/tracker-add-ons.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/tracker-add-ons.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/tracker-add-ons.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/tracker-add-ons.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/tracker-add-ons.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/tracker-add-ons.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/tracker-add-ons.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/tracker-add-ons.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/tracker-add-ons.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/tracker-add-ons.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Italiano&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/tracker-add-ons.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/tracker-add-ons.html">Català</a></li>
+<li><a href="../de/tracker-add-ons.html">Deutsch</a></li>
+<li><a href="../en/tracker-add-ons.html">English</a></li>
+<li><a href="../es/tracker-add-ons.html">Español</a></li>
+<li><a href="../fr/tracker-add-ons.html">Français</a></li>
+<li><a href="../fur/tracker-add-ons.html">Furlan</a></li>
+<li><a href="../hu/tracker-add-ons.html">Magyar</a></li>
+<li><a href="../pl/tracker-add-ons.html">Polski</a></li>
+<li><a href="../pt_PT/tracker-add-ons.html">Português</a></li>
+<li><a href="../pt_BR/tracker-add-ons.html">Português (Brazil)</a></li>
+<li><a href="../ro/tracker-add-ons.html">Română</a></li>
+<li><a href="../sk/tracker-add-ons.html">Slovenčina</a></li>
+<li><a href="../fi/tracker-add-ons.html">Suomi</a></li>
+<li><a href="../sv_SE/tracker-add-ons.html">Svenska</a></li>
+<li><a href="../tr/tracker-add-ons.html">Türkçe</a></li>
+<li><a href="../zh_CN/tracker-add-ons.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/tracker-add-ons.html">Русский</a></li>
+<li><a href="../uk/tracker-add-ons.html">Українська</a></li>
+<li><a href="../jp/tracker-add-ons.html">日本語</a></li>
 </ul>
 <span>
  «  <a href="tracker.html">Tracker</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
-::  <a href="keyboard-shortcuts.html">Keyboard shortcuts</a>  »
+::  <a href="contents.html" class="uplink">Contenuti</a> 
+::  <a href="keyboard-shortcuts.html">Scorciatoie della tastiera</a>  »
 </span></div>
 </div>
 
 <div id="content">
 <div>
-<div class="box-info">The translation of this page isn't yet complete. Until it is, unfinished parts use the English original.</div>
 
 <h1>Gli add-on del Tracker</h1>
 
 <p>Le Applicazioni possono installare gli add-on in modo che essi possano essere facilmente invocati quando si selezionano dei file dal Tracker. Solo gli addon che possono gestire un tipo di file sono presenti nel menu <span class="menu">Add-Ons</span> o nel menu <span class="menu">File</span> di una finestra del Tracker. Alcuni add-on non hanno necessariamente bisogno di un file su cui lavorare e quindi sono sempre presenti nel menu.</p>
-<p>New Tracker add-ons that don't come as part of a regular .hpkg package, can be installed by copying them into their respective non-packaged folder (see topic <a href="filesystem-layout.html">Filesystem layout</a>):</p>
+<p>I componenti aggiuntivi del Tracker che non sono distribuiti attravero un package .hpkg possono essere installati copiandoli all'interno della rispettiva cartella sotto non-package (consulta alla guida al capitolo <a href="filesystem-layout.html">Struttura del Filesystem</a>):</p>
 <table summary="layout" border="0" cellspacing="0" cellpadding="2">
-<tr><td><span class="path">/boot/system/non-packaged/add-ons/Tracker/</span></td><td>   </td><td>per gli add-on disponibili a tutti gli utenti.</td></tr>
-<tr><td><span class="path">/boot/home/config/non-packaged/add-ons/Tracker/</span></td><td>   </td><td>per gli add-on disponibili solo all'utente</td></tr>
+<tr><td><span class="path">/boot/common/add-ons/Tracker/</span></td><td>   </td><td>per gli add-on disponibili a tutti gli utenti.</td></tr>
+<tr><td><span class="path">/boot/home/config/add-ons/Tracker/</span></td><td>   </td><td>per gli add-on disponibili solo all'utente</td></tr>
 </table>
-<p>The file name of an add-on can be suffixed with a dash and capital letter, and is then available via keyboard shortcut. For example, <span class="app">Open Target Folder-O</span> opens with <span class="key">ALT</span> <span class="key">OPT</span> <span class="key">O</span>.<br />
-Of course, you have to take care of possible shortcut collisions when deciding on a shortcut. You can't have the same for different add-ons.</p>
+<p>Il nome file di un addon può essere indicato con il suffisso "-" e lettera maiuscola ed è, quindi, disponibile tramite le scorciatoie da tastiera. Ad esempio <span class="app">Apri cartella di destinazione-O</span> può essere aperto con <span class="key">ALT</span> <span class="key">OPT</span> <span class="key">T</span>.<br />
+Naturalmente non è possibile avere la stessa scorciatoia per diversi add-on. Quando ne viene scelta una, è importante essere sicuri che non ci siano collisioni tra quelle esistenti.</p>
 
 <h2><a id="system-add-ons" name="system-add-ons">Gli add-on del Tracker forniti da Haiku</a></h2>
 <p>Questi add-on del Tracker sono disponibili con ogni installazione di Haiku:</p>
@@ -77,7 +79,7 @@ Of course, you have to take care of possible shortcut collisions when deciding o
 		<td valign="top">Lancia l'applicazione <a href="applications/diskusage.html">DiskUsage</a> con la cartella di base specificata.</td></tr>
 	<tr><td class="onelinetop"><b>FileType</b><i>-F</i></td>
 		<td valign="top">Invocato su di un file, apre il suo specifico pannello <a href="filetypes.html">FileType</a>, in caso contrario verrà lanciato il pannello generale delle preferenze FileTypes.</td></tr>
-	<tr><td class="onelinetop"><b>Open Target Folder</b><i>-O</i></td>
+	<tr><td class="onelinetop"><b>Apri cartella di destinazione</b><i>-O</i></td>
 		<td valign="top">Può essere utilizzato solo con un collegamento ad un file ed apre la cartella in cui si trova.</td></tr>
 	<tr><td class="onelinetop"><b>TextSearch</b><i>-G</i></td>
 		<td valign="top">Apre l'applicazione <a href="applications/textsearch.html">TextSearch</a> per cercare una stringa nella cartella selezionata (e nelle sue sottocartelle).</td></tr>
@@ -91,8 +93,8 @@ Of course, you have to take care of possible shortcut collisions when deciding o
 <div class="nav">
 <div class="inner"><span>
  «  <a href="tracker.html">Tracker</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
-::  <a href="keyboard-shortcuts.html">Keyboard shortcuts</a>  »
+::  <a href="contents.html" class="uplink">Contenuti</a> 
+::  <a href="keyboard-shortcuts.html">Scorciatoie della tastiera</a>  »
 </span></div>
 </div>
 

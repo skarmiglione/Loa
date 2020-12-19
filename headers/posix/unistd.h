@@ -44,7 +44,7 @@
 #define _POSIX_THREADS						(200112L)
 #define _POSIX_MAPPED_FILES					(200809L)
 #define _POSIX_THREAD_PROCESS_SHARED		(200809L)
-#define _POSIX_THREAD_ATTR_STACKADDR		(-1)	/* currently unsupported */
+#define _POSIX_THREAD_ATTR_STACKADDR		(200809L)
 #define _POSIX_THREAD_ATTR_STACKSIZE		(200809L)
 #define _POSIX_THREAD_PRIORITY_SCHEDULING	(-1)	/* currently unsupported */
 #define _POSIX_REALTIME_SIGNALS				(200809L)
@@ -131,6 +131,11 @@
 #define	_SC_TIMERS						58
 #define	_SC_CPUTIME						59
 #define	_SC_THREAD_CPUTIME				60
+#define _SC_HOST_NAME_MAX				61
+#define _SC_REGEXP						62
+#define _SC_SYMLOOP_MAX					63
+#define _SC_SHELL						64
+#define _SC_TTY_NAME_MAX				65
 
 
 /* confstr() constants */
@@ -145,6 +150,12 @@
 #endif
 #ifndef SEEK_END
 #	define SEEK_END 2
+#endif
+#ifndef SEEK_DATA
+#	define SEEK_DATA 3
+#endif
+#ifndef SEEK_HOLE
+#	define SEEK_HOLE 4
 #endif
 
 
@@ -245,6 +256,8 @@ extern int		setpgid(pid_t pid, pid_t pgid);
 extern pid_t	setpgrp(void);
 
 extern int		chroot(const char *path);
+
+extern int		nice(int incr);
 
 /* access permissions */
 extern gid_t	getegid(void);

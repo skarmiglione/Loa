@@ -37,11 +37,11 @@ VirtioSCSIController::VirtioSCSIController(device_node *node)
 	fVirtioDevice(NULL),
 	fStatus(B_NO_INIT),
 	fRequest(NULL),
+	fCurrentRequest(0),
 	fEventDPC(NULL)
 {
 	CALLED();
 
-	B_INITIALIZE_SPINLOCK(&fInterruptLock);
 	fInterruptCondition.Init(this, "virtio scsi transfer");
 
 	if (gSCSI->alloc_dpc(&fEventDPC) != B_OK)
@@ -231,25 +231,20 @@ VirtioSCSIController::ExecuteRequest(scsi_ccb *ccb)
 	}
 	fRequest->FillRequest(inCount, outCount, entries);
 
-	{
-		InterruptsSpinLocker locker(fInterruptLock);
-		fExpectsInterrupt = true;
-		fInterruptCondition.Add(&fInterruptConditionEntry);
-	}
+	atomic_add(&fCurrentRequest, 1);
+	fInterruptCondition.Add(&fInterruptConditionEntry);
 
 	fVirtio->queue_request_v(fRequestVirtioQueue, entries,
-		outCount, inCount, NULL);
+		outCount, inCount, (void *)(addr_t)fCurrentRequest);
 
 	result = fInterruptConditionEntry.Wait(B_RELATIVE_TIMEOUT,
 		fRequest->Timeout());
 
-	{
-		InterruptsSpinLocker locker(fInterruptLock);
-		fExpectsInterrupt = false;
-	}
-
-	if (result != B_OK)
+	if (result != B_OK) {
+		ERROR("wait failed with status: %#" B_PRIx32 "\n", result);
+		fRequest->Abort();
 		return result;
+	}
 
 	return fRequest->Finish(false);
 }
@@ -283,11 +278,6 @@ VirtioSCSIController::_RequestCallback(void* driverCookie, void* cookie)
 {
 	CALLED();
 	VirtioSCSIController* controller = (VirtioSCSIController*)driverCookie;
-
-	while (controller->fVirtio->queue_dequeue(
-			controller->fRequestVirtioQueue, NULL) != NULL) {
-	}
-
 	controller->_RequestInterrupt();
 }
 
@@ -295,8 +285,11 @@ VirtioSCSIController::_RequestCallback(void* driverCookie, void* cookie)
 void
 VirtioSCSIController::_RequestInterrupt()
 {
-	SpinLocker locker(fInterruptLock);
-	fInterruptCondition.NotifyAll();
+	void* cookie = NULL;
+	while (fVirtio->queue_dequeue(fRequestVirtioQueue, &cookie, NULL)) {
+		if ((int32)(addr_t)cookie == atomic_get(&fCurrentRequest))
+			fInterruptCondition.NotifyAll();
+	}
 }
 
 
@@ -307,12 +300,9 @@ VirtioSCSIController::_EventCallback(void* driverCookie, void* cookie)
 	CALLED();
 	VirtioSCSIController* controller = (VirtioSCSIController*)driverCookie;
 
-	while (true) {
-		virtio_scsi_event* event = (virtio_scsi_event*)
-			controller->fVirtio->queue_dequeue(controller->fEventVirtioQueue,
-				NULL);
-		if (event == NULL)
-			break;
+	virtio_scsi_event* event = NULL;
+	while (controller->fVirtio->queue_dequeue(controller->fEventVirtioQueue,
+			(void**)&event, NULL)) {
 		controller->_EventInterrupt(event);
 	}
 }

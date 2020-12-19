@@ -24,7 +24,9 @@
 #include <algorithm>
 
 #include <AutoDeleter.h>
+#include <BytePointer.h>
 #include <commpage.h>
+#include <driver_settings.h>
 #include <boot/kernel_args.h>
 #include <debug.h>
 #include <image_defs.h>
@@ -93,6 +95,7 @@ static mutex sImageMutex = MUTEX_INITIALIZER("kimages_lock");
 static mutex sImageLoadMutex = MUTEX_INITIALIZER("kimages_load_lock");
 	// serializes loading/unloading add-ons locking order
 	// sImageLoadMutex -> sImageMutex
+static bool sLoadElfSymbols = false;
 static bool sInitialized = false;
 
 
@@ -827,7 +830,7 @@ assert_defined_image_version(elf_image_info* dependentImage,
 	}
 
 	// iterate through the defined versions to find the given one
-	elf_verdef* definition = image->version_definitions;
+	BytePointer<elf_verdef> definition(image->version_definitions);
 	for (uint32 i = 0; i < image->num_version_definitions; i++) {
 		uint32 versionIndex = VER_NDX(definition->vd_ndx);
 		elf_version_info& info = image->versions[versionIndex];
@@ -837,8 +840,7 @@ assert_defined_image_version(elf_image_info* dependentImage,
 			return B_OK;
 		}
 
-		definition = (elf_verdef*)
-			((uint8*)definition + definition->vd_next);
+		definition += definition->vd_next;
 	}
 
 	// version not found -- fail, if not weak
@@ -861,7 +863,7 @@ init_image_version_infos(elf_image_info* image)
 	uint32 maxIndex = 0;
 
 	if (image->version_definitions != NULL) {
-		elf_verdef* definition = image->version_definitions;
+		BytePointer<elf_verdef> definition(image->version_definitions);
 		for (uint32 i = 0; i < image->num_version_definitions; i++) {
 			if (definition->vd_version != 1) {
 				dprintf("Unsupported version definition revision: %u\n",
@@ -873,13 +875,12 @@ init_image_version_infos(elf_image_info* image)
 			if (versionIndex > maxIndex)
 				maxIndex = versionIndex;
 
-			definition = (elf_verdef*)
-				((uint8*)definition	+ definition->vd_next);
+			definition += definition->vd_next;
 		}
 	}
 
 	if (image->needed_versions != NULL) {
-		elf_verneed* needed = image->needed_versions;
+		BytePointer<elf_verneed> needed(image->needed_versions);
 		for (uint32 i = 0; i < image->num_needed_versions; i++) {
 			if (needed->vn_version != 1) {
 				dprintf("Unsupported version needed revision: %u\n",
@@ -887,17 +888,16 @@ init_image_version_infos(elf_image_info* image)
 				return B_BAD_VALUE;
 			}
 
-			elf_vernaux* vernaux
-				= (elf_vernaux*)((uint8*)needed + needed->vn_aux);
+			BytePointer<elf_vernaux> vernaux(needed + needed->vn_aux);
 			for (uint32 k = 0; k < needed->vn_cnt; k++) {
 				uint32 versionIndex = VER_NDX(vernaux->vna_other);
 				if (versionIndex > maxIndex)
 					maxIndex = versionIndex;
 
-				vernaux = (elf_vernaux*)((uint8*)vernaux + vernaux->vna_next);
+				vernaux += vernaux->vna_next;
 			}
 
-			needed = (elf_verneed*)((uint8*)needed + needed->vn_next);
+			needed += needed->vn_next;
 		}
 	}
 
@@ -917,12 +917,12 @@ init_image_version_infos(elf_image_info* image)
 
 	// version definitions
 	if (image->version_definitions != NULL) {
-		elf_verdef* definition = image->version_definitions;
+		BytePointer<elf_verdef> definition(image->version_definitions);
 		for (uint32 i = 0; i < image->num_version_definitions; i++) {
 			if (definition->vd_cnt > 0
 				&& (definition->vd_flags & VER_FLG_BASE) == 0) {
-				elf_verdaux* verdaux
-					= (elf_verdaux*)((uint8*)definition + definition->vd_aux);
+				BytePointer<elf_verdaux> verdaux(definition
+					+ definition->vd_aux);
 
 				uint32 versionIndex = VER_NDX(definition->vd_ndx);
 				elf_version_info& info = image->versions[versionIndex];
@@ -931,19 +931,17 @@ init_image_version_infos(elf_image_info* image)
 				info.file_name = NULL;
 			}
 
-			definition = (elf_verdef*)
-				((uint8*)definition + definition->vd_next);
+			definition += definition->vd_next;
 		}
 	}
 
 	// needed versions
 	if (image->needed_versions != NULL) {
-		elf_verneed* needed = image->needed_versions;
+		BytePointer<elf_verneed> needed(image->needed_versions);
 		for (uint32 i = 0; i < image->num_needed_versions; i++) {
 			const char* fileName = STRING(image, needed->vn_file);
 
-			elf_vernaux* vernaux
-				= (elf_vernaux*)((uint8*)needed + needed->vn_aux);
+			BytePointer<elf_vernaux> vernaux(needed + needed->vn_aux);
 			for (uint32 k = 0; k < needed->vn_cnt; k++) {
 				uint32 versionIndex = VER_NDX(vernaux->vna_other);
 				elf_version_info& info = image->versions[versionIndex];
@@ -951,10 +949,10 @@ init_image_version_infos(elf_image_info* image)
 				info.name = STRING(image, vernaux->vna_name);
 				info.file_name = fileName;
 
-				vernaux = (elf_vernaux*)((uint8*)vernaux + vernaux->vna_next);
+				vernaux += vernaux->vna_next;
 			}
 
-			needed = (elf_verneed*)((uint8*)needed + needed->vn_next);
+			needed += needed->vn_next;
 		}
 	}
 
@@ -968,12 +966,11 @@ check_needed_image_versions(elf_image_info* image)
 	if (image->needed_versions == NULL)
 		return B_OK;
 
-	elf_verneed* needed = image->needed_versions;
+	BytePointer<elf_verneed> needed(image->needed_versions);
 	for (uint32 i = 0; i < image->num_needed_versions; i++) {
 		elf_image_info* dependency = sKernelImage;
 
-		elf_vernaux* vernaux
-			= (elf_vernaux*)((uint8*)needed + needed->vn_aux);
+		BytePointer<elf_vernaux> vernaux(needed + needed->vn_aux);
 		for (uint32 k = 0; k < needed->vn_cnt; k++) {
 			uint32 versionIndex = VER_NDX(vernaux->vna_other);
 			elf_version_info& info = image->versions[versionIndex];
@@ -983,10 +980,10 @@ check_needed_image_versions(elf_image_info* image)
 			if (error != B_OK)
 				return error;
 
-			vernaux = (elf_vernaux*)((uint8*)vernaux + vernaux->vna_next);
+			vernaux += vernaux->vna_next;
 		}
 
-		needed = (elf_verneed*)((uint8*)needed + needed->vn_next);
+		needed += needed->vn_next;
 	}
 
 	return B_OK;
@@ -1916,8 +1913,8 @@ elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 			leaf++;
 
 		length = strlen(leaf);
-		if (length > B_OS_NAME_LENGTH - 8)
-			sprintf(baseName, "...%s", leaf + length + 8 - B_OS_NAME_LENGTH);
+		if (length > B_OS_NAME_LENGTH - 16)
+			snprintf(baseName, B_OS_NAME_LENGTH, "...%s", leaf + length + 16 - B_OS_NAME_LENGTH);
 		else
 			strcpy(baseName, leaf);
 	}
@@ -1964,7 +1961,7 @@ elf_load_user_image(const char *path, Team *team, uint32 flags, addr_t *entry)
 			memUpperBound = ROUNDUP(memUpperBound, B_PAGE_SIZE);
 			fileUpperBound = ROUNDUP(fileUpperBound, B_PAGE_SIZE);
 
-			sprintf(regionName, "%s_seg%drw", baseName, i);
+			snprintf(regionName, B_OS_NAME_LENGTH, "%s_seg%drw", baseName, i);
 
 			id = vm_map_file(team->id, regionName, (void **)&regionAddress,
 				addressSpec, fileUpperBound,
@@ -2283,7 +2280,11 @@ load_kernel_add_on(const char *path)
 				// should check here for appropriate interpreter
 				continue;
 			case PT_PHDR:
+			case PT_STACK:
 				// we don't use it
+				continue;
+			case PT_EH_FRAME:
+				// not implemented yet, but can be ignored
 				continue;
 			default:
 				dprintf("%s: unhandled pheader type %#" B_PRIx32 "\n", fileName,
@@ -2392,8 +2393,7 @@ load_kernel_add_on(const char *path)
 	vm_unreserve_address_range(VMAddressSpace::KernelID(), reservedAddress,
 		reservedSize);
 
-	// ToDo: this should be enabled by kernel settings!
-	if (1)
+	if (sLoadElfSymbols)
 		load_elf_symbol_table(fd, image);
 
 	free(programHeaders);
@@ -2720,11 +2720,18 @@ elf_read_kernel_image_symbols(image_id id, elf_sym* symbolTable,
 
 
 status_t
-elf_init(kernel_args *args)
+elf_init(kernel_args* args)
 {
-	struct preloaded_image *image;
+	struct preloaded_image* image;
 
 	image_init();
+
+	if (void* handle = load_driver_settings("kernel")) {
+		sLoadElfSymbols = get_driver_boolean_parameter(handle, "load_symbols",
+			false, false);
+
+		unload_driver_settings(handle);
+	}
 
 	sImagesHash = new(std::nothrow) ImageHash();
 	if (sImagesHash == NULL)

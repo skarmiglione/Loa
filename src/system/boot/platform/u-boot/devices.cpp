@@ -48,8 +48,8 @@ platform_add_boot_device(struct stage2_args *args, NodeList *devicesList)
 
 
 status_t
-platform_get_boot_partitions(struct stage2_args *args, Node *device,
-	NodeList *list, NodeList *partitionList)
+platform_get_boot_partition(struct stage2_args *args, Node *device,
+	NodeList *list, boot::Partition **_partition)
 {
 	TRACE("platform_get_boot_partition\n");
 
@@ -57,7 +57,7 @@ platform_get_boot_partitions(struct stage2_args *args, Node *device,
 	boot::Partition *partition = NULL;
 	while ((partition = (boot::Partition *)iterator.Next()) != NULL) {
 		// ToDo: just take the first partition for now
-		partitionList->Insert(partition);
+		*_partition = partition;
 		return B_OK;
 	}
 
@@ -90,4 +90,10 @@ platform_register_boot_device(Node *device)
 		&disk_ident, sizeof(disk_ident));
 
 	return B_OK;
+}
+
+
+void
+platform_cleanup_devices()
+{
 }

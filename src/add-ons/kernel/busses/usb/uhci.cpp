@@ -215,7 +215,7 @@ Queue::AppendTransfer(uhci_qh *transfer, bool lock)
 	} else {
 		// append the transfer queue to the list
 		uhci_qh *element = fQueueTop;
-		while (element && element->link_log)
+		while (element->link_log != NULL)
 			element = (uhci_qh *)element->link_log;
 
 		element->link_log = transfer;
@@ -296,6 +296,86 @@ Queue::PrintToStream()
 //
 // #pragma mark -
 //
+
+
+status_t
+UHCI::AddTo(Stack *stack)
+{
+	if (!sPCIModule) {
+		status_t status = get_module(B_PCI_MODULE_NAME, (module_info **)&sPCIModule);
+		if (status < B_OK) {
+			TRACE_MODULE_ERROR("AddTo(): getting pci module failed! 0x%08"
+				B_PRIx32 "\n", status);
+			return status;
+		}
+	}
+
+	TRACE_MODULE("AddTo(): setting up hardware\n");
+
+	bool found = false;
+	pci_info *item = new(std::nothrow) pci_info;
+	if (!item) {
+		sPCIModule = NULL;
+		put_module(B_PCI_MODULE_NAME);
+		return B_NO_MEMORY;
+	}
+
+	// Try to get the PCI x86 module as well so we can enable possible MSIs.
+	if (sPCIx86Module == NULL && get_module(B_PCI_X86_MODULE_NAME,
+			(module_info **)&sPCIx86Module) != B_OK) {
+		// If it isn't there, that's not critical though.
+		TRACE_MODULE_ERROR("failed to get pci x86 module\n");
+		sPCIx86Module = NULL;
+	}
+
+	for (int32 i = 0; sPCIModule->get_nth_pci_info(i, item) >= B_OK; i++) {
+		if (item->class_base == PCI_serial_bus && item->class_sub == PCI_usb
+			&& item->class_api == PCI_usb_uhci) {
+			TRACE_MODULE("found device at PCI:%d:%d:%d\n",
+				item->bus, item->device, item->function);
+			UHCI *bus = new(std::nothrow) UHCI(item, stack);
+			if (!bus) {
+				delete item;
+				put_module(B_PCI_MODULE_NAME);
+				if (sPCIx86Module != NULL)
+					put_module(B_PCI_X86_MODULE_NAME);
+				return B_NO_MEMORY;
+			}
+
+			// The bus will put the PCI modules when it is destroyed, so get
+			// them again to increase their reference count.
+			get_module(B_PCI_MODULE_NAME, (module_info **)&sPCIModule);
+			if (sPCIx86Module != NULL)
+				get_module(B_PCI_X86_MODULE_NAME, (module_info **)&sPCIx86Module);
+
+			if (bus->InitCheck() < B_OK) {
+				TRACE_MODULE_ERROR("bus failed init check\n");
+				delete bus;
+				continue;
+			}
+
+			// the bus took it away
+			item = new(std::nothrow) pci_info;
+
+			if (bus->Start() != B_OK) {
+				delete bus;
+				continue;
+			}
+			found = true;
+		}
+	}
+
+	// The modules will have been gotten again if we successfully
+	// initialized a bus, so we should put them here.
+	put_module(B_PCI_MODULE_NAME);
+	if (sPCIx86Module != NULL)
+		put_module(B_PCI_X86_MODULE_NAME);
+
+	if (!found)
+		TRACE_MODULE_ERROR("no devices found\n");
+	delete item;
+	return found ? B_OK : ENODEV;
+}
 
 
 UHCI::UHCI(pci_info *info, Stack *stack)
@@ -496,6 +576,12 @@ UHCI::UHCI(pci_info *info, Stack *stack)
 		}
 	}
 
+	if (fIRQ == 0 || fIRQ == 0xFF) {
+		TRACE_MODULE_ERROR("device PCI:%d:%d:%d was assigned an invalid IRQ\n",
+			fPCIInfo->bus, fPCIInfo->device, fPCIInfo->function);
+		return;
+	}
+
 	// Install the interrupt handler
 	TRACE("installing interrupt handler\n");
 	install_io_interrupt_handler(fIRQ, InterruptHandler, (void *)this, 0);
@@ -560,11 +646,11 @@ UHCI::~UHCI()
 		sPCIx86Module->unconfigure_msi(fPCIInfo->bus,
 			fPCIInfo->device, fPCIInfo->function);
 	}
+
 	put_module(B_PCI_MODULE_NAME);
-	if (sPCIx86Module != NULL) {
-		sPCIx86Module = NULL;
+	if (sPCIx86Module != NULL)
 		put_module(B_PCI_X86_MODULE_NAME);
-	}
+
 	Unlock();
 }
 
@@ -1856,89 +1942,6 @@ UHCI::Interrupt()
 		release_sem_etc(fFinishTransfersSem, 1, B_DO_NOT_RESCHEDULE);
 
 	return result;
-}
-
-
-status_t
-UHCI::AddTo(Stack *stack)
-{
-#ifdef TRACE_USB
-	set_dprintf_enabled(true);
-#endif
-
-	if (!sPCIModule) {
-		status_t status = get_module(B_PCI_MODULE_NAME, (module_info **)&sPCIModule);
-		if (status < B_OK) {
-			TRACE_MODULE_ERROR("AddTo(): getting pci module failed! 0x%08"
-				B_PRIx32 "\n", status);
-			return status;
-		}
-	}
-
-	TRACE_MODULE("AddTo(): setting up hardware\n");
-
-	bool found = false;
-	pci_info *item = new(std::nothrow) pci_info;
-	if (!item) {
-		sPCIModule = NULL;
-		put_module(B_PCI_MODULE_NAME);
-		return B_NO_MEMORY;
-	}
-
-	// Try to get the PCI x86 module as well so we can enable possible MSIs.
-	if (sPCIx86Module == NULL && get_module(B_PCI_X86_MODULE_NAME,
-			(module_info **)&sPCIx86Module) != B_OK) {
-		// If it isn't there, that's not critical though.
-		TRACE_MODULE_ERROR("failed to get pci x86 module\n");
-		sPCIx86Module = NULL;
-	}
-
-	for (int32 i = 0; sPCIModule->get_nth_pci_info(i, item) >= B_OK; i++) {
-
-		if (item->class_base == PCI_serial_bus && item->class_sub == PCI_usb
-			&& item->class_api == PCI_usb_uhci) {
-			if (item->u.h0.interrupt_line == 0
-				|| item->u.h0.interrupt_line == 0xFF) {
-				TRACE_MODULE_ERROR("AddTo(): found with invalid IRQ - check IRQ assignement\n");
-				continue;
-			}
-
-			TRACE_MODULE("AddTo(): found at IRQ %u\n",
-				item->u.h0.interrupt_line);
-			UHCI *bus = new(std::nothrow) UHCI(item, stack);
-			if (!bus) {
-				delete item;
-				sPCIModule = NULL;
-				put_module(B_PCI_MODULE_NAME);
-				return B_NO_MEMORY;
-			}
-
-			if (bus->InitCheck() < B_OK) {
-				TRACE_MODULE_ERROR("AddTo(): InitCheck() failed 0x%08" B_PRIx32
-					"\n", bus->InitCheck());
-				delete bus;
-				continue;
-			}
-
-			// the bus took it away
-			item = new(std::nothrow) pci_info;
-
-			bus->Start();
-			stack->AddBusManager(bus);
-			found = true;
-		}
-	}
-
-	if (!found) {
-		TRACE_MODULE_ERROR("no devices found\n");
-		delete item;
-		sPCIModule = NULL;
-		put_module(B_PCI_MODULE_NAME);
-		return ENODEV;
-	}
-
-	delete item;
-	return B_OK;
 }
 
 

@@ -576,8 +576,8 @@ BootVolume::_OpenSystemPackage()
 	Node* packagesNode = fSystemDirectory->Lookup("packages", false);
 	if (packagesNode == NULL)
 		return -1;
-	MethodDeleter<Node, status_t> packagesNodeReleaser(packagesNode,
-		&Node::Release);
+	MethodDeleter<Node, status_t, &Node::Release>
+		packagesNodeReleaser(packagesNode);
 
 	if (!S_ISDIR(packagesNode->Type()))
 		return -1;
@@ -659,33 +659,28 @@ get_boot_file_system(stage2_args* args, BootVolume& _bootVolume)
 		if (error != B_OK)
 			continue;
 
-		NodeList bootPartitions;
-		error = platform_get_boot_partitions(args, device, &gPartitions, &bootPartitions);
+		Partition *partition;
+		error = platform_get_boot_partition(args, device, &gPartitions, &partition);
 		if (error != B_OK)
 			continue;
 
-		NodeIterator partitionIterator = bootPartitions.GetIterator();
-		while (partitionIterator.HasNext()) {
-			Partition *partition = (Partition*)partitionIterator.Next();
-
-			Directory *fileSystem;
-			error = partition->Mount(&fileSystem, true);
-			if (error != B_OK) {
-				// this partition doesn't contain any known file system; we
-				// don't need it anymore
-				gPartitions.Remove(partition);
-				delete partition;
-				continue;
-			}
-
-			// init the BootVolume
-			error = _bootVolume.SetTo(fileSystem);
-			if (error != B_OK)
-				continue;
-
-			sBootDevice = device;
-			return B_OK;
+		Directory *fileSystem;
+		error = partition->Mount(&fileSystem, true);
+		if (error != B_OK) {
+			// this partition doesn't contain any known file system; we
+			// don't need it anymore
+			gPartitions.Remove(partition);
+			delete partition;
+			continue;
 		}
+
+		// init the BootVolume
+		error = _bootVolume.SetTo(fileSystem);
+		if (error != B_OK)
+			continue;
+
+		sBootDevice = device;
+		return B_OK;
 	}
 
 	return B_ERROR;
@@ -1177,7 +1172,7 @@ open_directory(Directory* baseDirectory, const char* path)
 		errno = error;
 		return NULL;
 	}
-	MethodDeleter<Node, status_t> nodeReleaser(node, &Node::Release);
+	MethodDeleter<Node, status_t, &Node::Release> nodeReleaser(node);
 
 	if (!S_ISDIR(node->Type())) {
 		errno = error;

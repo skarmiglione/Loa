@@ -236,12 +236,14 @@ choose_link_device_configurations(acpi_module_info* acpi,
 			link->possible_irqs);
 		if (status != B_OK) {
 			panic("failed to read possible irqs of link device");
+			delete link;
 			return status;
 		}
 
 		status = read_current_irq(acpi, link->handle, link->current_irq);
 		if (status != B_OK) {
 			panic("failed to read current irq of link device");
+			delete link;
 			return status;
 		}
 
@@ -578,11 +580,14 @@ ensure_all_functions_matched(pci_module_info* pci, uint8 bus,
 			}
 
 			if (!matched) {
-				if (pci->read_pci_config(bus, device, function,
-						PCI_interrupt_line, 1) == 0) {
+				uint32 interrupt_line = pci->read_pci_config(bus, device,
+					function, PCI_interrupt_line, 1);
+				// On x86, interrupt line 255 means "unknown" or "no connection"
+				// (PCI Local Bus spec 3.0, section 6.2.4 / page 223, footnote.)
+				if (interrupt_line == 0 || interrupt_line == 255) {
 					dprintf("assuming no interrupt use on PCI device"
-						" %u:%u:%u (bios irq 0, no routing information)\n",
-						bus, device, function);
+						" %u:%u:%u (bios irq 0, interrupt line %" B_PRId32 ")\n",
+						bus, device, function, interrupt_line);
 					continue;
 				}
 

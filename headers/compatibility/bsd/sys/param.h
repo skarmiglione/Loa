@@ -7,9 +7,10 @@
 
 
 #include_next <sys/param.h>
+#include <features.h>
 
 
-#ifdef _BSD_SOURCE
+#ifdef _DEFAULT_SOURCE
 
 
 #ifndef _ALIGNBYTES
@@ -33,6 +34,8 @@
 #ifndef MAXLOGNAME
 #	define MAXLOGNAME 32
 #endif
+
+#define NBBY 8
 
 
 #endif

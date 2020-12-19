@@ -19,9 +19,6 @@
 #include <pthread_private.h>
 
 
-void initialize_before(image_id imageID);
-void terminate_after(image_id imageID);
-
 struct rld_export *__gRuntimeLoader = NULL;
 	// This little bugger is set to something meaningful by the runtime loader
 	// Ugly, eh?
@@ -33,6 +30,7 @@ int __libc_argc;
 char **__libc_argv;
 
 int __gABIVersion;
+int __gAPIVersion;
 int32 __gCPUCount;
 
 char _single_threaded = true;
@@ -54,6 +52,7 @@ initialize_before(image_id imageID)
 	char *programPath = __gRuntimeLoader->program_args->args[0];
 	__gCommPageAddress = __gRuntimeLoader->commpage_address;
 	__gABIVersion = __gRuntimeLoader->abi_version;
+	__gAPIVersion = __gRuntimeLoader->api_version;
 
 	if (programPath) {
 		if ((__progname = strrchr(programPath, '/')) == NULL)

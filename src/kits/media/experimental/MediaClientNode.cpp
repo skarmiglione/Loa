@@ -13,7 +13,7 @@
 
 #include <string.h>
 
-#include "debug.h"
+#include "MediaDebug.h"
 
 #define B_NEW_BUFFER (BTimedEventQueue::B_USER_EVENT + 1)
 
@@ -675,8 +675,9 @@ BMediaClientNode::_GetNextBuffer(BMediaOutput* output, bigtime_t eventTime)
 {
 	CALLED();
 
-	BBuffer* buffer = NULL;
-	if (output->fBufferGroup->RequestBuffer(buffer, 0) != B_OK) {
+	BBuffer* buffer
+		= output->fBufferGroup->RequestBuffer(output->BufferSize(), 0);
+	if (buffer == NULL) {
 		TRACE("MediaClientNode:::_GetNextBuffer: Failed to get the buffer\n");
 		return NULL;
 	}

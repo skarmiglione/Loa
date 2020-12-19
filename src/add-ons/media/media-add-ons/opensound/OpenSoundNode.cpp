@@ -9,6 +9,7 @@
 
 #include "OpenSoundNode.h"
 
+#include <AutoDeleter.h>
 #include <Autolock.h>
 #include <Buffer.h>
 #include <BufferGroup.h>
@@ -345,7 +346,7 @@ OpenSoundNode::OpenSoundNode(BMediaAddOn* addon, const char* name,
 	// initialize our preferred format object
 	// TODO: this should go away! should use engine's preferred for each afmt.
 #if 1
-	memset(&fPreferredFormat, 0, sizeof(fPreferredFormat));
+	fPreferredFormat = media_format();
 		// set everything to wildcard first
 	fPreferredFormat.type = B_MEDIA_RAW_AUDIO;
 	fPreferredFormat.u.raw_audio = media_multi_audio_format::wildcard;
@@ -2232,7 +2233,10 @@ OpenSoundNode::_PlayThread(NodeInput* input)
 	}
 
 	// cache a silence buffer
-	uint8 silenceBuffer[bufferSize];
+	uint8* silenceBuffer = (uint8*)malloc(bufferSize);
+	if (silenceBuffer == NULL)
+		return B_NO_MEMORY;
+	MemoryDeleter deleter(silenceBuffer);
 	uint8 formatSilence = 0;
 	if (input->fInput.format.u.raw_audio.format
 			== media_raw_audio_format::B_AUDIO_UCHAR)

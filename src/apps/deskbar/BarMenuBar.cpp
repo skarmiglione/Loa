@@ -36,9 +36,12 @@ All rights reserved.
 
 #include "BarMenuBar.h"
 
+#include <algorithm>
+
 #include <Bitmap.h>
 #include <ControlLook.h>
 #include <Debug.h>
+#include <IconUtils.h>
 #include <NodeInfo.h>
 
 #include "icons.h"
@@ -49,10 +52,13 @@ All rights reserved.
 #include "DeskbarMenu.h"
 #include "DeskbarUtils.h"
 #include "ResourceSet.h"
+#include "StatusView.h"
 #include "TeamMenu.h"
 
 
 const float kSepItemWidth = 5.0f;
+
+const float kTeamIconBitmapHeight = 19.f;
 
 
 //	#pragma mark - TSeparatorItem
@@ -101,15 +107,36 @@ TBarMenuBar::TBarMenuBar(BRect frame, const char* name, TBarView* barView)
 	BMenuBar(frame, name, B_FOLLOW_NONE, B_ITEMS_IN_ROW, false),
 	fBarView(barView),
 	fAppListMenuItem(NULL),
-	fSeparatorItem(NULL)
+	fSeparatorItem(NULL),
+	fTeamIconData(NULL),
+	fTeamIconSize(0)
 {
 	SetItemMargins(0.0f, 0.0f, 0.0f, 0.0f);
 
 	TDeskbarMenu* beMenu = new TDeskbarMenu(barView);
 	TBarWindow::SetDeskbarMenu(beMenu);
 
-	fDeskbarMenuItem = new TBarMenuTitle(0.0f, 0.0f,
-		AppResSet()->FindBitmap(B_MESSAGE_TYPE, R_LeafLogoBitmap), beMenu);
+	BBitmap* icon = NULL;
+	size_t dataSize;
+	const void* data = AppResSet()->FindResource(B_VECTOR_ICON_TYPE,
+		R_LeafLogoBitmap, &dataSize);
+	if (data != NULL) {
+		// Scale bitmap according to font size
+		float width = std::max(63.f, ceilf(63 * be_plain_font->Size() / 12.f));
+		// but limit by be_bold_font size
+		width = std::min(width, ceilf(63.f * be_bold_font->Size() / 12.f));
+		float height = std::max(22.f, ceilf(22 * be_plain_font->Size() / 12.f));
+		height = std::min(height, ceilf(22.f * be_bold_font->Size() / 12.f));
+		icon = new BBitmap(BRect(0, 0, width - 1, height - 1), B_RGBA32);
+		if (icon->InitCheck() != B_OK
+			|| BIconUtils::GetVectorIcon((const uint8*)data, dataSize, icon)
+					!= B_OK) {
+			delete icon;
+			icon = NULL;
+		}
+	}
+
+	fDeskbarMenuItem = new TBarMenuTitle(0.0f, 0.0f, icon, beMenu, fBarView);
 	AddItem(fDeskbarMenuItem);
 }
 
@@ -129,16 +156,14 @@ TBarMenuBar::SmartResize(float width, float height)
 	} else
 		ResizeTo(width, height);
 
-	width -= 1;
-
 	if (fSeparatorItem != NULL)
 		fDeskbarMenuItem->SetContentSize(width - kSepItemWidth, height);
 	else {
 		int32 count = CountItems();
-		if (fDeskbarMenuItem)
-			fDeskbarMenuItem->SetContentSize(width / count, height);
-		if (fAppListMenuItem)
-			fAppListMenuItem->SetContentSize(width / count, height);
+		if (fDeskbarMenuItem != NULL)
+			fDeskbarMenuItem->SetContentSize(floorf(width / count), height);
+		if (fAppListMenuItem != NULL)
+			fAppListMenuItem->SetContentSize(floorf(width / count), height);
 	}
 
 	InvalidateLayout();
@@ -154,10 +179,10 @@ TBarMenuBar::AddTeamMenu()
 	BRect frame(Frame());
 
 	delete fAppListMenuItem;
-	fAppListMenuItem = new TBarMenuTitle(0.0f, 0.0f,
-		AppResSet()->FindBitmap(B_MESSAGE_TYPE, R_TeamIcon), new TTeamMenu());
+	fAppListMenuItem = new TBarMenuTitle(0.0f, 0.0f, FetchTeamIcon(),
+		new TTeamMenu(fBarView), fBarView);
 
-	bool added = AddItem(fAppListMenuItem);
+	bool added = AddItem(fAppListMenuItem, fBarView->Left() ? 0 : 1);
 
 	if (added)
 		SmartResize(frame.Width() - 1.0f, frame.Height());
@@ -304,4 +329,37 @@ TBarMenuBar::InitTrackingHook(bool (*hookFunction)(BMenu*, void*),
 
 	if (fAppListMenuItem && (fAppListMenuItem->Frame().Contains(loc) || both))
 		init_tracking_hook(fAppListMenuItem, hookFunction, state);
+}
+
+
+const BBitmap*
+TBarMenuBar::FetchTeamIcon()
+{
+	const BBitmap* teamIcon = NULL;
+
+	if (fTeamIconData == NULL || fTeamIconSize == 0) {
+		// we haven't fetched vector icon data yet, fetch it
+		fTeamIconData = (const uint8*)AppResSet()->FindResource(
+			B_VECTOR_ICON_TYPE, R_TeamIconVector, &fTeamIconSize);
+	}
+
+	if (fTeamIconData != NULL && fTeamIconSize > 0) {
+		// seems valid, scale bitmap according to font size
+		float iconHeight = std::max(kTeamIconBitmapHeight,
+			ceilf(kTeamIconBitmapHeight * be_plain_font->Size() / 12.f));
+		// but limit by be_bold_font_size
+		iconHeight = std::min(iconHeight,
+			ceilf(kTeamIconBitmapHeight * be_bold_font->Size() / 12.f));
+		BRect iconRect = BRect(0, 0, iconHeight, iconHeight);
+		iconRect.InsetBy(-1, -1);
+			// grow icon by 1px so that it renders nicely at 12pt font size
+		BBitmap* icon = new(std::nothrow) BBitmap(iconRect, B_RGBA32);
+		if (icon != NULL && BIconUtils::GetVectorIcon(fTeamIconData,
+				fTeamIconSize, icon) == B_OK) {
+			// rasterize vector icon into a bitmap at the scaled size
+			teamIcon = icon;
+		}
+	}
+
+	return teamIcon;
 }

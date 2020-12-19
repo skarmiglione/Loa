@@ -14,16 +14,11 @@
 #define	HAVE_GNU_LD 1
 
 /* Define if using ELF, which supports weak symbols.
-   This implies HAVE_ASM_WEAK_DIRECTIVE and NO_UNDERSCORES; set by
-   --with-elf.  */
+   This implies HAVE_ASM_WEAK_DIRECTIVE set by --with-elf.  */
 #define	HAVE_ELF 1
 
 /* Define if using XCOFF. Set by --with-xcoff.  */
 #undef	HAVE_XCOFF
-
-/* Define if C symbols are asm symbols.  Don't define if C symbols
-   have a `_' prepended to make the asm symbol.  */
-#define	NO_UNDERSCORES 1
 
 /* Define if weak symbols are available via the `.weak' directive.  */
 #define	HAVE_ASM_WEAK_DIRECTIVE 1
@@ -110,7 +105,7 @@
 
 /* Define if the regparm attribute shall be used for local functions
    (gcc on ix86 only).  */
-#define	USE_REGPARMS 1
+#undef	USE_REGPARMS
 
 /* Defined on PowerPC if the GCC being used has a problem with clobbering
    certain registers (CR0, MQ, CTR, LR) in asm statements.  */

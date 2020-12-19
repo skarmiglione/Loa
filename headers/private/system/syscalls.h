@@ -338,6 +338,7 @@ extern status_t		_kern_lock_node(int fd);
 extern status_t		_kern_unlock_node(int fd);
 extern status_t		_kern_get_next_fd_info(team_id team, uint32 *_cookie,
 						struct fd_info *info, size_t infoSize);
+extern status_t		_kern_preallocate(int fd, off_t offset, off_t length);
 
 // socket functions
 extern int			_kern_socket(int family, int type, int protocol);
@@ -447,6 +448,9 @@ extern status_t		_kern_memory_advice(void *address, size_t size,
 extern status_t		_kern_get_memory_properties(team_id teamID,
 						const void *address, uint32* _protected, uint32* _lock);
 
+extern status_t		_kern_mlock(const void* address, size_t size);
+extern status_t		_kern_munlock(const void* address, size_t size);
+
 /* kernel port functions */
 extern port_id		_kern_create_port(int32 queue_length, const char *name);
 extern status_t		_kern_close_port(port_id id);
@@ -549,7 +553,7 @@ extern void			_kern_clear_caches(void *address, size_t length,
 extern bool			_kern_cpu_enabled(int32 cpu);
 extern status_t		_kern_set_cpu_enabled(int32 cpu, bool enabled);
 
-#if defined(__INTEL__) || defined(__x86_64__)
+#if defined(__i386__) || defined(__x86_64__)
 // our only x86 only syscall
 extern status_t		_kern_get_cpuid(cpuid_info *info, uint32 eax, uint32 cpu);
 #endif

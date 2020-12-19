@@ -66,7 +66,7 @@ printf("ReadyToRun()\n");
 
 	}
 
-    virtual void RefsReceived(BMessage* message)
+	virtual void RefsReceived(BMessage* message)
 	{
 printf("RefsReceived()\n");
 	}
@@ -79,7 +79,7 @@ private:
 		MainWindow* window;
 		try {
 			window = new MainWindow(dataSource);
-		} catch (std::bad_alloc) {
+		} catch (std::bad_alloc&) {
 			fprintf(stderr, "DebugAnalyzer::_CreateWindow(): Out of memory!\n");
 			return B_NO_MEMORY;
 		}

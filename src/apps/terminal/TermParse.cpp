@@ -6,6 +6,7 @@
  *
  * Authors:
  *		Kian Duffy, myob@users.sourceforge.net
+ *		Simon South, simon@simonsouth.net
  *		Siarzhuk Zharski, zharik@gmx.li
  */
 
@@ -1311,9 +1312,10 @@ TermParse::_DeviceStatusReport(int n)
 			}
 		case 6:
 			// Cursor position report requested
-			len = sprintf(sbuf, "\033[%" B_PRId32 ";%" B_PRId32 "R",
-					fBuffer->Cursor().y + 1,
-					fBuffer->Cursor().x + 1);
+			len = snprintf(sbuf, sizeof(sbuf),
+				"\033[%" B_PRId32 ";%" B_PRId32 "R",
+				fBuffer->Cursor().y + 1,
+				fBuffer->Cursor().x + 1);
 			write(fFd, sbuf, len);
 			break ;
 		default:
@@ -1393,13 +1395,17 @@ TermParse::_DecPrivateModeSet(int value)
 			// Use All Motion Mouse Tracking
 			fBuffer->ReportAnyMouseEvent(true);
 			break;
+		case 1006:
+			// Enable extended mouse coordinates with SGR scheme
+			fBuffer->EnableExtendedMouseCoordinates(true);
+			break;
 		case 1034:
-			// TODO: Interprete "meta" key, sets eighth bit.
-			// Not supported yet.
+			// Interpret "meta" key, sets eighth bit.
+			fBuffer->EnableInterpretMetaKey(true);
 			break;
 		case 1036:
-			// TODO: Send ESC when Meta modifies a key
-			// Not supported yet.
+			// Send ESC when Meta modifies a key
+			fBuffer->EnableMetaKeySendsEscape(true);
 			break;
 		case 1039:
 			// TODO: Send ESC when Alt modifies a key
@@ -1468,13 +1474,17 @@ TermParse::_DecPrivateModeReset(int value)
 			// Disable All Motion Mouse Tracking.
 			fBuffer->ReportAnyMouseEvent(false);
 			break;
+		case 1006:
+			// Disable extended mouse coordinates with SGR scheme
+			fBuffer->EnableExtendedMouseCoordinates(false);
+			break;
 		case 1034:
-			// Don't interprete "meta" key.
-			// Not supported yet.
+			// Don't interpret "meta" key.
+			fBuffer->EnableInterpretMetaKey(false);
 			break;
 		case 1036:
-			// TODO: Don't send ESC when Meta modifies a key
-			// Not supported yet.
+			// Don't send ESC when Meta modifies a key
+			fBuffer->EnableMetaKeySendsEscape(false);
 			break;
 		case 1039:
 			// TODO: Don't send ESC when Alt modifies a key

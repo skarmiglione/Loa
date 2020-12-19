@@ -1,5 +1,5 @@
 /*
- * Copyright 2004-2006, Haiku Inc. All rights reserved.
+ * Copyright 2004-2020, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -21,6 +21,8 @@ Pipe::Pipe(Object *parent)
 
 Pipe::~Pipe()
 {
+	PutUSBID();
+
 	CancelQueuedTransfers(true);
 	GetBusManager()->NotifyPipeChange(this, USB_CHANGE_DESTROYED);
 }
@@ -40,7 +42,18 @@ Pipe::InitCommon(int8 deviceAddress, uint8 endpointAddress, usb_speed speed,
 	fHubAddress = hubAddress;
 	fHubPort = hubPort;
 
+	fMaxBurst = 0;
+	fBytesPerInterval = 0;
+
 	GetBusManager()->NotifyPipeChange(this, USB_CHANGE_CREATED);
+}
+
+
+void
+Pipe::InitSuperSpeed(uint8 maxBurst, uint16 bytesPerInterval)
+{
+	fMaxBurst = maxBurst;
+	fBytesPerInterval = bytesPerInterval;
 }
 
 
@@ -71,7 +84,11 @@ status_t
 Pipe::SetFeature(uint16 selector)
 {
 	TRACE("set feature %u\n", selector);
-	return ((Device *)Parent())->DefaultPipe()->SendRequest(
+	Device *device = (Device *)Parent();
+	if (device->InitCheck() != B_OK)
+		return B_NO_INIT;
+
+	return device->DefaultPipe()->SendRequest(
 		USB_REQTYPE_STANDARD | USB_REQTYPE_ENDPOINT_OUT,
 		USB_REQUEST_SET_FEATURE,
 		selector,
@@ -87,12 +104,16 @@ Pipe::SetFeature(uint16 selector)
 status_t
 Pipe::ClearFeature(uint16 selector)
 {
+	Device *device = (Device *)Parent();
+	if (device->InitCheck() != B_OK)
+		return B_NO_INIT;
+
 	// clearing a stalled condition resets the data toggle
 	if (selector == USB_FEATURE_ENDPOINT_HALT)
 		SetDataToggle(false);
 
 	TRACE("clear feature %u\n", selector);
-	return ((Device *)Parent())->DefaultPipe()->SendRequest(
+	return device->DefaultPipe()->SendRequest(
 		USB_REQTYPE_STANDARD | USB_REQTYPE_ENDPOINT_OUT,
 		USB_REQUEST_CLEAR_FEATURE,
 		selector,
@@ -109,7 +130,11 @@ status_t
 Pipe::GetStatus(uint16 *status)
 {
 	TRACE("get status\n");
-	return ((Device *)Parent())->DefaultPipe()->SendRequest(
+	Device *device = (Device *)Parent();
+	if (device->InitCheck() != B_OK)
+		return B_NO_INIT;
+
+	return device->DefaultPipe()->SendRequest(
 		USB_REQTYPE_STANDARD | USB_REQTYPE_ENDPOINT_IN,
 		USB_REQUEST_GET_STATUS,
 		0,
@@ -344,7 +369,7 @@ ControlPipe::InitCommon(int8 deviceAddress, uint8 endpointAddress,
 		case USB_SPEED_HIGHSPEED:
 			maxPacketSize = 64;
 			break;
-		case USB_SPEED_SUPER:
+		case USB_SPEED_SUPERSPEED:
 			maxPacketSize = 512;
 			break;
 

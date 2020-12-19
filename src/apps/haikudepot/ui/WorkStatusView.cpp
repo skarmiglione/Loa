@@ -1,5 +1,6 @@
 /*
  * Copyright 2017 Julian Harnath <julian.harnath@rwth-aachen.de>
+ * Copyright 2020 Andrew Lindesay <apl@lindesay.co.nz>
  * All rights reserved. Distributed under the terms of the MIT license.
  */
 
@@ -11,6 +12,7 @@
 #include <LayoutBuilder.h>
 #include <SeparatorView.h>
 #include <StatusBar.h>
+#include <StringFormat.h>
 #include <StringView.h>
 
 #include <stdio.h>
@@ -20,6 +22,12 @@
 
 #undef B_TRANSLATION_CONTEXT
 #define B_TRANSLATION_CONTEXT "WorkStatusView"
+
+#define VIEW_INDEX_BARBER_POLE	(int32) 0
+#define VIEW_INDEX_PROGRESS_BAR	(int32) 1
+
+
+static const BSize kStatusBarSize = BSize(100,20);
 
 
 WorkStatusView::WorkStatusView(const char* name)
@@ -35,8 +43,10 @@ WorkStatusView::WorkStatusView(const char* name)
 	fProgressLayout->AddView(fBarberPole);
 	fProgressLayout->AddView(fProgressBar);
 
+	fBarberPole->SetExplicitSize(kStatusBarSize);
 	fProgressBar->SetMaxValue(1.0f);
-	fProgressBar->SetBarHeight(20);
+	fProgressBar->SetBarHeight(kStatusBarSize.Height());
+	fProgressBar->SetExplicitSize(kStatusBarSize);
 
 	fStatusText->SetFontSize(be_plain_font->Size() * 0.9f);
 
@@ -69,8 +79,8 @@ void
 WorkStatusView::SetBusy()
 {
 	fBarberPole->Start();
-	if (fProgressLayout->VisibleIndex() != 0)
-		fProgressLayout->SetVisibleItem((int32)0);
+	if (fProgressLayout->VisibleIndex() != VIEW_INDEX_BARBER_POLE)
+		fProgressLayout->SetVisibleItem(VIEW_INDEX_BARBER_POLE);
 }
 
 
@@ -78,7 +88,7 @@ void
 WorkStatusView::SetIdle()
 {
 	fBarberPole->Stop();
-	fProgressLayout->SetVisibleItem((int32)0);
+	fProgressLayout->SetVisibleItem(VIEW_INDEX_BARBER_POLE);
 	SetText(NULL);
 }
 
@@ -87,8 +97,8 @@ void
 WorkStatusView::SetProgress(float value)
 {
 	fProgressBar->SetTo(value);
-	if (fProgressLayout->VisibleIndex() != 1)
-		fProgressLayout->SetVisibleItem(1);
+	if (fProgressLayout->VisibleIndex() != VIEW_INDEX_PROGRESS_BAR)
+		fProgressLayout->SetVisibleItem(VIEW_INDEX_PROGRESS_BAR);
 }
 
 
@@ -144,12 +154,11 @@ void
 WorkStatusView::_SetTextPendingDownloads()
 {
 	BString text;
-	const size_t pendingCount = fPendingPackages.size();
-	text << pendingCount;
-	if (pendingCount > 1)
-		text << B_TRANSLATE(" packages to download");
-	else
-		text << B_TRANSLATE(" package to download");
+	static BStringFormat format(B_TRANSLATE("{0, plural,"
+ 		"one{1 package to download}"
+		"other{# packages to download}}"));
+		format.Format(text, fPendingPackages.size());
+
 	SetText(text);
 }
 
@@ -157,12 +166,17 @@ WorkStatusView::_SetTextPendingDownloads()
 void
 WorkStatusView::_SetTextDownloading(const BString& title)
 {
-	BString text(B_TRANSLATE("Downloading package "));
-	text << title;
+	BString text(B_TRANSLATE("Downloading package '%name%'"));
+	text.ReplaceFirst("%name%", title);
+
 	if (!fPendingPackages.empty()) {
-		text << " (";
-		text << fPendingPackages.size();
-		text << B_TRANSLATE(" more to download)");
+		BString more;
+		static BStringFormat format(B_TRANSLATE("{0, plural,"
+			"one{(1 more to download)}"
+			"other{(# more to download)}}"));
+		format.Format(more, fPendingPackages.size());
+		text += " ";
+		text += more;
 	}
 	SetText(text);
 }

@@ -1,6 +1,6 @@
 /*
  * Copyright 2018, Jérôme Duval, jerome.duval@gmail.com.
- * Copyright 2002-2015, Axel Dörfler, axeld@pinc-software.de.
+ * Copyright 2002-2020, Axel Dörfler, axeld@pinc-software.de.
  * Distributed under the terms of the MIT License.
  *
  * Copyright 2001-2002, Travis Geiselbrecht. All rights reserved.
@@ -8,7 +8,7 @@
  */
 
 
-/*! This is main - initializes the kernel and launches the Bootscript */
+/*! This is main - initializes the kernel and launches the launch_daemon */
 
 
 #include <string.h>
@@ -96,7 +96,11 @@ non_boot_cpu_init(void* args, int currentCPU)
 extern "C" int
 _start(kernel_args *bootKernelArgs, int currentCPU)
 {
-	if (bootKernelArgs->kernel_args_size != sizeof(kernel_args)
+	if (bootKernelArgs->version == CURRENT_KERNEL_ARGS_VERSION
+		&& bootKernelArgs->kernel_args_size == kernel_args_size_v1) {
+		sKernelArgs.ucode_data = NULL;
+		sKernelArgs.ucode_data_size = 0;
+	} else if (bootKernelArgs->kernel_args_size != sizeof(kernel_args)
 		|| bootKernelArgs->version != CURRENT_KERNEL_ARGS_VERSION) {
 		// This is something we cannot handle right now - release kernels
 		// should always be able to handle the kernel_args of earlier
@@ -113,7 +117,7 @@ _start(kernel_args *bootKernelArgs, int currentCPU)
 
 	// the passed in kernel args are in a non-allocated range of memory
 	if (currentCPU == 0)
-		memcpy(&sKernelArgs, bootKernelArgs, sizeof(kernel_args));
+		memcpy(&sKernelArgs, bootKernelArgs, bootKernelArgs->kernel_args_size);
 
 	smp_cpu_rendezvous(&sCpuRendezvous2);
 
@@ -130,7 +134,8 @@ _start(kernel_args *bootKernelArgs, int currentCPU)
 		debug_init(&sKernelArgs);
 		set_dprintf_enabled(true);
 		dprintf("Welcome to kernel debugger output!\n");
-		dprintf("Haiku revision: %s\n", get_haiku_revision());
+		dprintf("Haiku revision: %s, debug level: %d\n", get_haiku_revision(),
+			KDEBUG_LEVEL);
 
 		// init modules
 		TRACE("init CPU\n");

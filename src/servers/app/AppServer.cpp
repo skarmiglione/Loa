@@ -14,6 +14,7 @@
 
 #include <syslog.h>
 
+#include <AutoDeleter.h>
 #include <LaunchRoster.h>
 #include <PortLink.h>
 
@@ -69,11 +70,13 @@ AppServer::AppServer(status_t* status)
 	// Create the bitmap allocator. Object declared in BitmapManager.cpp
 	gBitmapManager = new BitmapManager();
 
+#ifndef HAIKU_TARGET_PLATFORM_LIBBE_TEST
 	// TODO: check the attached displays, and launch login session for them
 	BMessage data;
 	data.AddString("name", "app_server");
 	data.AddInt32("session", 0);
 	BLaunchRoster().Target("login", data);
+#endif
 }
 
 
@@ -172,20 +175,19 @@ Desktop*
 AppServer::_CreateDesktop(uid_t userID, const char* targetScreen)
 {
 	BAutolock locker(fDesktopLock);
-	Desktop* desktop = NULL;
+	ObjectDeleter<Desktop> desktop;
 	try {
-		desktop = new Desktop(userID, targetScreen);
+		desktop.SetTo(new Desktop(userID, targetScreen));
 
 		status_t status = desktop->Init();
 		if (status == B_OK)
 			status = desktop->Run();
-		if (status == B_OK && !fDesktops.AddItem(desktop))
+		if (status == B_OK && !fDesktops.AddItem(desktop.Get()))
 			status = B_NO_MEMORY;
 
 		if (status != B_OK) {
 			syslog(LOG_ERR, "Cannot initialize Desktop object: %s\n",
 				strerror(status));
-			delete desktop;
 			return NULL;
 		}
 	} catch (...) {
@@ -193,7 +195,7 @@ AppServer::_CreateDesktop(uid_t userID, const char* targetScreen)
 		return NULL;
 	}
 
-	return desktop;
+	return desktop.Detach();
 }
 
 

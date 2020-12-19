@@ -1,6 +1,6 @@
 /*
 ** Copyright 2011, Oliver Tappe, zooey@hirschkaefer.de. All rights reserved.
-** Distributed under the terms of the Haiku License.
+** Distributed under the terms of the MIT License.
 */
 
 #include <errno.h>
@@ -102,7 +102,6 @@ __wcsnrtombs(char* dst, const wchar_t** src, size_t nwc, size_t len,
 }
 
 
-extern "C"
 B_DEFINE_WEAK_ALIAS(__wcsnrtombs, wcsnrtombs);
 
 
@@ -118,5 +117,4 @@ __wcsrtombs(char* dst, const wchar_t** src, size_t len, mbstate_t* ps)
 }
 
 
-extern "C"
 B_DEFINE_WEAK_ALIAS(__wcsrtombs, wcsrtombs);

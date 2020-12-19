@@ -10,8 +10,8 @@
  *		Oliver Tappe, openbeos@hirschaefer.de
  *
  * Corresponds to:
- *		headers/os/support/String.h  rev 43319
- *		src/kits/support/String.cpp  rev 42682
+ *		headers/os/support/String.h  rev 50791
+ *		src/kits/support/String.cpp  rev 52836
  */
 
 
@@ -445,6 +445,47 @@
 */
 
 
+/*!
+	\fn BString& BString::SetToFormatVarArgs(const char* format, va_list args)
+	\brief Sets the string to a formatted string ala <tt>sprintf()</tt>.
+
+	\param format The \a format string to use.
+	\param args The rest of the parameters that are filled into \a format.
+
+	\return This method always returns \c *this.
+
+	\since Haiku R1
+*/
+
+
+/*!
+	\fn int BString::ScanWithFormat(const char* format, ...)
+	\brief Parse a formatted string and save elements to variables ala
+		<tt>scanf()</tt>.
+	
+	\param format The \a format string to use.
+	\param ... The parameters that you want to store the parsed data into.
+
+	\return This method returns the number of items that were parsed.
+
+	\since Haiku R1
+*/
+
+
+/*!
+	\fn int BString::ScanWithFormatVarArgs(const char* format, va_list args)
+	\brief Parse a formatted string and save elements to variables ala
+		<tt>scanf()</tt>.
+	
+	\param format The \a format string to use.
+	\param args The parameters that you want to store the parsed data into.
+
+	\return This method returns the number of items that were parsed.
+
+	\since Haiku R1
+*/
+
+
 //! @}
 
 
@@ -592,18 +633,6 @@
 	\return This method always returns \c *this.
 
 	\sa Append(char, int32)
-*/
-
-
-/*!
-	\fn BString& BString::operator+=(const BString& string)
-	\brief Append the given \a string to the end of the BString.
-
-	\param string The string to append.
-
-	\return This method always returns \c *this.
-
-	\sa Append(const BString&, int32)
 */
 
 
@@ -1542,6 +1571,27 @@
 
 
 /*!
+	\fn int BString::CompareAt(size_t offset, const BString& string,
+		int32 length) const
+	\brief Lexicographically compare \a length of characters of this BString to
+		another \a string, starting at \a offset.
+	
+	\param offset The offset (in bytes) to start comparison.
+	\param string The \a string to compare against.
+	\param length The number of bytes to compare.
+
+	\return An int representing the strings relationship to each other.
+	\retval >0 The BString sorts lexicographically after \a string.
+	\retval =0 The BString is equal to \a string.
+	\retval <0 The BString sorts lexicographically before \a string.
+
+	\sa Compare(const BString&, int32) const
+
+	\since Haiku R1
+*/
+
+
+/*!
 	\fn int BString::CompareChars(const BString& string, int32 charCount) const
 	\brief UTF-8 aware version of Compare(const BString&, int32).
 
@@ -1935,8 +1985,6 @@
 /*!
 	\fn int32 BString::IFindFirst(const char* string) const
 	\brief Find the first occurrence of the given \a string case-insensitively.
-
-	\param string The \a string to search for.
 
 	\copydetails FindFirst(const char*) const
 */
@@ -2509,7 +2557,7 @@
 */
 
 
-// @}
+//! @}
 
 
 /*!
@@ -2518,24 +2566,6 @@
 
 
 //! @{
-
-
-/*!
-	\fn char& BString::operator[](int32 index)
-	\brief Return a reference to the data at the given offset.
-
-	This function can be used to read a byte.
-	There is no bounds checking though, so make sure the \c index
-	you supply is valid.
-
-	\param index The index (zero-based) of the byte to get.
-
-	\return Returns a reference to the specified byte.
-
-	\sa ByteAt(int32 index) for a safer version.
-
-	\since BeOS R5
-*/
 
 
 /*!
@@ -2644,6 +2674,19 @@
 	\return This method always returns \c *this.
 
 	\since BeOS R5
+*/
+
+
+/*!
+	\fn BString& BString::SetByteAt(int32 pos, char to)
+	\brief Set a byte at position \a pos to character \a to.
+
+	\param pos The index of the byte to replace.
+	\param to The new value that should replace the previous byte.
+
+	\return This method always returns \c *this.
+
+	\since Haiku R1
 */
 
 

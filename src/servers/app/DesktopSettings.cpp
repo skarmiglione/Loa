@@ -54,7 +54,7 @@ DesktopSettingsPrivate::_SetDefaults()
 
 	fMouseMode = B_NORMAL_MOUSE;
 	fFocusFollowsMouseMode = B_NORMAL_FOCUS_FOLLOWS_MOUSE;
-	fAcceptFirstClick = false;
+	fAcceptFirstClick = true;
 	fShowAllDraggers = true;
 
 	// init scrollbar info
@@ -82,7 +82,7 @@ DesktopSettingsPrivate::_SetDefaults()
 	memcpy(fShared.colors, BPrivate::kDefaultColors,
 		sizeof(rgb_color) * kColorWhichCount);
 
-	gSubpixelAntialiasing = false;
+	gSubpixelAntialiasing = true;
 	gDefaultHintingMode = HINTING_MODE_ON;
 	gSubpixelAverageWeight = 120;
 	gSubpixelOrderingRGB = true;
@@ -176,7 +176,8 @@ DesktopSettingsPrivate::_Load()
 				&& settings.FindString("fixed style", &style) == B_OK
 				&& settings.FindFloat("fixed size", &size) == B_OK) {
 				FontStyle* fontStyle = gFontManager->GetStyle(family, style);
-				if (fontStyle != NULL && fontStyle->IsFixedWidth())
+				if (fontStyle != NULL && (fontStyle->IsFixedWidth()
+						|| fontStyle->IsFullAndHalfFixed()))
 					fFixedFont.SetStyle(fontStyle);
 				fFixedFont.SetSize(size);
 			}
@@ -291,6 +292,11 @@ DesktopSettingsPrivate::_Load()
 			if (settings.FindBool("subpixel ordering", &subpixelOrdering)
 					== B_OK) {
 				gSubpixelOrderingRGB = subpixelOrdering;
+			}
+
+			const char* controlLook;
+			if (settings.FindString("control look", &controlLook) == B_OK) {
+				fControlLook = controlLook;
 			}
 
 			// colors
@@ -441,6 +447,8 @@ DesktopSettingsPrivate::Save(uint32 mask)
 			settings.AddBool("subpixel antialiasing", gSubpixelAntialiasing);
 			settings.AddInt8("subpixel average weight", gSubpixelAverageWeight);
 			settings.AddBool("subpixel ordering", gSubpixelOrderingRGB);
+
+			settings.AddString("control look", fControlLook);
 
 			for (int32 i = 0; i < kColorWhichCount; i++) {
 				char colorName[12];
@@ -785,6 +793,21 @@ DesktopSettingsPrivate::IsSubpixelOrderingRegular() const
 }
 
 
+status_t
+DesktopSettingsPrivate::SetControlLook(const char* path)
+{
+	fControlLook = path;
+	return Save(kAppearanceSettings);
+}
+
+
+const BString&
+DesktopSettingsPrivate::ControlLook() const
+{
+	return fControlLook;
+}
+
+
 void
 DesktopSettingsPrivate::_ValidateWorkspacesLayout(int32& columns,
 	int32& rows) const
@@ -807,7 +830,7 @@ DesktopSettingsPrivate::_ValidateWorkspacesLayout(int32& columns,
 
 DesktopSettings::DesktopSettings(Desktop* desktop)
 	:
-	fSettings(desktop->fSettings)
+	fSettings(desktop->fSettings.Get())
 {
 
 }
@@ -939,6 +962,13 @@ DesktopSettings::IsSubpixelOrderingRegular() const
 	return fSettings->IsSubpixelOrderingRegular();
 }
 
+
+const BString&
+DesktopSettings::ControlLook() const
+{
+	return fSettings->ControlLook();
+}
+
 //	#pragma mark - write access
 
 
@@ -1057,5 +1087,12 @@ void
 LockedDesktopSettings::SetSubpixelOrderingRegular(bool subpixelOrdering)
 {
 	fSettings->SetSubpixelOrderingRegular(subpixelOrdering);
+}
+
+
+status_t
+LockedDesktopSettings::SetControlLook(const char* path)
+{
+	return fSettings->SetControlLook(path);
 }
 

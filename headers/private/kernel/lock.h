@@ -26,7 +26,6 @@ typedef struct mutex {
 	thread_id				holder;
 #else
 	int32					count;
-	uint16					ignore_unlock_count;
 #endif
 	uint8					flags;
 } mutex;
@@ -38,6 +37,8 @@ typedef struct recursive_lock {
 	mutex		lock;
 #if !KDEBUG
 	thread_id	holder;
+#else
+	int32		_unused;
 #endif
 	int			recursion;
 } recursive_lock;
@@ -98,12 +99,12 @@ typedef struct rw_lock {
 #	define RECURSIVE_LOCK_INITIALIZER(name)	{ MUTEX_INITIALIZER(name), 0 }
 #else
 #	define MUTEX_INITIALIZER(name) \
-	{ name, NULL, B_SPINLOCK_INITIALIZER, 0, 0, 0 }
+	{ name, NULL, B_SPINLOCK_INITIALIZER, 0, 0 }
 #	define RECURSIVE_LOCK_INITIALIZER(name)	{ MUTEX_INITIALIZER(name), -1, 0 }
 #endif
 
 #define RW_LOCK_INITIALIZER(name) \
-	{ name, NULL, B_SPINLOCK_INITIALIZER, -1, 0, 0, 0 }
+	{ name, NULL, B_SPINLOCK_INITIALIZER, -1, 0, 0, 0, 0, 0 }
 
 
 #if KDEBUG
@@ -125,6 +126,19 @@ extern void recursive_lock_destroy(recursive_lock *lock);
 extern status_t recursive_lock_lock(recursive_lock *lock);
 extern status_t recursive_lock_trylock(recursive_lock *lock);
 extern void recursive_lock_unlock(recursive_lock *lock);
+extern status_t recursive_lock_switch_lock(recursive_lock* from,
+	recursive_lock* to);
+	// Unlocks "from" and locks "to" such that unlocking and starting to wait
+	// for the lock is atomic. I.e. if "from" guards the object "to" belongs
+	// to, the operation is safe as long as "from" is held while destroying
+	// "to".
+extern status_t recursive_lock_switch_from_mutex(mutex* from,
+	recursive_lock* to);
+	// Like recursive_lock_switch_lock(), just for switching from a mutex.
+extern status_t recursive_lock_switch_from_read_lock(rw_lock* from,
+	recursive_lock* to);
+	// Like recursive_lock_switch_lock(), just for switching from a read-locked
+	// rw_lock.
 extern int32 recursive_lock_get_recursion(recursive_lock *lock);
 
 extern void rw_lock_init(rw_lock* lock, const char* name);
@@ -137,14 +151,14 @@ extern void mutex_init(mutex* lock, const char* name);
 	// name is *not* cloned nor freed in mutex_destroy()
 extern void mutex_init_etc(mutex* lock, const char* name, uint32 flags);
 extern void mutex_destroy(mutex* lock);
+extern void mutex_transfer_lock(mutex* lock, thread_id thread);
 extern status_t mutex_switch_lock(mutex* from, mutex* to);
 	// Unlocks "from" and locks "to" such that unlocking and starting to wait
-	// for the lock is atomically. I.e. if "from" guards the object "to" belongs
+	// for the lock is atomic. I.e. if "from" guards the object "to" belongs
 	// to, the operation is safe as long as "from" is held while destroying
 	// "to".
 extern status_t mutex_switch_from_read_lock(rw_lock* from, mutex* to);
-	// Like mutex_switch_lock(), just for a switching from a read-locked
-	// rw_lock.
+	// Like mutex_switch_lock(), just for switching from a read-locked rw_lock.
 
 
 // implementation private:
@@ -261,22 +275,13 @@ mutex_unlock(mutex* lock)
 
 
 static inline void
-mutex_transfer_lock(mutex* lock, thread_id thread)
-{
-#if KDEBUG
-	lock->holder = thread;
-#endif
-}
-
-
-static inline void
 recursive_lock_transfer_lock(recursive_lock* lock, thread_id thread)
 {
 	if (lock->recursion != 1)
 		panic("invalid recursion level for lock transfer!");
 
 #if KDEBUG
-	lock->lock.holder = thread;
+	mutex_transfer_lock(&lock->lock, thread);
 #else
 	lock->holder = thread;
 #endif

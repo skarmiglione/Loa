@@ -1151,12 +1151,6 @@ TCPEndpoint::_EnterTimeWait()
 
 	if (fState == TIME_WAIT) {
 		_CancelConnectionTimers();
-
-		if (IsLocal()) {
-			// we do not use TIME_WAIT state for local connections
-			fFlags |= FLAG_DELETE_ON_CLOSE;
-			return;
-		}
 	}
 
 	_UpdateTimeWait();
@@ -1217,10 +1211,9 @@ TCPEndpoint::_MarkEstablished()
 	fState = ESTABLISHED;
 	T(State(this));
 
-	if (gSocketModule->has_parent(socket)) {
-		gSocketModule->set_connected(socket);
+	gSocketModule->set_connected(socket);
+	if (gSocketModule->has_parent(socket))
 		release_sem_etc(fAcceptSemaphore, 1, B_DO_NOT_RESCHEDULE);
-	}
 
 	fSendCondition.NotifyAll();
 	gSocketModule->notify(socket, B_SELECT_WRITE, fSendQueue.Free());
@@ -1906,8 +1899,10 @@ TCPEndpoint::SegmentReceived(tcp_segment_header& segment, net_buffer* buffer)
 
 	if ((fFlags & (FLAG_CLOSED | FLAG_DELETE_ON_CLOSE))
 			== (FLAG_CLOSED | FLAG_DELETE_ON_CLOSE)) {
+
 		locker.Unlock();
-		gSocketModule->release_socket(socket);
+		if (gSocketModule->release_socket(socket))
+			segmentAction |= DELETED_ENDPOINT;
 	}
 
 	return segmentAction;
@@ -2084,12 +2079,6 @@ TCPEndpoint::_SendQueued(bool force, uint32 sendWindow)
 	} else
 		sendWindow -= consumedWindow;
 
-	if (force && sendWindow == 0 && fSendNext <= fSendQueue.LastSequence()) {
-		// send one byte of data to ask for a window update
-		// (triggered by the persist timer)
-		sendWindow = 1;
-	}
-
 	uint32 length = min_c(fSendQueue.Available(fSendNext), sendWindow);
 	bool shouldStartRetransmitTimer = fSendNext == fSendUnacknowledged;
 	bool retransmit = fSendNext < fSendMax;
@@ -2104,7 +2093,7 @@ TCPEndpoint::_SendQueued(bool force, uint32 sendWindow)
 			- tcp_options_length(segment);
 		uint32 segmentLength = min_c(length, segmentMaxSize);
 
-		if (fSendNext + segmentLength == fSendQueue.LastSequence()) {
+		if (fSendNext + segmentLength == fSendQueue.LastSequence() && !force) {
 			if (state_needs_finish(fState))
 				segment.flags |= TCP_FLAG_FINISH;
 			if (length > 0)
@@ -2540,7 +2529,7 @@ TCPEndpoint::Dump() const
 	kprintf("    max segment size: %" B_PRIu32 "\n", fSendMaxSegmentSize);
 	kprintf("    queue: %" B_PRIuSIZE " / %" B_PRIuSIZE "\n", fSendQueue.Used(),
 		fSendQueue.Size());
-#if DEBUG_BUFFER_QUEUE
+#if DEBUG_TCP_BUFFER_QUEUE
 	fSendQueue.Dump();
 #endif
 	kprintf("    last acknowledge sent: %" B_PRIu32 "\n",
@@ -2556,7 +2545,7 @@ TCPEndpoint::Dump() const
 	kprintf("    max segment size: %" B_PRIu32 "\n", fReceiveMaxSegmentSize);
 	kprintf("    queue: %" B_PRIuSIZE " / %" B_PRIuSIZE "\n",
 		fReceiveQueue.Available(), fReceiveQueue.Size());
-#if DEBUG_BUFFER_QUEUE
+#if DEBUG_TCP_BUFFER_QUEUE
 	fReceiveQueue.Dump();
 #endif
 	kprintf("    initial sequence: %" B_PRIu32 "\n",

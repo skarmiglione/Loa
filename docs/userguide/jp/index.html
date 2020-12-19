@@ -10,50 +10,53 @@
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		satashun
- *		Kentaro Ozeki
  *		log-1
  *		mt
+ *		Kentaro Ozeki
+ *		satashun
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
 	<meta http-equiv="Content-Style-Type" content="text/css" />
 	<meta name="robots" content="all" />
-	<title>目次</title>
+	<title>インデックス</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 	<link rel="stylesheet" type="text/css" href="../Haiku-doc.css" />
 </head>
 <body>
 
 <div id="banner">
-<div><span>ユーザーガイド</span></div>
+<div><span>User guide</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/jp.png" alt="" /> 日本語</li>
-<li><a href="../ca/index.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/index.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/index.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/index.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../fr/index.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../it/index.html"><img src="../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../hu/index.html"><img src="../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../pl/index.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/index.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/index.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/index.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/index.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/index.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/index.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/index.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/index.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/index.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
+<li class="now">日本語&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/index.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/index.html">Català</a></li>
+<li><a href="../de/index.html">Deutsch</a></li>
+<li><a href="../en/index.html">English</a></li>
+<li><a href="../es/index.html">Español</a></li>
+<li><a href="../fr/index.html">Français</a></li>
+<li><a href="../fur/index.html">Furlan</a></li>
+<li><a href="../it/index.html">Italiano</a></li>
+<li><a href="../hu/index.html">Magyar</a></li>
+<li><a href="../pl/index.html">Polski</a></li>
+<li><a href="../pt_PT/index.html">Português</a></li>
+<li><a href="../pt_BR/index.html">Português (Brazil)</a></li>
+<li><a href="../ro/index.html">Română</a></li>
+<li><a href="../sk/index.html">Slovenčina</a></li>
+<li><a href="../fi/index.html">Suomi</a></li>
+<li><a href="../sv_SE/index.html">Svenska</a></li>
+<li><a href="../tr/index.html">Türkçe</a></li>
+<li><a href="../zh_CN/index.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/index.html">Русский</a></li>
+<li><a href="../uk/index.html">Українська</a></li>
 </ul>
 <span>
  «  <a href="attributes.html">属性</a> 
-::  <a href="contents.html" class="uplink">目次</a> 
+::  <a href="contents.html" class="uplink">Contents</a> 
 ::  <a href="queries.html">クエリ</a>  »
 </span></div>
 </div>
@@ -61,13 +64,13 @@
 <div id="content">
 <div>
 
-<h1>目次</h1>
+<h1>インデックス</h1>
 
-<p><a href="attributes.html">属性</a>と<a href="queries.html">クエリ</a>は Haiku の重要な特徴です。属性はそれだけで便利ですが、クエリが追加的なファイルの情報を表示するためには、属性をインデックス化する必要があります。インデックスは属性をルックアップテーブルに置くので、クエリはきわめて高速になります。<br />
+<p><a href="attributes.html">属性</a>と<a href="queries.html">クエリ</a>は Haiku の重要な特徴です。属性はそれだけで便利ですが、クエリがファイルの追加情報を表示するためには、属性をインデックス化する必要があります。インデックスは属性をルックアップテーブルに置くので、クエリはきわめて高速になります。<br />
 インデックスはファイルシステムの一部であり、ボリューム / パーティションごとに別々に保存されます。</p>
 
 <h2>ターミナルでのインデックスコマンド</h2> 
-<p>インデックスを管理するためのコマンドがいくつかあります。</p>
+<p>インデックス管理用コマンドがいくつかあります。</p>
 <ul> 
 <li><b>lsindex</b> - 現在のボリューム / パーティションに対するインデックス化された属性を表示します。<br />
 以下は標準でインデックス化されている属性です。</li>
@@ -120,15 +123,15 @@ size
  
   -d, --volume=PATH     インデックスが追加されるボリュームのパス、
                         標準では現在のボリュームに追加されます。
-  -t, --type=TYPE       インデックス化された属性のタイプ  "int", 
-                        "llong", "string", "float",  "double"　のいずれか 1 つ。
+  -t, --type=TYPE       インデックス化された属性の型  "int", 
+                        "llong", "string", "float",  "double" のいずれか 1 つ。
                         標準では "string" 
       --copy-from      インデックスをコピーするボリュームへのパス
   -v, --verbose         作られているインデックスについての情報を表示します
 
 </pre>
 <p>指定された属性を持つファイルが<b>新規に</b>作成される場合にのみ、自動的にインデックスに追加されます！<br />
-既存のファイルは、手動でコピーして、そのあと元のファイルを消すことで追加する必要があります。あるいは <span class="cli">reindex</span> コマンドを使うこともできます。 </p>
+既存のファイルは、手動でコピー後、元のファイルを消すことでインデックスに追加する必要があります。あるいは <span class="cli">reindex</span> コマンドも使えます。 </p>
 <ul>
 <li><b>reindex</b> - ボリューム / パーティションの新たに作られたインデックスに既存のファイルの属性を追加します。</li>
 </ul>
@@ -145,12 +148,12 @@ size
 <pre>使い方: rmindex [オプション]... INDEX_NAME 
  
 ディスクボリュームから INDEX_NAME という名前のインデックスを削除します。
-これを行ってしまうと、クエリシステムを使って INDEX_NAME 属性のファイルを探すことはできません。
+これを実行してしまうと、クエリシステムを使って INDEX_NAME 属性のファイルを探すことはできません。
  
   -d, --volume=PATH     インデックスを削除するボリュームのパス
   -h, --help            ヘルプを表示して終了します 
   -p, --pattern         INDEX_NAME がパターンである場合 
-  -v, --verbose         削除されるインデックスについての情報を表示します
+  -v, --verbose         削除されるインデックスの情報を表示します
  
 INDEX_NAME はファイル属性の名前です。
  
@@ -162,7 +165,7 @@ INDEX_NAME はファイル属性の名前です。
 <div class="nav">
 <div class="inner"><span>
  «  <a href="attributes.html">属性</a> 
-::  <a href="contents.html" class="uplink">目次</a> 
+::  <a href="contents.html" class="uplink">Contents</a> 
 ::  <a href="queries.html">クエリ</a>  »
 </span></div>
 </div>

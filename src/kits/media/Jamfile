@@ -1,6 +1,6 @@
 SubDir HAIKU_TOP src kits media ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
+AddResources libmedia.so : libmedia.rdef ;
 
 UsePrivateHeaders app media shared ;
 UsePrivateHeaders [ FDirName media experimental ] ;
@@ -65,6 +65,7 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			FormatManager.cpp
 			MediaRecorderNode.cpp
 			Notifications.cpp
+			PortPool.cpp
 			request_data.cpp
 			SharedBufferList.cpp
 			TrackReader.cpp
@@ -103,3 +104,9 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			;
 	}
 }
+
+DoCatalogs libmedia.so
+	: x-vnd.Haiku-libmedia
+	:
+	MediaDefs.cpp
+	;

@@ -46,6 +46,7 @@ SEARCH_SOURCE += $(appServerDir) ;
 SEARCH_SOURCE += [ FDirName $(appServerDir) decorator ] ;
 SEARCH_SOURCE += [ FDirName $(appServerDir) drawing ] ;
 SEARCH_SOURCE += [ FDirName $(appServerDir) drawing Painter ] ;
+SEARCH_SOURCE += [ FDirName $(appServerDir) drawing interface remote ] ;
 SEARCH_SOURCE += [ FDirName $(appServerDir) font ] ;
 
 SharedLibrary libhwinterface.so :
@@ -55,13 +56,33 @@ SharedLibrary libhwinterface.so :
 	RGBColor.cpp
 	UpdateQueue.cpp
 
-	: libtestappserver.so
+	NetReceiver.cpp
+	NetSender.cpp
+	RemoteDrawingEngine.cpp
+	RemoteEventStream.cpp
+	RemoteHWInterface.cpp
+	RemoteMessage.cpp
+	StreamingRingBuffer.cpp
+
+	: # will depend on libtestappserver.so
 ;
 
+# We include --no-undefined in LINKFLAGS by default, which we can't use here
+# because otherwise we would be trapped in a circular dependency.
+local hwinterfaceLinkFlags ;
+for flag in [ on libhwinterface.so return $(LINKFLAGS) ] {
+	if $(flag) = "--no-undefined" {
+		hwinterfaceLinkFlags += "--allow-shlib-undefined" ;
+		continue ;
+	}
+	hwinterfaceLinkFlags += $(flag) ;
+}
+LINKFLAGS on libhwinterface.so = $(hwinterfaceLinkFlags) ;
+LINKFLAGS on libhwinterface.so += -lnetwork -lbnetapi ;
 
-# The reason for this is that libhwinterfaceimpl.so needs to link against
-# libbe *first*, but simply adding it to the library list would add it to
-# LINKLIBS which is always appended after NEEDLIBS in the command line.
+# libhwinterfaceimpl.so needs to link against libbe *first*, but simply
+# adding it to the library list would add it to LINKLIBS which is always
+# appended after NEEDLIBS in the command line.
 LINKFLAGS on libhwinterfaceimpl.so ?= $(LINKFLAGS) ;
 LINKFLAGS on libhwinterfaceimpl.so += -lbe ;
 
@@ -70,8 +91,10 @@ SharedLibrary libhwinterfaceimpl.so :
 	DWindowHWInterface.cpp
 	MultiLocker.cpp
 
-#	trace.c
-	: libhwinterface.so
+#	libraries
+	:
+	libhwinterface.so
+	[ TargetLibstdc++ ]
 ;
 
 local decorator_src =
@@ -108,7 +131,6 @@ SharedLibrary libtestappserver.so :
 	DrawState.cpp
 	$(font_src)
 	GlobalSubpixelSettings.cpp
-	HashTable.cpp
 	IntPoint.cpp
 	IntRect.cpp
 	MultiLocker.cpp
@@ -174,8 +196,9 @@ SharedLibrary libtestappserver.so :
 
 	# libraries
 	: be libpainter.a libagg.a libtextencoding.so shared libstackandtile.a
-	liblinprog.a
+	liblinprog.a libhwinterface.so libhwinterfaceimpl.so
 	[ BuildFeatureAttribute freetype : library ]
+	[ TargetLibstdc++ ]
 ;
 
 Includes [ FGristFiles AppServer.cpp BitmapManager.cpp Canvas.cpp
@@ -209,6 +232,9 @@ HaikuInstall install-test-apps : $(HAIKU_APP_TEST_LIB_DIR)
 	: tests!apps ;
 
 HaikuInstall install-test-apps : $(HAIKU_APP_TEST_DIR) : test_app_server
+	: tests!apps ;
+
+HaikuInstall install-test-apps : $(HAIKU_APP_TEST_DIR) : run.sh
 	: tests!apps ;
 
 } # if $(TARGET_PLATFORM) = libbe_test
@@ -252,7 +278,9 @@ SubInclude HAIKU_TOP src tests servers app shape_test ;
 SubInclude HAIKU_TOP src tests servers app stacktile ;
 SubInclude HAIKU_TOP src tests servers app statusbar ;
 SubInclude HAIKU_TOP src tests servers app stress_test ;
+SubInclude HAIKU_TOP src tests servers app text_rendering ;
 SubInclude HAIKU_TOP src tests servers app textview ;
+SubInclude HAIKU_TOP src tests servers app tiled_bitmap_test ;
 SubInclude HAIKU_TOP src tests servers app transformation ;
 SubInclude HAIKU_TOP src tests servers app unit_tests ;
 SubInclude HAIKU_TOP src tests servers app view_state ;

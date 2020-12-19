@@ -14,6 +14,7 @@
 #include <shared_cursor_area.h>
 
 #include <AppMisc.h>
+#include <AutoDeleter.h>
 
 #include <new>
 #include <stdio.h>
@@ -58,7 +59,7 @@ InputServerStream::InputServerStream(BMessenger& messenger)
 	message.AddInt32("remote team", BPrivate::current_team());
 
 	fCursorArea = create_area("shared cursor", (void **)&fCursorBuffer, B_ANY_ADDRESS,
-		B_PAGE_SIZE, B_LAZY_LOCK, B_READ_AREA | B_WRITE_AREA);
+		B_PAGE_SIZE, B_LAZY_LOCK, B_READ_AREA | B_WRITE_AREA | B_CLONEABLE_AREA);
 	if (fCursorArea >= B_OK)
 		message.AddInt32("cursor area", fCursorArea);
 
@@ -262,12 +263,12 @@ InputServerStream::_MessageFromPort(BMessage** _message, bigtime_t timeout)
 
 	// we have the message, now let's unflatten it
 
-	BMessage* message = new BMessage(code);
-	if (message == NULL)
+	ObjectDeleter<BMessage> message(new BMessage(code));
+	if (message.Get() == NULL)
 		return B_NO_MEMORY;
 
 	if (buffer == NULL) {
-		*_message = message;
+		*_message = message.Detach();
 		return B_OK;
 	}
 
@@ -278,11 +279,10 @@ InputServerStream::_MessageFromPort(BMessage** _message, bigtime_t timeout)
 		printf("Unflatten event failed: %s, port message code was: %" B_PRId32
 			" - %c%c%c%c\n", strerror(status), code, (int8)(code >> 24),
 			(int8)(code >> 16), (int8)(code >> 8), (int8)code);
-		delete message;
 		return status;
 	}
 
-	*_message = message;
+	*_message = message.Detach();
 	return B_OK;
 }
 

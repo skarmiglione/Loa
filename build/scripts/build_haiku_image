@@ -6,7 +6,8 @@ set -o errexit
 # outputDir
 # tmpDir
 # addBuildCompatibilityLibDir
-# systemPackages - lists of the hpkg packages copied/updated
+# systemPackages - lists of the hpkg packages copied/updated into /system/packages
+# otherPackages - lists of the hpkg packages copied/updated into other (optional) places
 # repositories - all repository files
 # downloadDir
 # The following are only for image types:
@@ -76,6 +77,7 @@ if [ $isCD ]; then
 	ln=ln
 	mkdir=mkdir
 	rm=rm
+	mkindex="mkindex -d $tPrefix"
 elif [ $isImage ]; then
 	# If FIFOs are used for the communication with the FS shell, prepare them.
 	if $fsShellCommand --uses-fifos; then
@@ -144,7 +146,7 @@ else
 	ln=ln
 	mkdir=mkdir
 	rm=rm
-	mkindex=mkindex
+	mkindex="mkindex -d $tPrefix"
 fi
 
 
@@ -290,6 +292,47 @@ if [ -n "$updateAllPackages" ]; then
 	$mkdir -p "${tPrefix}system/packages"
 fi
 
+if [ ! $updateOnly ] && [ ! $isCD ]; then
+echo "Creating filesystem indices..."
+	$mkindex -t string Audio:Album
+	$mkindex -t string Audio:Artist
+	$mkindex -t string Media:Genre
+	$mkindex -t string Media:Title
+	$mkindex -t string MAIL:account
+	$mkindex -t string MAIL:cc
+	$mkindex -t string MAIL:chain
+	$mkindex -t string MAIL:draft
+	$mkindex -t string MAIL:flags
+	$mkindex -t string MAIL:from
+	$mkindex -t string MAIL:name
+	$mkindex -t string MAIL:pending_chain
+	$mkindex -t string MAIL:priority
+	$mkindex -t string MAIL:reply
+	$mkindex -t string MAIL:status
+	$mkindex -t string MAIL:subject
+	$mkindex -t string MAIL:thread
+	$mkindex -t string MAIL:to
+	$mkindex -t string META:address
+	$mkindex -t string META:city
+	$mkindex -t string META:company
+	$mkindex -t string META:county
+	$mkindex -t string META:email
+	$mkindex -t string META:fax
+	$mkindex -t string META:group
+	$mkindex -t string META:hphone
+	$mkindex -t string META:name
+	$mkindex -t string META:nickname
+	$mkindex -t string META:state
+	$mkindex -t string META:url
+	$mkindex -t string META:wphone
+	$mkindex -t string META:zip
+
+	$mkindex -t int32 Media:Rating
+	$mkindex -t int32 Media:Year
+	$mkindex -t int32 MAIL:account_id
+	$mkindex -t int32 MAIL:read
+	$mkindex -t int32 MAIL:when
+fi
 
 echo "Populating image ..."
 while [ $# -gt 0 ]; do
@@ -305,13 +348,29 @@ if [ -n "$resolvePackageDependencies" ]; then
 	packageUrls=`$getPackageDependencies $repositories -- $systemPackages`
 	for packageUrl in $packageUrls; do
 		packageFileName=`basename $packageUrl`
+		if [ "$otherPackages" != "${otherPackages#*$packageFileName}" ]; then
+			echo "ERROR: $packageFileName is a dependency of a package installed in /system/packages," \
+				"but it is in another (i.e. unactivated) package directory!"
+			exit 1
+		fi
 		packageFilePath="$downloadDir/$packageFileName"
 		downloadFile $packageUrl "$packageFilePath"
 		$cp "${sPrefix}$packageFilePath" "${tPrefix}system/packages"
 		systemPackages="$systemPackages $packageFilePath"
 	done
-fi
 
+	# validate dependencies of optional packages
+	packageUrls=`$getPackageDependencies $repositories -- $systemPackages $otherPackages`
+	packageFileNames=""
+	for packageUrl in $packageUrls; do
+		packageFileNames="$packageFileNames `basename $packageUrl`"
+	done
+	if [ ! -z "$packageFileNames" ]; then
+		echo "ERROR: Some of the unactivated (i.e. optional) packages have the following unmet dependencies:"
+		echo $packageFileNames
+		exit 1
+	fi
+fi
 
 # install default settings for packages
 for packageFile in $systemPackages; do
@@ -321,20 +380,6 @@ for packageFile in $systemPackages; do
 done
 
 
-# add the concatenated copyrights as an attribute to AboutSystem
-# TODO: That might not be necessary, when all third-party software everything
-# is packaged. Though we might not package everything.
-
-# if [ ! $updateOnly ]; then
-# 	if [ -f $copyrightsFile ]; then
-# 		copyrightAttrs=$tmpDir/copyrightAttrs
-# 		$rmAttrs -f $copyrightAttrs
-# 		touch $copyrightAttrs
-# 		$addattr -f $copyrightsFile COPYRIGHTS $copyrightAttrs
-# 		$copyAttrs ${sPrefix}$copyrightAttrs ${tPrefix}system/apps/AboutSystem
-# 	fi
-# fi
-
 if [ $isCD ]; then
 	# generate the attribute stores
 	echo "Generating attribute stores ..."
@@ -343,18 +388,13 @@ if [ $isCD ]; then
 	echo "Copying boot image ..."
 	$cp "$cdBootFloppy" "$outputDir"
 
-	if [ $(which mkisofs) ]; then
-		# build the iso image using mkisofs
-		echo "Building CD image (mkisofs)..."
-		mkisofs -uid 0 -gid 0 -b `basename $cdBootFloppy` -R -V "$cdLabel" -o "$cdImagePath" "$tPrefix"
-	elif [ $(which genisoimage) ]; then
-		# build the iso image using genisoimage
-		echo "Building CD image (genisoimage)..."
-		echo "WARNING: genisoimage fallback has known problems with long filenames!"
-		echo "         Please install mkisofs before making production releases!"
-		genisoimage -r -iso-level 4 -b `basename $cdBootFloppy` -V "$cdLabel" -o "$cdImagePath" "$tPrefix"
+	if [ $(which xorriso) ]; then
+		# build the iso image using xorriso
+		echo "Building CD image..."
+		xorriso -as mkisofs -r -b `basename $cdBootFloppy` \
+			-V "$cdLabel" -o "$cdImagePath" "$tPrefix"
 	else
-		echo "you need mkisofs (preferred) or genisoimage to create a CD image."
+		echo "you need xorriso to create a CD image."
 		exit 1
 	fi
 

@@ -1,12 +1,12 @@
 /*
- *  Copyright 2010-2012 Haiku, Inc. All rights reserved.
+ *  Copyright 2010-2020 Haiku, Inc. All rights reserved.
  *  Distributed under the terms of the MIT license.
  *
  *	Authors:
  *		Stephan Aßmus <superstippi@gmx.de>
  *		Alexander von Gluck <kallisti5@unixzen.com>
- *		John Scipione <jscipione@gmail.com>
  *		Ryan Leavengood <leavengood@gmail.com>
+ *		John Scipione <jscipione@gmail.com>
  */
 #ifndef LOOK_AND_FEEL_SETTINGS_VIEW_H
 #define LOOK_AND_FEEL_SETTINGS_VIEW_H
@@ -40,10 +40,12 @@ public:
 private:
 			void				_SetDecor(const BString& name);
 			void				_SetDecor(BPrivate::DecorInfo* decorInfo);
-
 			void				_BuildDecorMenu();
-			void				_AdoptToCurrentDecor();
-			void				_AdoptInterfaceToCurrentDecor();
+			const char*			_DecorLabel(const BString& name);
+
+			void				_SetControlLook(const BString& path);
+			void				_BuildControlLookMenu();
+			const char*			_ControlLookLabel(const char* name);
 
 			bool				_DoubleScrollBarArrows();
 			void				_SetDoubleScrollBarArrows(bool doubleArrows);
@@ -55,13 +57,21 @@ private:
 			BMenuField*			fDecorMenuField;
 			BPopUpMenu*			fDecorMenu;
 
+			BButton*			fControlLookInfoButton;
+			BMenuField*			fControlLookMenuField;
+			BPopUpMenu*			fControlLookMenu;
+
 			FakeScrollBar*		fArrowStyleSingle;
 			FakeScrollBar*		fArrowStyleDouble;
 
 			BString				fSavedDecor;
 			BString				fCurrentDecor;
 
-			bool				fSavedDoubleArrowsValue;
+			BString				fSavedControlLook;
+			BString				fCurrentControlLook;
+
+			bool				fSavedDoubleArrowsValue : 1;
 };
+
 
 #endif // LOOK_AND_FEEL_SETTINGS_VIEW_H

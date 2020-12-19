@@ -99,12 +99,7 @@ public:
 	virtual bool Filter(const entry_ref* ref, BNode* node,
 		struct stat_beos* stat, const char* filetype)
 	{
-		// ToDo: Fix this properly in Tracker
-		// If you create a folder, then rename it, node is NULL.
-		// The BeBook says: "Note that the function is never sent an
-		// abstract entry, so the node, st, and filetype arguments will
-		// always be valid."
-		return node == NULL ? false : node->IsDirectory();
+		return node->IsDirectory();
 	}
 };
 
@@ -711,7 +706,7 @@ ScreenshotWindow::_ShowSettings(bool activate)
 		translator, NULL, &view, &rect);
 	if (status != B_OK || view == NULL) {
 		// TODO: proper translation, better error dialog
-		BAlert* alert = new BAlert(NULL, strerror(status), "OK");
+		BAlert* alert = new BAlert(NULL, strerror(status), B_TRANSLATE("OK"));
 		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
 		alert->Go();
 	} else if (fSettingsWindow != NULL) {

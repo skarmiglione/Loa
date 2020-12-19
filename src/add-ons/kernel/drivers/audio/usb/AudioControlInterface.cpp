@@ -231,7 +231,7 @@ _Terminal::_GetTerminalDescription(uint16 TerminalType)
 		{ USB_AUDIO_INSTRUMENT_IO,			"Musical Instrument" }
 	};
 
-	for (size_t i = 0; B_COUNT_OF(termInfoPairs); i++)
+	for (size_t i = 0; i < B_COUNT_OF(termInfoPairs); i++)
 		if (termInfoPairs[i].type == TerminalType)
 			return termInfoPairs[i].description;
 
@@ -1653,12 +1653,12 @@ AudioControlInterface::_ListMixControlsForMixerUnit(int32& index,
 
 	Vector<_MixPageCollector*> mixControls;
 
-	_MixPageCollector* genericPage = new(std::nothrow) _MixPageCollector("Mixer"); 
+	_MixPageCollector* genericPage = new(std::nothrow) _MixPageCollector("Mixer");
 	mixControls.PushBack(genericPage);
 
 	// page for extended in (>2) and out (>2) mixer controls
 	size_t controlsOnExMixerPage = 0;
-	_MixPageCollector* exMixerPage = new(std::nothrow) _MixPageCollector("Mixer"); 
+	_MixPageCollector* exMixerPage = new(std::nothrow) _MixPageCollector("Mixer");
 
 	AudioChannelCluster* outCluster = mixer->OutCluster();
 

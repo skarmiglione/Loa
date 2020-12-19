@@ -51,6 +51,8 @@ typedef struct isochronous_transfer_data {
 
 class EHCI : public BusManager {
 public:
+static	status_t					AddTo(Stack *stack);
+
 									EHCI(pci_info *info, Stack *stack);
 									~EHCI();
 
@@ -73,10 +75,8 @@ virtual	status_t					CancelQueuedTransfers(Pipe *pipe, bool force);
 virtual	status_t					NotifyPipeChange(Pipe *pipe,
 										usb_change change);
 
-static	status_t					AddTo(Stack *stack);
-
 		// Port operations for root hub
-		uint8						PortCount() { return fPortCount; };
+		uint8						PortCount() { return fPortCount; }
 		status_t					GetPortStatus(uint8 index, usb_port_status *status);
 		status_t					SetPortFeature(uint8 index, uint16 feature);
 		status_t					ClearPortFeature(uint8 index, uint16 feature);
@@ -84,7 +84,7 @@ static	status_t					AddTo(Stack *stack);
 		status_t					ResetPort(uint8 index);
 		status_t					SuspendPort(uint8 index);
 
-virtual	const char *				TypeName() const { return "ehci"; };
+virtual	const char *				TypeName() const { return "ehci"; }
 
 private:
 		// Controller resets
@@ -143,11 +143,13 @@ static int32						FinishIsochronousThread(void *data);
 		status_t					FillQueueWithRequest(Transfer *transfer,
 										ehci_qh *queueHead,
 										ehci_qtd **dataDescriptor,
-										bool *directionIn);
+										bool *directionIn,
+										bool prepareKernelAccess);
 		status_t					FillQueueWithData(Transfer *transfer,
 										ehci_qh *queueHead,
 										ehci_qtd **dataDescriptor,
-										bool *directionIn);
+										bool *directionIn,
+										bool prepareKernelAccess);
 
 		bool						LockIsochronous();
 		void						UnlockIsochronous();

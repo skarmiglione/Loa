@@ -709,6 +709,8 @@ cd_uninit_device(void* _cookie)
 
 	delete info->io_scheduler;
 	delete info->dma_resource;
+	info->io_scheduler = NULL;
+	info->dma_resource = NULL;
 }
 
 
@@ -772,6 +774,9 @@ cd_read(void* cookie, off_t pos, void* buffer, size_t* _length)
 	if (status != B_OK)
 		return status;
 
+	if (handle->info->io_scheduler == NULL)
+		return B_DEV_NO_MEDIA;
+
 	status = handle->info->io_scheduler->ScheduleRequest(&request);
 	if (status != B_OK)
 		return status;
@@ -799,6 +804,9 @@ cd_write(void* cookie, off_t pos, const void* buffer, size_t* _length)
 	status_t status = request.Init(pos, (addr_t)buffer, length, true, 0);
 	if (status != B_OK)
 		return status;
+
+	if (handle->info->io_scheduler == NULL)
+		return B_DEV_NO_MEDIA;
 
 	status = handle->info->io_scheduler->ScheduleRequest(&request);
 	if (status != B_OK)
@@ -1093,7 +1101,7 @@ cd_register_device(device_node* node)
 	// get inquiry data
 	if (sDeviceManager->get_attr_raw(node, SCSI_DEVICE_INQUIRY_ITEM,
 			(const void**)&deviceInquiry, &inquiryLength, true) != B_OK
-		|| inquiryLength < sizeof(deviceInquiry))
+		|| inquiryLength < sizeof(scsi_res_inquiry))
 		return B_ERROR;
 
 	// get block limit of underlying hardware to lower it (if necessary)
@@ -1108,6 +1116,7 @@ cd_register_device(device_node* node)
 
 	// ready to register
 	device_attr attrs[] = {
+		{B_DEVICE_PRETTY_NAME, B_STRING_TYPE, {string: "SCSI CD-ROM Drive"}},
 		{"removable", B_UINT8_TYPE, {ui8: deviceInquiry->removable_medium}},
 		{B_DMA_MAX_TRANSFER_BLOCKS, B_UINT32_TYPE, {ui32: maxBlocks}},
 		{ NULL }

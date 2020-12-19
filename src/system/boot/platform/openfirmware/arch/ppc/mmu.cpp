@@ -106,7 +106,7 @@ find_physical_memory_ranges(size_t &total)
 
 	// On 64-bit PowerPC systems (G5), our mem base range address is larger
 	if (regAddressCells == 2) {
-		struct of_region<uint64> regions[64];
+		struct of_region<uint64, uint32> regions[64];
 		int count = of_getprop(package, "reg", regions, sizeof(regions));
 		if (count == OF_FAILED)
 			count = of_getprop(memory, "reg", regions, sizeof(regions));
@@ -136,7 +136,7 @@ find_physical_memory_ranges(size_t &total)
 	}
 
 	// Otherwise, normal 32-bit PowerPC G3 or G4 have a smaller 32-bit one
-	struct of_region<uint32> regions[64];
+	struct of_region<uint32, uint32> regions[64];
 	int count = of_getprop(package, "reg", regions, sizeof(regions));
 	if (count == OF_FAILED)
 		count = of_getprop(memory, "reg", regions, sizeof(regions));
@@ -574,7 +574,7 @@ map_callback(struct of_arguments *args)
 	void *virtualAddress = (void *)args->Argument(1);
 	int length = args->Argument(2);
 	int mode = args->Argument(3);
-	int &error = args->ReturnValue(0);
+	intptr_t &error = args->ReturnValue(0);
 
 	// insert range in physical allocated if needed
 
@@ -618,9 +618,9 @@ static int
 translate_callback(struct of_arguments *args)
 {
 	addr_t virtualAddress = (addr_t)args->Argument(0);
-	int &error = args->ReturnValue(0);
-	int &physicalAddress = args->ReturnValue(1);
-	int &mode = args->ReturnValue(2);
+	intptr_t &error = args->ReturnValue(0);
+	intptr_t &physicalAddress = args->ReturnValue(1);
+	intptr_t &mode = args->ReturnValue(2);
 
 	// Find page table entry for this address
 

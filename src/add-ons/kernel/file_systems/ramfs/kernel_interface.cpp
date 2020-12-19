@@ -36,6 +36,7 @@
 #include <fs_interface.h>
 #include <fs_query.h>
 #include <fs_volume.h>
+#include <vfs.h>
 #include <KernelExport.h>
 #include <NodeMonitor.h>
 #include <TypeConstants.h>
@@ -105,6 +106,7 @@ ramfs_mount(fs_volume* _volume, const char* /*device*/, uint32 flags,
 
 	*_rootID = volume->GetRootDirectory()->GetID();
 	_volume->private_volume = volume;
+	_volume->ops = &gRamFSVolumeOps;
 
 	RETURN_ERROR(B_OK);
 }
@@ -136,7 +138,7 @@ ramfs_read_fs_info(fs_volume* _volume, struct fs_info *info)
 	if (VolumeReadLocker locker = volume) {
 		info->flags = B_FS_IS_PERSISTENT | B_FS_HAS_ATTR | B_FS_HAS_MIME
 			| B_FS_HAS_QUERY;
-		info->block_size = volume->GetBlockSize();
+		info->block_size = B_PAGE_SIZE;
 		info->io_size = kOptimalIOSize;
 		info->total_blocks = volume->CountBlocks();
 		info->free_blocks = volume->CountFreeBlocks();
@@ -146,7 +148,7 @@ ramfs_read_fs_info(fs_volume* _volume, struct fs_info *info)
 		strcpy(info->fsh_name, "ramfs");
 	} else
 		SET_ERROR(error, B_ERROR);
-	return B_OK;
+	return error;
 }
 
 
@@ -186,7 +188,7 @@ ramfs_lookup(fs_volume* _volume, fs_vnode* _dir, const char* entryName,
 {
 //	FUNCTION_START();
 	Volume* volume = (Volume*)_volume->private_volume;
-	Directory* dir = dynamic_cast<Directory*>((Node*)_dir);
+	Directory* dir = dynamic_cast<Directory*>((Node*)_dir->private_node);
 
 	FUNCTION(("dir: (%llu), entry: `%s'\n", (dir ? dir->GetID() : -1),
 		entryName));
@@ -226,9 +228,9 @@ SET_ERROR(error, error);
 }
 
 
-// ramfs_read_vnode
+// ramfs_get_vnode
 static status_t
-ramfs_read_vnode(fs_volume* _volume, ino_t vnid, fs_vnode* node, int* _type,
+ramfs_get_vnode(fs_volume* _volume, ino_t vnid, fs_vnode* node, int* _type,
 	uint32* _flags, bool reenter)
 {
 //	FUNCTION_START();
@@ -310,7 +312,7 @@ ramfs_ioctl(fs_volume* _volume, fs_vnode* /*node*/, void* /*cookie*/,
 			if (buffer) {
 				if (VolumeReadLocker locker = volume) {
 					const char *name = (const char*)buffer;
-PRINT(("  RAMFS_IOCTL_DUMP_INDEX, `%s'\n", name));
+PRINT("  RAMFS_IOCTL_DUMP_INDEX, `%s'\n", name);
 					IndexDirectory *indexDir = volume->GetIndexDirectory();
 					if (indexDir) {
 						if (Index *index = indexDir->FindIndex(name))
@@ -373,10 +375,12 @@ ramfs_read_symlink(fs_volume* _volume, fs_vnode* _node, char *buffer,
 				size_t toRead = min(*bufferSize,
 									symLink->GetLinkedPathLength());
 				if (toRead > 0)
-					memcpy(buffer, symLink->GetLinkedPath(), toRead);
-				*bufferSize = toRead;
+					memcpy(buffer, symLink->GetLinkedPath(),
+						toRead);
+
+				*bufferSize = symLink->GetLinkedPathLength();
 			} else {
-				FATAL("Node %Ld pretends to be a SymLink, but isn't!\n",
+				FATAL("Node %" B_PRIdINO " pretends to be a SymLink, but isn't!\n",
 					node->GetID());
 				error = B_BAD_VALUE;
 			}
@@ -888,6 +892,13 @@ ramfs_open(fs_volume* _volume, fs_vnode* _node, int openMode, void** _cookie)
 		// truncate if requested
 		if (error == B_OK && (openMode & O_TRUNC))
 			error = node->SetSize(0);
+		// set cache in vnode
+		if (File *file = dynamic_cast<File*>(node)) {
+			struct vnode* vnode;
+			if (vfs_lookup_vnode(_volume->id, node->GetID(), &vnode) == B_OK) {
+				vfs_set_vnode_cache(vnode, file->GetCache());
+			}
+		}
 		NodeMTimeUpdater mTimeUpdater(node);
 		// set result / cleanup on failure
 		if (error == B_OK)
@@ -915,7 +926,7 @@ ramfs_close(fs_volume* _volume, fs_vnode* _node, void* /*cookie*/)
 		notify_if_stat_changed(volume, node);
 	} else
 		SET_ERROR(error, B_ERROR);
-	return B_OK;
+	return error;
 
 }
 
@@ -957,7 +968,7 @@ ramfs_read(fs_volume* _volume, fs_vnode* _node, void* _cookie, off_t pos,
 			if (File *file = dynamic_cast<File*>(node))
 				error = file->ReadAt(pos, buffer, *bufferSize, bufferSize);
 			else {
-				FATAL("Node %Ld pretends to be a File, but isn't!\n",
+				FATAL("Node %" B_PRIdINO " pretends to be a File, but isn't!\n",
 					node->GetID());
 				error = B_BAD_VALUE;
 			}
@@ -999,7 +1010,7 @@ ramfs_write(fs_volume* _volume, fs_vnode* _node, void* _cookie, off_t pos,
 					error = file->WriteAt(pos, buffer, *bufferSize,
 						bufferSize);
 				} else {
-					FATAL("Node %Ld pretends to be a File, but isn't!\n",
+					FATAL("Node %" B_PRIdINO " pretends to be a File, but isn't!\n",
 						node->GetID());
 					error = B_BAD_VALUE;
 				}
@@ -1063,10 +1074,10 @@ fGetNextCounter++;
 				*entryName = entry->GetName();
 			}
 		}
-		PRINT(("EntryIterator %ld, GetNext() counter: %ld, entry: %p (%Ld)\n",
+		PRINT("EntryIterator %" B_PRId32 ", GetNext() counter: %" B_PRId32 ", entry: %p (%Ld)\n",
 		fIteratorID, fGetNextCounter, fIterator.GetCurrent(),
 			(fIterator.GetCurrent()
-				? fIterator.GetCurrent()->GetNode()->GetID() : -1)));
+				? fIterator.GetCurrent()->GetNode()->GetID() : -1));
 		return error;
 	}
 
@@ -1217,7 +1228,7 @@ ramfs_open_dir(fs_volume* /*fs*/, fs_vnode* _node, void** _cookie)
 	if (error == B_OK) {
 		dir = dynamic_cast<Directory*>(node);
 		if (!dir) {
-			FATAL("Node %Ld pretends to be a Directory, but isn't!\n",
+			FATAL("Node %" B_PRIdINO " pretends to be a Directory, but isn't!\n",
 				node->GetID());
 			error = B_NOT_A_DIRECTORY;
 		}
@@ -1283,7 +1294,7 @@ ramfs_read_dir(fs_volume* _volume, fs_vnode* DARG(_node), void* _cookie,
 			ino_t nodeID = -1;
 			const char *name = NULL;
 			if (cookie->GetNext(&nodeID, &name) == B_OK) {
-				PRINT(("  entry: `%s'\n", name));
+				PRINT("  entry: `%s'\n", name);
 				size_t nameLen = strlen(name);
 				// check, whether the entry fits into the buffer,
 				// and fill it in
@@ -1631,8 +1642,7 @@ ramfs_close_attr(fs_volume* _volume, fs_vnode* _node, void* _cookie)
 		notify_if_stat_changed(volume, node);
 	} else
 		SET_ERROR(error, B_ERROR);
-	return B_OK;
-
+	return error;
 }
 
 
@@ -2017,8 +2027,8 @@ ramfs_open_query(fs_volume* _volume, const char *queryString, uint32 flags,
 	port_id port, uint32 token, void** _cookie)
 {
 	FUNCTION_START();
-	PRINT(("query = \"%s\", flags = %lu, port_id = %ld, token = %ld\n",
-		queryString, flags, port, token));
+	PRINT("query = \"%s\", flags = %lu, port_id = %" B_PRId32 ", token = %" B_PRId32 "\n",
+		queryString, flags, port, token);
 
 	Volume* volume = (Volume*)_volume->private_volume;
 
@@ -2034,8 +2044,8 @@ ramfs_open_query(fs_volume* _volume, const char *queryString, uint32 flags,
 	ObjectDeleter<Expression> expressionDeleter(expression);
 
 	if (expression->InitCheck() < B_OK) {
-		WARN(("Could not parse query, stopped at: \"%s\"\n",
-			expression->Position()));
+		WARN("Could not parse query, stopped at: \"%s\"\n",
+			expression->Position());
 		RETURN_ERROR(B_BAD_VALUE);
 	}
 
@@ -2126,12 +2136,12 @@ ramfs_std_ops(int32 op, ...)
 		case B_MODULE_INIT:
 		{
 			init_debugging();
-			PRINT(("ramfs_std_ops(): B_MODULE_INIT\n"));
+			PRINT("ramfs_std_ops(): B_MODULE_INIT\n");
 			return B_OK;
 		}
 
 		case B_MODULE_UNINIT:
-			PRINT(("ramfs_std_ops(): B_MODULE_UNINIT\n"));
+			PRINT("ramfs_std_ops(): B_MODULE_UNINIT\n");
 			exit_debugging();
 			return B_OK;
 
@@ -2146,7 +2156,7 @@ fs_volume_ops gRamFSVolumeOps = {
 	&ramfs_read_fs_info,
 	&ramfs_write_fs_info,
 	&ramfs_sync,
-	&ramfs_read_vnode,
+	&ramfs_get_vnode,
 
 	/* index directory & index operations */
 	&ramfs_open_index_dir,

@@ -1,7 +1,5 @@
 SubDir HAIKU_TOP src bin desklink ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
-
 UsePrivateHeaders app interface shared ;
 
 BinCommand desklink :
@@ -13,7 +11,7 @@ BinCommand desklink :
 	VolumeWindow.cpp
 
 	: be libmedia.so localestub [ TargetLibsupc++ ]
-	: desklink.rdef
+	: desklink.rdef SpeakerBox.rdef
 ;
 
 DoCatalogs desklink :

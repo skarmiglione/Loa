@@ -10,8 +10,8 @@
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		fyskij
  *		Barrett
+ *		fyskij
  *		MichaelPeppers
  *
 -->
@@ -25,44 +25,47 @@
 <body>
 
 <div id="banner">
-<div><span>User guide</span></div>
+<div><span>Guida dell'utente</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/it.png" alt="" /> Italiano</li>
-<li><a href="../ca/gui.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/gui.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/gui.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/gui.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../fr/gui.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../hu/gui.html"><img src="../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../pl/gui.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/gui.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/gui.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/gui.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/gui.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/gui.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/gui.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/gui.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/gui.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/gui.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/gui.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Italiano&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/gui.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/gui.html">Català</a></li>
+<li><a href="../de/gui.html">Deutsch</a></li>
+<li><a href="../en/gui.html">English</a></li>
+<li><a href="../es/gui.html">Español</a></li>
+<li><a href="../fr/gui.html">Français</a></li>
+<li><a href="../fur/gui.html">Furlan</a></li>
+<li><a href="../hu/gui.html">Magyar</a></li>
+<li><a href="../pl/gui.html">Polski</a></li>
+<li><a href="../pt_PT/gui.html">Português</a></li>
+<li><a href="../pt_BR/gui.html">Português (Brazil)</a></li>
+<li><a href="../ro/gui.html">Română</a></li>
+<li><a href="../sk/gui.html">Slovenčina</a></li>
+<li><a href="../fi/gui.html">Suomi</a></li>
+<li><a href="../sv_SE/gui.html">Svenska</a></li>
+<li><a href="../tr/gui.html">Türkçe</a></li>
+<li><a href="../zh_CN/gui.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/gui.html">Русский</a></li>
+<li><a href="../uk/gui.html">Українська</a></li>
+<li><a href="../jp/gui.html">日本語</a></li>
 </ul>
 <span>
- «  <a href="filesystem-layout.html">Filesystem layout</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
+ «  <a href="filesystem-layout.html">La struttura del FileSystem di Haiku</a> 
+::  <a href="contents.html" class="uplink">Contenuti</a> 
 ::  <a href="workspaces.html">Workspaces</a>  »
 </span></div>
 </div>
 
 <div id="content">
 <div>
-<div class="box-info">The translation of this page isn't yet complete. Until it is, unfinished parts use the English original.</div>
+<div class="box-info">La traduzione di questa pagina non è stata ancora completata. Finché non lo sarà, le parti non tradotte saranno visualizzate in inglese.</div>
 
 <table class="index" id="index" summary="index">
-<tr class="heading"><td>Index</td></tr>
+<tr class="heading"><td>Indice</td></tr>
 <tr class="index"><td>
 		<a href="#move-resize">Easy moving and resizing</a><br />
                 <a href="#stack-tile">Stack &amp; Tile</a><br />
@@ -72,7 +75,7 @@
 
 <h1>Interfaccia grafica di Haiku</h1>
 
-<p>L'interfaccia grafica (GUI) di Haiku è parte integrante del sistema. Al contrario dei sistemi operativi Unix, non c'è un gestore delle finestre (window manager) separato e l'avvio in una shell testuale (linea di comando) non è possibile; ciò è semplicemente non ritenuto necessario, il focus di Haiku è l'utente desktop.</p>
+<p>Haiku's graphical user interface is an integral part of the system. Unlike other Unix-like operating systems, there is no separate window manager and booting just into a command-line shell is not possible. Haiku's focus being on the desktop user, this is just not considered necessary.</p>
 <p>Probabilente l'utente avrà già esperienza con altri ambienti grafici, quindi salteremo i classici menu da tasto destro, drag &amp; drop, ecc...e cercheremo invece di focalizzarci sui pochi aspetti unici della GUI di Haiku.</p>
 <img src="images/gui-images/gui.png" alt="gui.png" />
 <p>Alcuni aspetti nella GUI di Haiku non sono evidenti e quindi devono essere approfonditi.</p>
@@ -83,7 +86,7 @@
 <li>Si può minimizzare una finestra con un doppio click sul suo tab, (o con <span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">M</span>), è possibile anche avere accesso alle finestre nascoste dalla loro voce nella <a href="deskbar.html">Deskbar</a> o nel <a href="twitcher.html">Twitcher</a>.</li>
 <li>Si può mandare una finestra in background con un click destro sul suo tab (o sul suo bordo).</li></ul></li>
 <li><p>Il pulsante di chiusura.</p></li>
-<li><p>Il bottone "zoom" (o <span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">Z</span>). Nella maggior parte delle applicazioni, espanderà la finestra alla dimensione massima. Ma questo, tuttavia, non è obbligatorio. Le finestre del Tracker, per esempio, verranno ridimensionate per adattarsi nel miglior modo possibile al contenuto.</p></li>
+<li><p>The "zoom" button (or <span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">Z</span>). In most applications, this will expand a window to maximum size without obscuring the Deskbar (hold <span class="key">SHIFT</span> to cover the Deskbar as well). It doesn't have to, however. Tracker windows, for example, will resize to best fit the contents.</p></li>
 <li><p>The window border. Left-dragging moves the window, right-dragging resizes.</p></li>
 <li><p>The resize corner.</p></li>
 </ol>
@@ -168,8 +171,8 @@ Un tasto destro sull'uncino del replicante permette di visualizzare la finestra 
 
 <div class="nav">
 <div class="inner"><span>
- «  <a href="filesystem-layout.html">Filesystem layout</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
+ «  <a href="filesystem-layout.html">La struttura del FileSystem di Haiku</a> 
+::  <a href="contents.html" class="uplink">Contenuti</a> 
 ::  <a href="workspaces.html">Workspaces</a>  »
 </span></div>
 </div>

@@ -73,6 +73,14 @@ SubclassName(int classNumber, int subclass)
 	if (classNumber == 0xEF) {
 		if (subclass == 0x02)
 			return " (Common)";
+		if (subclass == 0x04)
+			return " (RNDIS)";
+		if (subclass == 0x05)
+			return " (USB3 Vision)";
+		if (subclass == 0x06)
+			return " (STEP)";
+		if (subclass == 0x07)
+			return " (DVB Command Interface)";
 	}
 
 	if (classNumber == USB_VIDEO_DEVICE_CLASS) {
@@ -87,6 +95,16 @@ SubclassName(int classNumber, int subclass)
 				return " (Collection)";
 		}
 	}
+
+	if (classNumber == 0xFE) {
+		if (subclass == 0x01)
+			return " (Firmware Upgrade)";
+		if (subclass == 0x02)
+			return " (IrDA)";
+		if (subclass == 0x03)
+			return " (Test and measurement)";
+	}
+
 	return "";
 }
 
@@ -288,7 +306,7 @@ DumpInfo(BUSBDevice& device, bool verbose)
 				index, sizeof(portStatus), (void*)&portStatus);
 			if (actualLength != sizeof(portStatus))
 				continue;
-			printf("      Port %d status....... %04x.%04x%s%s%s%s%s%s%s%s%s\n",
+			printf("      Port %d status....... %04x.%04x%s%s%s%s%s%s%s%s\n",
 				index, portStatus.status, portStatus.change,
 				portStatus.status & PORT_STATUS_CONNECTION ? " Connect": "",
 				portStatus.status & PORT_STATUS_ENABLE ? " Enable": "",
@@ -296,10 +314,6 @@ DumpInfo(BUSBDevice& device, bool verbose)
 				portStatus.status & PORT_STATUS_OVER_CURRENT ? " Overcurrent": "",
 				portStatus.status & PORT_STATUS_RESET ? " Reset": "",
 				portStatus.status & PORT_STATUS_POWER ? " Power": "",
-				portStatus.status & PORT_STATUS_CONNECTION
-					? (portStatus.status & PORT_STATUS_LOW_SPEED ? " Lowspeed"
-					: (portStatus.status & PORT_STATUS_HIGH_SPEED ? " Highspeed"
-						: " Fullspeed")) : "",
 				portStatus.status & PORT_STATUS_TEST ? " Test": "",
 				portStatus.status & PORT_STATUS_INDICATOR ? " Indicator": "");
 		}

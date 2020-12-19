@@ -4,13 +4,16 @@ local zstdSourceDirectory = [ BuildFeatureAttribute zstd : sources : path ] ;
 UseHeaders [ FDirName $(zstdSourceDirectory) lib ] ;
 UseHeaders [ FDirName $(zstdSourceDirectory) lib common ] ;
 
+# disable -Werror for this directory only
+SubDirCcFlags -Wno-error ;
+
 local zstdCommonSources =
 	error_private.c
 	entropy_common.c fse_decompress.c zstd_common.c
 	xxhash.c
 	;
 local zstdDecSources =
-	huf_decompress.c zstd_decompress.c
+	huf_decompress.c zstd_ddict.c zstd_decompress.c zstd_decompress_block.c
 	;
 
 LOCATE on [ FGristFiles $(zstdCommonSources) ] =

@@ -8,10 +8,13 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#include <stdio.h>
 #include <string.h>
+#include <pthread.h>
 
 #include <OS.h>
 
+#include <runtime_loader/runtime_loader.h>
 #include <errno_private.h>
 #include <syscall_utils.h>
 #include <syscalls.h>
@@ -129,8 +132,22 @@ mmap(void* address, size_t length, int protection, int flags, int fd,
 	if ((protection & PROT_EXEC) != 0)
 		areaProtection |= B_EXECUTE_AREA;
 
+	if ((flags & MAP_NORESERVE) != 0)
+		areaProtection |= B_OVERCOMMITTING_AREA;
+
+	// create a name for this area based on calling image
+	void* addr = __builtin_return_address(0);
+	char* imageName;
+	char areaName[B_OS_NAME_LENGTH];
+	status_t status = __gRuntimeLoader->get_nearest_symbol_at_address(
+		addr, NULL, NULL, &imageName, NULL, NULL, NULL, NULL);
+	if (status == B_OK)
+		snprintf(areaName, sizeof(areaName), "%s mmap area", imageName);
+	else
+		strlcpy(areaName, "mmap area", sizeof(areaName));
+
 	// ask the kernel to map
-	area_id area = _kern_map_file("mmap area", &address, addressSpec,
+	area_id area = _kern_map_file(areaName, &address, addressSpec,
 		length, areaProtection, mapping, true, fd, offset);
 	if (area < 0) {
 		__set_errno(area);
@@ -164,9 +181,30 @@ msync(void* address, size_t length, int flags)
 
 
 int
-posix_madvise(void* address, size_t length, int advice)
+madvise(void* address, size_t length, int advice)
 {
 	RETURN_AND_SET_ERRNO(_kern_memory_advice(address, length, advice));
+}
+
+
+int
+posix_madvise(void* address, size_t length, int advice)
+{
+	return madvise(address, length, advice);
+}
+
+
+int
+mlock(const void* address, size_t length)
+{
+	RETURN_AND_SET_ERRNO(_kern_mlock(address, length));
+}
+
+
+int
+munlock(const void* address, size_t length)
+{
+	RETURN_AND_SET_ERRNO(_kern_munlock(address, length));
 }
 
 

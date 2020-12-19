@@ -2,7 +2,7 @@
  * Copyright 2013-2014, Stephan Aßmus <superstippi@gmx.de>.
  * Copyright 2013, Rene Gollent <rene@gollent.com>.
  * Copyright 2017, Julian Harnath <julian.harnath@rwth-aachen.de>.
- * Copyright 2017-2018, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2017-2020, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 #ifndef MAIN_WINDOW_H
@@ -10,12 +10,17 @@
 
 #include <Window.h>
 
-#include "BulkLoadStateMachine.h"
+#include <queue>
+
+#include "HaikuDepotConstants.h"
 #include "Model.h"
 #include "PackageAction.h"
 #include "PackageActionHandler.h"
+#include "ProcessCoordinator.h"
 #include "PackageInfoListener.h"
-#include "HaikuDepotConstants.h"
+#include "TabView.h"
+#include "UserDetail.h"
+#include "UserDetailVerifierProcess.h"
 
 
 class BCardLayout;
@@ -32,7 +37,8 @@ class WorkStatusView;
 
 
 class MainWindow : public BWindow, private PackageInfoListener,
-	private PackageActionHandler {
+	private PackageActionHandler, public ProcessCoordinatorListener,
+	public UserDetailVerifierListener {
 public:
 								MainWindow(const BMessage& settings);
 								MainWindow(const BMessage& settings,
@@ -45,6 +51,14 @@ public:
 
 			void				StoreSettings(BMessage& message) const;
 
+	// ProcessCoordinatorListener
+	virtual void				CoordinatorChanged(
+									ProcessCoordinatorState& coordinatorState);
+
+	// UserDetailVerifierProcessListener
+	virtual	void				UserCredentialsFailed();
+	virtual void				UserUsageConditionsNotLatest(
+									const UserDetail& userDetail);
 private:
 	// PackageInfoListener
 	virtual	void				PackageChanged(
@@ -57,44 +71,69 @@ private:
 	virtual	Model*				GetModel();
 
 private:
+			std::vector<DepotInfoRef>
+								_CreateSnapshotOfDepots();
+
+			void				_AddProcessCoordinator(
+									ProcessCoordinator* item);
+			void				_StopProcessCoordinators();
+			void				_SpinUntilProcessCoordinatorComplete();
+
 			bool				_SelectedPackageHasWebAppRepositoryCode();
 
 			void				_BuildMenu(BMenuBar* menuBar);
 			void				_BuildUserMenu(BMenuBar* menuBar);
 
-			void				_RestoreUserName(const BMessage& settings);
 			const char*			_WindowFrameName() const;
+			void				_RestoreNickname(const BMessage& settings);
 			void				_RestoreWindowFrame(const BMessage& settings);
+			void				_RestoreModelSettings(const BMessage& settings);
 
 			void				_InitWorkerThreads();
+			void				_AdoptModelControls();
 			void				_AdoptModel();
+			void				_AddRemovePackageFromLists(
+									const PackageInfoRef& package);
 
 			void				_AdoptPackage(const PackageInfoRef& package);
 			void				_ClearPackage();
 
-			void				_RefreshRepositories(bool force);
-			void				_RefreshPackageList(bool force);
-
 			void				_PopulatePackageAsync(bool forcePopulate);
-			void				_StartRefreshWorker(bool force = false);
+			void				_StartBulkLoad(bool force = false);
+			void				_BulkLoadCompleteReceived(status_t errorStatus);
+
+			void				_NotifyWorkStatusClear();
+			void				_HandleWorkStatusClear();
+
+			void				_NotifyWorkStatusChange(const BString& text,
+									float progress);
+			void				_HandleWorkStatusChangeMessageReceived(
+									const BMessage* message);
+
+			void				_HandleChangePackageListViewMode();
+
 	static	status_t			_RefreshModelThreadWorker(void* arg);
 	static	status_t			_PackageActionWorker(void* arg);
 	static	status_t			_PopulatePackageWorker(void* arg);
 	static	status_t			_PackagesToShowWorker(void* arg);
 
-			void				_NotifyUser(const char* title,
-									const char* message);
-
 			void				_OpenLoginWindow(
 									const BMessage& onSuccessMessage);
+			void				_StartUserVerify();
 			void				_UpdateAuthorization();
 			void				_UpdateAvailableRepositories();
 			void				_RatePackage();
 			void				_ShowScreenshot();
 
+			void				_ViewUserUsageConditions(
+									UserUsageConditionsSelectionMode mode);
+
+			void				_HandleUserUsageConditionsNotLatest(
+									const UserDetail& userDetail);
+
 private:
 			FilterView*			fFilterView;
-			BCardLayout*		fListLayout;
+			TabView*			fListTabs;
 			FeaturedPackagesView* fFeaturedPackagesView;
 			PackageListView*	fPackageListView;
 			PackageInfoView*	fPackageInfoView;
@@ -107,21 +146,26 @@ private:
 			BMenu*				fRepositoryMenu;
 			BMenuItem*			fLogInItem;
 			BMenuItem*			fLogOutItem;
+			BMenuItem*			fUsersUserUsageConditionsMenuItem;
 
 			BMenuItem*			fShowAvailablePackagesItem;
 			BMenuItem*			fShowInstalledPackagesItem;
 			BMenuItem*			fShowDevelopPackagesItem;
 			BMenuItem*			fShowSourcePackagesItem;
 
+			BMenuItem*			fRefreshRepositoriesItem;
+
 			Model				fModel;
 			ModelListenerRef	fModelListener;
-			PackageList			fVisiblePackages;
-			BulkLoadStateMachine
-								fBulkLoadStateMachine;
 
-			bool				fTerminating;
+			std::queue<BReference<ProcessCoordinator> >
+								fCoordinatorQueue;
+			BReference<ProcessCoordinator>
+								fCoordinator;
+			BLocker				fCoordinatorLock;
+			sem_id				fCoordinatorRunningSem;
+
 			bool				fSinglePackageMode;
-			thread_id			fModelWorker;
 
 			thread_id			fPendingActionsWorker;
 			PackageActionList	fPendingActions;
@@ -133,14 +177,6 @@ private:
 			bool				fForcePopulatePackage;
 			BLocker				fPackageToPopulateLock;
 			sem_id				fPackageToPopulateSem;
-
-			thread_id			fShowPackagesWorker;
-			PackageList			fPackagesToShowList;
-			int32				fPackagesToShowListID;
-				// atomic, counted up whenever fPackagesToShowList is refilled
-			BLocker				fPackagesToShowListLock;
-			sem_id				fNewPackagesToShowSem;
-			sem_id				fShowPackagesAcknowledgeSem;
 };
 
 #endif // MAIN_WINDOW_H

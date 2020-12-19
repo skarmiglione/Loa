@@ -37,7 +37,8 @@
 #include <AppMisc.h>
 #include <MediaDefs.h>
 
-#include "debug.h"
+#include "MediaDebug.h"
+#include "MediaMisc.h"
 #include "DataExchange.h"
 #include "SharedBufferList.h"
 
@@ -114,7 +115,11 @@ BBuffer::Recycle()
 	CALLED();
 	if (fBufferList == NULL)
 		return;
-	fBufferList->RecycleBuffer(this);
+	fFlags &= ~BUFFER_TO_RECLAIM;
+	if ((fFlags & BUFFER_MARKED_FOR_DELETION) != 0)
+		delete this;
+	else
+		fBufferList->RecycleBuffer(this);
 }
 
 

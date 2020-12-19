@@ -258,6 +258,33 @@ find_edid_mode(edid1_info& info, bool allowPalette)
 }
 
 
+static void
+vesa_fixups(void *settings)
+{
+	const char *oem_string = (const char *)sInfo.oem_string;
+
+	if (!strcmp(oem_string, "NVIDIA")) {
+		const char *arg = NULL;
+		int32 scaling = -1;
+
+		if (settings != NULL)
+			arg = get_driver_parameter(settings, "nvidia_scaling", NULL, "1");
+		if (arg != NULL)
+			scaling = strtol(arg, NULL, 0);
+
+		if (scaling > -1) {
+			dprintf("Setting nvidia scaling mode to %" B_PRId32 "\n", scaling);
+			struct bios_regs regs;
+			regs.eax = 0x4f14;
+			regs.ebx = 0x0102;
+			regs.ecx = scaling;
+			call_bios(0x10, &regs);
+		}
+	}
+
+}
+
+
 static bool
 get_mode_from_settings(void)
 {
@@ -267,6 +294,8 @@ get_mode_from_settings(void)
 	void *handle = load_driver_settings("vesa");
 	if (handle == NULL)
 		return false;
+
+	vesa_fixups(handle);
 
 	bool found = false;
 
@@ -616,10 +645,10 @@ video_mode_hook(Menu *menu, MenuItem *item)
 	// find selected mode
 	video_mode *mode = NULL;
 
-	menu = item->Submenu();
-	item = menu->FindMarked();
-	if (item != NULL) {
-		switch (menu->IndexOf(item)) {
+	Menu* submenu = item->Submenu();
+	MenuItem* subitem = submenu->FindMarked();
+	if (subitem != NULL) {
+		switch (submenu->IndexOf(subitem)) {
 			case 0:
 				// "Default" mode special
 				sMode = sDefaultMode;
@@ -630,7 +659,7 @@ video_mode_hook(Menu *menu, MenuItem *item)
 				// sets sMode to NULL which triggers VGA mode
 				break;
 			default:
-				mode = (video_mode *)item->Data();
+				mode = (video_mode *)subitem->Data();
 				break;
 		}
 	}

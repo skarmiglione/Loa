@@ -1,6 +1,6 @@
 /*
  * Copyright 2008-2010, Axel Dörfler, axeld@pinc-software.de.
- * Copyright 2011, Jérôme Duval, korli@users.berlios.de.
+ * Copyright 2011-2019, Jérôme Duval, jerome.duval@gmail.com.
  * Copyright 2014 Haiku, Inc. All rights reserved.
  *
  * Distributed under the terms of the MIT License.
@@ -30,6 +30,7 @@
 #include <util/AutoLock.h>
 
 #include "CachedBlock.h"
+#include "DeviceOpener.h"
 #include "Inode.h"
 #include "Utility.h"
 
@@ -41,170 +42,6 @@
 #	define TRACE(x...) ;
 #endif
 #	define ERROR(x...) dprintf("\33[34mexfat:\33[0m " x)
-
-
-class DeviceOpener {
-public:
-								DeviceOpener(int fd, int mode);
-								DeviceOpener(const char* device, int mode);
-								~DeviceOpener();
-
-			int					Open(const char* device, int mode);
-			int					Open(int fd, int mode);
-			void*				InitCache(off_t numBlocks, uint32 blockSize);
-			void				RemoveCache(bool allowWrites);
-
-			void				Keep();
-
-			int					Device() const { return fDevice; }
-			int					Mode() const { return fMode; }
-			bool				IsReadOnly() const
-									{ return _IsReadOnly(fMode); }
-
-			status_t			GetSize(off_t* _size,
-									uint32* _blockSize = NULL);
-
-private:
-	static	bool				_IsReadOnly(int mode)
-									{ return (mode & O_RWMASK) == O_RDONLY;}
-	static	bool				_IsReadWrite(int mode)
-									{ return (mode & O_RWMASK) == O_RDWR;}
-
-			int					fDevice;
-			int					fMode;
-			void*				fBlockCache;
-};
-
-
-//	#pragma mark - DeviceOpener
-
-
-DeviceOpener::DeviceOpener(const char* device, int mode)
-	:
-	fBlockCache(NULL)
-{
-	Open(device, mode);
-}
-
-
-DeviceOpener::DeviceOpener(int fd, int mode)
-	:
-	fBlockCache(NULL)
-{
-	Open(fd, mode);
-}
-
-
-DeviceOpener::~DeviceOpener()
-{
-	if (fDevice >= 0) {
-		RemoveCache(false);
-		close(fDevice);
-	}
-}
-
-
-int
-DeviceOpener::Open(const char* device, int mode)
-{
-	fDevice = open(device, mode | O_NOCACHE);
-	if (fDevice < 0)
-		fDevice = errno;
-
-	if (fDevice < 0 && _IsReadWrite(mode)) {
-		// try again to open read-only (don't rely on a specific error code)
-		return Open(device, O_RDONLY | O_NOCACHE);
-	}
-
-	if (fDevice >= 0) {
-		// opening succeeded
-		fMode = mode;
-		if (_IsReadWrite(mode)) {
-			// check out if the device really allows for read/write access
-			device_geometry geometry;
-			if (!ioctl(fDevice, B_GET_GEOMETRY, &geometry)) {
-				if (geometry.read_only) {
-					// reopen device read-only
-					close(fDevice);
-					return Open(device, O_RDONLY | O_NOCACHE);
-				}
-			}
-		}
-	}
-
-	return fDevice;
-}
-
-
-int
-DeviceOpener::Open(int fd, int mode)
-{
-	fDevice = dup(fd);
-	if (fDevice < 0)
-		return errno;
-
-	fMode = mode;
-
-	return fDevice;
-}
-
-
-void*
-DeviceOpener::InitCache(off_t numBlocks, uint32 blockSize)
-{
-	return fBlockCache = block_cache_create(fDevice, numBlocks, blockSize,
-		IsReadOnly());
-}
-
-
-void
-DeviceOpener::RemoveCache(bool allowWrites)
-{
-	if (fBlockCache == NULL)
-		return;
-
-	block_cache_delete(fBlockCache, allowWrites);
-	fBlockCache = NULL;
-}
-
-
-void
-DeviceOpener::Keep()
-{
-	fDevice = -1;
-}
-
-
-/*!	Returns the size of the device in bytes. It uses B_GET_GEOMETRY
-	to compute the size, or fstat() if that failed.
-*/
-status_t
-DeviceOpener::GetSize(off_t* _size, uint32* _blockSize)
-{
-	device_geometry geometry;
-	if (ioctl(fDevice, B_GET_GEOMETRY, &geometry) < 0) {
-		// maybe it's just a file
-		struct stat stat;
-		if (fstat(fDevice, &stat) < 0)
-			return B_ERROR;
-
-		if (_size)
-			*_size = stat.st_size;
-		if (_blockSize)	// that shouldn't cause us any problems
-			*_blockSize = 512;
-
-		return B_OK;
-	}
-
-	if (_size) {
-		*_size = 1ULL * geometry.head_count * geometry.cylinder_count
-			* geometry.sectors_per_track * geometry.bytes_per_sector;
-	}
-	if (_blockSize)
-		*_blockSize = geometry.bytes_per_sector;
-
-	return B_OK;
-}
 
 
 //	#pragma mark - LabelVisitor
@@ -255,7 +92,7 @@ exfat_super_block::IsValid()
 		return false;
 	if (version_minor != 0 || version_major != 1)
 		return false;
-	
+
 	return true;
 }
 
@@ -416,9 +253,12 @@ Volume::LoadSuperBlock()
 status_t
 Volume::ClusterToBlock(cluster_t cluster, fsblock_t &block)
 {
-	if (cluster < 2)
+	if ((cluster - EXFAT_FIRST_DATA_CLUSTER) >= SuperBlock().ClusterCount()
+		|| cluster < EXFAT_FIRST_DATA_CLUSTER) {
 		return B_BAD_VALUE;
-	block = ((cluster - 2) << SuperBlock().BlocksPerClusterShift())
+	}
+	block = ((fsblock_t)(cluster - EXFAT_FIRST_DATA_CLUSTER)
+		<< SuperBlock().BlocksPerClusterShift())
 		+ SuperBlock().FirstDataBlock();
 	TRACE("Volume::ClusterToBlock() cluster %" B_PRIu32 " %u %" B_PRIu32 ": %"
 		B_PRIu64 ", %" B_PRIu32 "\n", cluster,
@@ -477,7 +317,7 @@ Volume::GetIno(cluster_t cluster, uint32 offset, ino_t parent)
 	node->parent = parent;
 	fNodeTree.Insert(node);
 	fInoTree.Insert(node);
-	TRACE("Volume::GetIno() new cluster %" B_PRIu32 " offset %" B_PRIu32 
+	TRACE("Volume::GetIno() new cluster %" B_PRIu32 " offset %" B_PRIu32
 		" ino %" B_PRIdINO "\n", cluster, offset, node->ino);
 	return node->ino;
 }

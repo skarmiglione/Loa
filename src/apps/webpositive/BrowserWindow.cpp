@@ -380,6 +380,7 @@ BrowserWindow::BrowserWindow(BRect frame, SettingsMessage* appSettings,
 		kDefaultStartPageURL);
 	fSearchPageURL = fAppSettings->GetValue(kSettingsKeySearchPageURL,
 		kDefaultSearchPageURL);
+	_InitSearchEngines();
 
 	// Create the interface elements
 	BMessage* newTabMessage = new BMessage(NEW_TAB);
@@ -418,7 +419,7 @@ BrowserWindow::BrowserWindow(BRect frame, SettingsMessage* appSettings,
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Downloads"),
 		new BMessage(SHOW_DOWNLOAD_WINDOW), 'D'));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Settings"),
-		new BMessage(SHOW_SETTINGS_WINDOW)));
+		new BMessage(SHOW_SETTINGS_WINDOW), ','));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Cookie manager"),
 		new BMessage(SHOW_COOKIE_WINDOW)));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Script console"),
@@ -605,10 +606,10 @@ BrowserWindow::BrowserWindow(BRect frame, SettingsMessage* appSettings,
 		)
 	;
 
-	BitmapButton* toggleFullscreenButton = new BitmapButton(kWindowIconBits,
+	BBitmapButton* toggleFullscreenButton = new BBitmapButton(kWindowIconBits,
 		kWindowIconWidth, kWindowIconHeight, kWindowIconFormat,
 		new BMessage(TOGGLE_FULLSCREEN));
-	toggleFullscreenButton->SetBackgroundMode(BitmapButton::MENUBAR_BACKGROUND);
+	toggleFullscreenButton->SetBackgroundMode(BBitmapButton::MENUBAR_BACKGROUND);
 
 	BGroupLayout* menuBarGroup = BLayoutBuilder::Group<>(B_HORIZONTAL, 0.0)
 		.Add(mainMenu)
@@ -698,6 +699,7 @@ BrowserWindow::~BrowserWindow()
 	delete fTabManager;
 	delete fPulseRunner;
 	delete fSavePanel;
+	delete[] fSearchEngines;
 }
 
 
@@ -2479,6 +2481,30 @@ BrowserWindow::_EncodeURIComponent(const BString& search)
 
 
 void
+BrowserWindow::_InitSearchEngines()
+{
+	// TODO make these configurable
+	fSearchEngines = new SearchEngine[kSearchEngineCount];
+	fSearchEngines[0].url="https://google.com/search?q=%s";
+	fSearchEngines[0].shortcut="g ";
+	fSearchEngines[1].url="https://bing.com/search?q=%s";
+	fSearchEngines[1].shortcut="b ";
+	fSearchEngines[2].url="https://en.wikipedia.org/w/index.php?search=%s";
+	fSearchEngines[2].shortcut="w ";
+	fSearchEngines[3].url="https://duckduckgo.com/?q=%s";
+	fSearchEngines[3].shortcut="d ";
+	fSearchEngines[4].url="https://www.baidu.com/s?wd=%s";
+	fSearchEngines[4].shortcut="a ";
+	fSearchEngines[5].url="https://yandex.com/search/?text=%s";
+	fSearchEngines[5].shortcut="y ";
+	fSearchEngines[6].url="https://www.ecosia.org/search?q=%s";
+	fSearchEngines[6].shortcut="e ";
+	fSearchEngines[7].url="https://www.qwant.com/?q=%s";
+	fSearchEngines[7].shortcut="q ";
+}
+
+
+void
 BrowserWindow::_VisitURL(const BString& url)
 {
 	// fURLInputGroup->TextView()->SetText(url);
@@ -2489,9 +2515,24 @@ BrowserWindow::_VisitURL(const BString& url)
 void
 BrowserWindow::_VisitSearchEngine(const BString& search)
 {
-	BString engine(fSearchPageURL);
-	engine.ReplaceAll("%s", _EncodeURIComponent(search).String());
+	BString searchQuery = search;
 
+	BString searchPrefix;
+	search.CopyCharsInto(searchPrefix, 0, 2);
+	
+	// Default search URL
+	BString engine(fSearchPageURL);
+
+	// Check if the string starts with one of the search engine shortcuts
+	for (int i = 0; i < kSearchEngineCount; i++) {
+		if (fSearchEngines[i].shortcut == searchPrefix) {
+			engine = fSearchEngines[i].url;
+			searchQuery.Remove(0, 2);
+			break;
+		}
+	}
+	
+	engine.ReplaceAll("%s", _EncodeURIComponent(searchQuery));
 	_VisitURL(engine);
 }
 

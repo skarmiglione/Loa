@@ -1,22 +1,12 @@
 /*
- * Copyright 2004-2005, Axel Dörfler, axeld@pinc-software.de. All rights reserved.
+ * Copyright 2019-2020, Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  */
-#ifndef CPU_H
-#define CPU_H
+#ifndef _BIOS_IA32_CPU_H
+#define _BIOS_IA32_CPU_H
 
 
-#include <SupportDefs.h>
+void cpu_init(void);
 
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-extern void cpu_init(void);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif	/* CPU_H */
+#endif /* _BIOS_IA32_CPU_H */

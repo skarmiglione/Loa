@@ -12,7 +12,7 @@
 #include <termios.h>
 #include <unistd.h>
 
-#include <AutoDeleter.h>
+#include <AutoDeleterPosix.h>
 
 #include <user_group.h>
 
@@ -30,14 +30,15 @@ read_password(const char* prompt, char* password, size_t bufferSize,
 // TODO: Open tty with O_NOCTTY!
 		tty = fopen("/dev/tty", "w+");
 		if (tty == NULL) {
-			fprintf(stderr, "Error: Failed to open tty: %s\n", strerror(errno));
+			fprintf(stderr, "Error: Failed to open tty: %s\n",
+				strerror(errno));
 			return errno;
 		}
 
 		in = tty;
 		out = tty;
 	}
-	CObjectDeleter<FILE, int> ttyCloser(tty, fclose);
+	FileCloser ttyCloser(tty);
 
 	// disable echo
 	int inFD = fileno(in);
@@ -60,11 +61,12 @@ read_password(const char* prompt, char* password, size_t bufferSize,
 	status_t error = B_OK;
 
 	// prompt and read pwd
-	fprintf(out, prompt);
+	fputs(prompt, out);
 	fflush(out);
 
 	if (fgets(password, bufferSize, in) == NULL) {
-		fprintf(out, "\nError: Failed to read from tty: %s\n", strerror(errno));
+		fprintf(out, "\nError: Failed to read from tty: %s\n",
+			strerror(errno));
 		error = errno != 0 ? errno : B_ERROR;
 	} else
 		fputc('\n', out);
@@ -140,7 +142,7 @@ authenticate_user(const char* prompt, passwd* passwd, spwd* spwd, int maxTries,
 
 		// check it
 		bool ok = verify_password(passwd, spwd, plainPassword);
-		memset(plainPassword, 0, sizeof(plainPassword));
+		explicit_bzero(plainPassword, sizeof(plainPassword));
 		if (ok)
 			return B_OK;
 

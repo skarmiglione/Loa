@@ -13,9 +13,12 @@
 #include <Directory.h>
 #include <Entry.h>
 #include <fs_attr.h>
+#include <GroupLayout.h>
 #include <LayoutUtils.h>
 #include <Locale.h>
 #include <Messenger.h>
+#include <package/PackageInfo.h>
+#include <Path.h>
 #include <ScrollBar.h>
 #include <String.h>
 #include <View.h>
@@ -31,13 +34,13 @@
 #define ICON_ATTRIBUTE "INSTALLER PACKAGE: ICON"
 
 
-Package::Package(const char *folder)
+Package::Package(const BPath &path)
 	:
 	Group(),
 	fSize(0),
 	fIcon(NULL)
 {
-	SetFolder(folder);
+	SetPath(path);
 }
 
 
@@ -50,58 +53,63 @@ Package::~Package()
 Package *
 Package::PackageFromEntry(BEntry &entry)
 {
-	char folder[B_FILE_NAME_LENGTH];
-	entry.GetName(folder);
-	BDirectory directory(&entry);
-	if (directory.InitCheck() != B_OK)
+	BPath path;
+	entry.GetPath(&path);
+
+	BPackageKit::BPackageInfo info;
+	info.ReadFromPackageFile(path.Path());
+
+	if (info.InitCheck() != B_OK)
 		return NULL;
-	Package *package = new Package(folder);
-	bool alwaysOn;
-	bool onByDefault;
-	int32 size;
+
+	Package *package = new Package(path);
+	package->fName = info.Name();
+	package->fDescription = info.Summary();
+
+	bool alwaysOn = false;
+	bool onByDefault = true;
+	off_t size = 0;
+	entry.GetSize(&size);
 	char group[64];
 	memset(group, 0, 64);
-	if (directory.ReadAttr("INSTALLER PACKAGE: NAME", B_STRING_TYPE, 0,
-		package->fName, 64) < 0) {
-		goto err;
-	}
-	if (directory.ReadAttr("INSTALLER PACKAGE: GROUP", B_STRING_TYPE, 0,
+
+	BNode node(&entry);
+	// FIXME enable these when the attributes on the packages are actually
+	// populated by the buildsystem. For now, assume everything is
+	// on-by-default and optional, and have no groups.
+#if 0
+	if (node.ReadAttr("INSTALLER PACKAGE: GROUP", B_STRING_TYPE, 0,
 		group, 64) < 0) {
 		goto err;
 	}
-	if (directory.ReadAttr("INSTALLER PACKAGE: DESCRIPTION", B_STRING_TYPE, 0,
-		package->fDescription, 64) < 0) {
-		goto err;
-	}
-	if (directory.ReadAttr("INSTALLER PACKAGE: ON_BY_DEFAULT", B_BOOL_TYPE, 0,
+	if (node.ReadAttr("INSTALLER PACKAGE: ON_BY_DEFAULT", B_BOOL_TYPE, 0,
 		&onByDefault, sizeof(onByDefault)) < 0) {
 		goto err;
 	}
-	if (directory.ReadAttr("INSTALLER PACKAGE: ALWAYS_ON", B_BOOL_TYPE, 0,
+	if (node.ReadAttr("INSTALLER PACKAGE: ALWAYS_ON", B_BOOL_TYPE, 0,
 		&alwaysOn, sizeof(alwaysOn)) < 0) {
 		goto err;
 	}
-	if (directory.ReadAttr("INSTALLER PACKAGE: SIZE", B_INT32_TYPE, 0,
-		&size, sizeof(size)) < 0) {
-		goto err;
-	}
+#endif
 	package->SetGroupName(group);
 	package->SetSize(size);
 	package->SetAlwaysOn(alwaysOn);
 	package->SetOnByDefault(onByDefault);
 
-	attr_info info;
-	if (directory.GetAttrInfo(ICON_ATTRIBUTE, &info) == B_OK) {
-		char buffer[info.size];
+	attr_info attributes;
+	if (node.GetAttrInfo(ICON_ATTRIBUTE, &attributes) == B_OK) {
+		char buffer[attributes.size];
 		BMessage msg;
-		if ((directory.ReadAttr(ICON_ATTRIBUTE, info.type, 0, buffer,
-				info.size) == info.size)
+		if ((node.ReadAttr(ICON_ATTRIBUTE, attributes.type, 0, buffer,
+				attributes.size) == attributes.size)
 			&& (msg.Unflatten(buffer) == B_OK)) {
 			package->SetIcon(new BBitmap(&msg));
 		}
 	}
 	return package;
+#if 0
 err:
+#endif
 	delete package;
 	return NULL;
 }
@@ -124,11 +132,14 @@ Group::~Group()
 }
 
 
-PackageCheckBox::PackageCheckBox(BRect rect, Package *item)
+PackageCheckBox::PackageCheckBox(Package *item)
 	:
-	BCheckBox(rect.OffsetBySelf(7, 0), "pack_cb", item->Name(), NULL),
+	BCheckBox("pack_cb", item->Name(), NULL),
 	fPackage(item)
 {
+	SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET));
+	SetFlags(Flags() | B_FULL_UPDATE_ON_RESIZE);
+	SetIcon(fPackage->Icon());
 }
 
 
@@ -142,14 +153,15 @@ void
 PackageCheckBox::Draw(BRect update)
 {
 	BCheckBox::Draw(update);
+
+	// Draw the label
 	char string[15];
 	fPackage->GetSizeAsString(string, sizeof(string));
 	float width = StringWidth(string);
-	DrawString(string, BPoint(Bounds().right - width - 8, 11));
-
-	const BBitmap *icon = fPackage->Icon();
-	if (icon)
-		DrawBitmap(icon, BPoint(Bounds().right - 92, 0));
+	BRect sizeRect = Bounds();
+	sizeRect.left = sizeRect.right - width;
+	be_control_look->DrawLabel(this, string, NULL, sizeRect, update,
+		ui_color(B_DOCUMENT_BACKGROUND_COLOR), be_control_look->Flags(this));
 }
 
 
@@ -157,7 +169,6 @@ void
 PackageCheckBox::MouseMoved(BPoint point, uint32 transit,
 	const BMessage* dragMessage)
 {
-	printf("%s called\n", __PRETTY_FUNCTION__);
 	if (transit == B_ENTERED_VIEW) {
 		BMessage msg(MSG_STATUS_MESSAGE);
 		msg.AddString("status", fPackage->Description());
@@ -169,9 +180,9 @@ PackageCheckBox::MouseMoved(BPoint point, uint32 transit,
 }
 
 
-GroupView::GroupView(BRect rect, Group *group)
+GroupView::GroupView(Group *group)
 	:
-	BStringView(rect, "group", group->GroupName()),
+	BStringView("group", group->GroupName()),
 	fGroup(group)
 {
 	SetFont(be_bold_font);
@@ -187,17 +198,17 @@ GroupView::~GroupView()
 // #pragma mark -
 
 
-PackagesView::PackagesView(BRect rect, const char* name)
-	:
-	BView(rect, name, B_FOLLOW_ALL_SIDES, B_WILL_DRAW | B_FRAME_EVENTS)
-{
-}
-
-
 PackagesView::PackagesView(const char* name)
 	:
-	BView(name, B_WILL_DRAW | B_FRAME_EVENTS)
+	BView(name, B_WILL_DRAW)
 {
+	BGroupLayout* layout = new BGroupLayout(B_VERTICAL);
+	layout->SetSpacing(0);
+	layout->SetInsets(B_USE_SMALL_SPACING, 0);
+	SetLayout(layout);
+
+	SetViewUIColor(B_DOCUMENT_BACKGROUND_COLOR);
+	SetExplicitMinSize(BSize(B_SIZE_UNSET, 80));
 }
 
 
@@ -219,6 +230,10 @@ PackagesView::Clean()
 		}
 	}
 	ScrollTo(0, 0);
+
+	BView* parent = Parent();
+	BRect r = parent->Bounds();
+	parent->FrameResized(r.Width(), r.Height());
 }
 
 
@@ -226,34 +241,30 @@ void
 PackagesView::AddPackages(BList& packages, BMessage* msg)
 {
 	int32 count = packages.CountItems();
-	BRect rect = Bounds();
-	BRect bounds = rect;
-	rect.left = 1;
-	rect.bottom = 15;
-	rect.top = 0;
 	BString lastGroup = "";
 	for (int32 i = 0; i < count; i++) {
 		void* item = packages.ItemAt(i);
 		Package* package = static_cast<Package*>(item);
 		if (lastGroup != BString(package->GroupName())) {
-			rect.OffsetBy(0, 1);
 			lastGroup = package->GroupName();
 			Group* group = new Group();
 			group->SetGroupName(package->GroupName());
-			GroupView *view = new GroupView(rect, group);
+			GroupView *view = new GroupView(group);
 			AddChild(view);
-			rect.OffsetBy(0, 17);
 		}
-		PackageCheckBox* checkBox = new PackageCheckBox(rect, package);
+		PackageCheckBox* checkBox = new PackageCheckBox(package);
 		checkBox->SetValue(package->OnByDefault()
 			? B_CONTROL_ON : B_CONTROL_OFF);
 		checkBox->SetEnabled(!package->AlwaysOn());
 		checkBox->SetMessage(new BMessage(*msg));
 		AddChild(checkBox);
-		rect.OffsetBy(0, 20);
 	}
-	ResizeTo(bounds.Width(), rect.top);
 	Invalidate();
+
+	// Force scrollbars to update
+	BView* parent = Parent();
+	BRect r = parent->Bounds();
+	parent->FrameResized(r.Width(), r.Height());
 }
 
 
@@ -287,36 +298,6 @@ PackagesView::GetPackagesToInstall(BList* list, int32* size)
 
 
 void
-PackagesView::FrameResized(float width, float height)
-{
-	if (CountChildren() == 0)
-		Invalidate();
-
-	BScrollBar* scrollBar = ScrollBar(B_VERTICAL);
-	if (scrollBar == NULL)
-		return;
-
-	float virtualHeight = 0.0;
-
-	int32 count = CountChildren();
-	if (count > 0) {
-		BView* child = ChildAt(count - 1);
-		virtualHeight = child->Frame().bottom;
-	}
-
-	if (height > virtualHeight) {
-		scrollBar->SetRange(0.0f, 0.0f);
-		scrollBar->SetValue(0.0f);
-	} else {
-		scrollBar->SetRange(0.0f, virtualHeight - height);
-		scrollBar->SetProportion(height / virtualHeight);
-	}
-
-	scrollBar->SetSteps(15, height);
-}
-
-
-void
 PackagesView::Draw(BRect updateRect)
 {
 	if (CountChildren() > 0)
@@ -327,25 +308,3 @@ PackagesView::Draw(BRect updateRect)
 		Bounds(), updateRect, ViewColor(), BControlLook::B_DISABLED,
 		BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE));
 }
-
-
-void
-PackagesView::GetPreferredSize(float* _width, float* _height)
-{
-	// TODO: Something more nice as default? I need to see how this looks
-	// when there are actually any packages...
-	if (_width != NULL)
-		*_width = 400.0;
-
-	if (_height != NULL)
-		*_height = 80.0;
-}
-
-
-BSize
-PackagesView::MaxSize()
-{
-	return BLayoutUtils::ComposeSize(ExplicitMaxSize(),
-		BSize(B_SIZE_UNLIMITED, B_SIZE_UNLIMITED));
-}
-

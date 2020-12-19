@@ -1239,76 +1239,78 @@ AVCodecDecoder::_UpdateMediaHeaderForAudioFrame()
 status_t
 AVCodecDecoder::_DecodeNextVideoFrame()
 {
-	while (true) {
-		status_t loadingChunkStatus
-			= _LoadNextChunkIfNeededAndAssignStartTime();
-		if (loadingChunkStatus == B_LAST_BUFFER_ERROR)
-			return _FlushOneVideoFrameFromDecoderBuffer();
-		if (loadingChunkStatus != B_OK) {
-			TRACE("AVCodecDecoder::_DecodeNextVideoFrame(): error from "
-				"GetNextChunk(): %s\n", strerror(loadingChunkStatus));
-			return loadingChunkStatus;
-		}
+	int error;
+	int send_error;
 
 #if DO_PROFILING
-		bigtime_t startTime = system_time();
+	bigtime_t startTime = system_time();
 #endif
 
-		// NOTE: In the FFMPEG 0.10.2 code example decoding_encoding.c, the
-		// length returned by avcodec_decode_video2() is used to update the
-		// packet buffer size (here it is fTempPacket.size). This way the
-		// packet buffer is allowed to contain incomplete frames so we are
-		// required to buffer the packets between different calls to
-		// _DecodeNextVideoFrame().
-		int gotVideoFrame = 0;
-		int encodedDataSizeInBytes = avcodec_decode_video2(fCodecContext,
-			fRawDecodedPicture, &gotVideoFrame, &fTempPacket);
-		if (encodedDataSizeInBytes < 0) {
-			TRACE("[v] AVCodecDecoder: ignoring error in decoding frame %lld:"
-				" %d\n", fFrame, encodedDataSizeInBytes);
-			// NOTE: An error from avcodec_decode_video2() is ignored by the
-			// FFMPEG 0.10.2 example decoding_encoding.c. Only the packet
-			// buffers are flushed accordingly
+	error = avcodec_receive_frame(fCodecContext, fRawDecodedPicture);
+
+	if (error == AVERROR_EOF)
+		return B_LAST_BUFFER_ERROR;
+
+	if (error == AVERROR(EAGAIN)) {
+		do {
+			status_t loadingChunkStatus
+				= _LoadNextChunkIfNeededAndAssignStartTime();
+			if (loadingChunkStatus == B_LAST_BUFFER_ERROR)
+				return _FlushOneVideoFrameFromDecoderBuffer();
+			if (loadingChunkStatus != B_OK) {
+				TRACE("[v] AVCodecDecoder::_DecodeNextVideoFrame(): error from "
+					"GetNextChunk(): %s\n", strerror(loadingChunkStatus));
+				return loadingChunkStatus;
+			}
+
+			char timestamp[AV_TS_MAX_STRING_SIZE];
+			av_ts_make_time_string(timestamp,
+				fTempPacket.dts, &fCodecContext->time_base);
+			TRACE("[v] Feed %d more bytes (dts %s)\n", fTempPacket.size,
+				timestamp);
+
+			send_error = avcodec_send_packet(fCodecContext, &fTempPacket);
+			if (send_error < 0 && send_error != AVERROR(EAGAIN)) {
+				TRACE("[v] AVCodecDecoder: ignoring error in decoding frame "
+				"%lld: %d\n", fFrame, error);
+			}
+
+			// Packet is consumed, clear it
 			fTempPacket.data = NULL;
 			fTempPacket.size = 0;
-			continue;
-		}
 
-		fTempPacket.size -= encodedDataSizeInBytes;
-		fTempPacket.data += encodedDataSizeInBytes;
+			error = avcodec_receive_frame(fCodecContext, fRawDecodedPicture);
+			if (error != 0 && error != AVERROR(EAGAIN)) {
+				TRACE("[v] frame %lld - decoding error, error code: %d, "
+					"chunk size: %ld\n", fFrame, error, fChunkBufferSize);
+			}
 
-		bool gotNoVideoFrame = gotVideoFrame == 0;
-		if (gotNoVideoFrame) {
-			TRACE("frame %lld - no picture yet, encodedDataSizeInBytes: %d, "
-				"chunk size: %ld\n", fFrame, encodedDataSizeInBytes,
-				fChunkBufferSize);
-			continue;
-		}
-
-#if DO_PROFILING
-		bigtime_t formatConversionStart = system_time();
-#endif
-
-		status_t handleStatus = _HandleNewVideoFrameAndUpdateSystemState();
-		if (handleStatus != B_OK)
-			return handleStatus;
-
-#if DO_PROFILING
-		bigtime_t doneTime = system_time();
-		decodingTime += formatConversionStart - startTime;
-		conversionTime += doneTime - formatConversionStart;
-		profileCounter++;
-		if (!(fFrame % 5)) {
-			printf("[v] profile: d1 = %lld, d2 = %lld (%lld) required %Ld\n",
-				decodingTime / profileCounter, conversionTime / profileCounter,
-				fFrame, bigtime_t(1000000LL / fOutputFrameRate));
-			decodingTime = 0;
-			conversionTime = 0;
-			profileCounter = 0;
-		}
-#endif
-		return B_OK;
+		} while (error != 0);
 	}
+
+#if DO_PROFILING
+	bigtime_t formatConversionStart = system_time();
+#endif
+
+	status_t handleStatus = _HandleNewVideoFrameAndUpdateSystemState();
+	if (handleStatus != B_OK)
+		return handleStatus;
+
+#if DO_PROFILING
+	bigtime_t doneTime = system_time();
+	decodingTime += formatConversionStart - startTime;
+	conversionTime += doneTime - formatConversionStart;
+	profileCounter++;
+	if (!(fFrame % 5)) {
+		printf("[v] profile: d1 = %lld, d2 = %lld (%lld) required %Ld\n",
+			decodingTime / profileCounter, conversionTime / profileCounter,
+			fFrame, bigtime_t(1000000LL / fOutputFrameRate));
+		decodingTime = 0;
+		conversionTime = 0;
+		profileCounter = 0;
+	}
+#endif
+	return error;
 }
 
 
@@ -1457,11 +1459,15 @@ status_t
 AVCodecDecoder::_CopyChunkToChunkBufferAndAddPadding(const void* chunk,
 	size_t chunkSize)
 {
-	fChunkBuffer = static_cast<uint8_t*>(realloc(fChunkBuffer,
+	uint8_t* tmpBuffer = static_cast<uint8_t*>(realloc(fChunkBuffer,
 		chunkSize + AV_INPUT_BUFFER_PADDING_SIZE));
-	if (fChunkBuffer == NULL) {
+	if (tmpBuffer == NULL) {
+		free(fChunkBuffer);
+		fChunkBuffer = NULL;
 		fChunkBufferSize = 0;
 		return B_NO_MEMORY;
+	} else {
+		fChunkBuffer = tmpBuffer;
 	}
 
 	memcpy(fChunkBuffer, chunk, chunkSize);
@@ -1525,19 +1531,15 @@ AVCodecDecoder::_HandleNewVideoFrameAndUpdateSystemState()
 status_t
 AVCodecDecoder::_FlushOneVideoFrameFromDecoderBuffer()
 {
-	// Create empty fTempPacket to tell the video decoder it is time to flush
-	fTempPacket.data = NULL;
-	fTempPacket.size = 0;
+	// Tell the decoder there is nothing to send anymore
+	avcodec_send_packet(fCodecContext, NULL);
 
-	int gotVideoFrame = 0;
-	avcodec_decode_video2(fCodecContext,	fRawDecodedPicture, &gotVideoFrame,
-		&fTempPacket);
-		// We are only interested in complete frames now, so ignore the return
-		// value.
+	// Get any remaining frame
+	int error = avcodec_receive_frame(fCodecContext, fRawDecodedPicture);
 
-	bool gotNoVideoFrame = gotVideoFrame == 0;
-	if (gotNoVideoFrame) {
+	if (error != 0 && error != AVERROR(EAGAIN)) {
 		// video buffer is flushed successfully
+		// (or there is an error, not much we can do about it)
 		return B_LAST_BUFFER_ERROR;
 	}
 
@@ -1570,9 +1572,11 @@ AVCodecDecoder::_UpdateMediaHeaderForVideoFrame()
 	fHeader.file_pos = 0;
 	fHeader.orig_size = 0;
 	fHeader.start_time = fRawDecodedPicture->pkt_dts;
-	fHeader.size_used = avpicture_get_size(
+		// The pkt_dts is already in microseconds, even if ffmpeg docs says
+		// 'in codec time_base units'
+	fHeader.size_used = av_image_get_buffer_size(
 		colorspace_to_pixfmt(fOutputColorSpace), fRawDecodedPicture->width,
-		fRawDecodedPicture->height);
+		fRawDecodedPicture->height, 1);
 	fHeader.u.raw_video.display_line_width = fRawDecodedPicture->width;
 	fHeader.u.raw_video.display_line_count = fRawDecodedPicture->height;
 	fHeader.u.raw_video.bytes_per_row
@@ -1589,11 +1593,12 @@ AVCodecDecoder::_UpdateMediaHeaderForVideoFrame()
 		fHeader.u.raw_video.pixel_width_aspect,
 		fHeader.u.raw_video.pixel_height_aspect);
 
-	TRACE("[v] start_time=%02d:%02d.%02d field_sequence=%lu\n",
-		int((fHeader.start_time / 60000000) % 60),
-		int((fHeader.start_time / 1000000) % 60),
-		int((fHeader.start_time / 10000) % 100),
-		fHeader.u.raw_video.field_sequence);
+	char timestamp[AV_TS_MAX_STRING_SIZE];
+	av_ts_make_time_string(timestamp,
+		fRawDecodedPicture->best_effort_timestamp, &fCodecContext->time_base);
+
+	TRACE("[v] start_time=%s field_sequence=%lu\n",
+		timestamp, fHeader.u.raw_video.field_sequence);
 }
 
 
@@ -1622,11 +1627,11 @@ AVCodecDecoder::_DeinterlaceAndColorConvertVideoFrame()
 {
 	int displayWidth = fRawDecodedPicture->width;
 	int displayHeight = fRawDecodedPicture->height;
-	AVPicture deinterlacedPicture;
+	AVFrame deinterlacedPicture;
 	bool useDeinterlacedPicture = false;
 
 	if (fRawDecodedPicture->interlaced_frame) {
-		AVPicture rawPicture;
+		AVFrame rawPicture;
 		rawPicture.data[0] = fRawDecodedPicture->data[0];
 		rawPicture.data[1] = fRawDecodedPicture->data[1];
 		rawPicture.data[2] = fRawDecodedPicture->data[2];
@@ -1636,12 +1641,14 @@ AVCodecDecoder::_DeinterlaceAndColorConvertVideoFrame()
 		rawPicture.linesize[2] = fRawDecodedPicture->linesize[2];
 		rawPicture.linesize[3] = fRawDecodedPicture->linesize[3];
 
-		avpicture_alloc(&deinterlacedPicture, fCodecContext->pix_fmt, displayWidth,
-			displayHeight);
+		if (av_image_alloc(deinterlacedPicture.data,
+				deinterlacedPicture.linesize, displayWidth, displayHeight,
+				fCodecContext->pix_fmt, 1) < 0)
+			return B_NO_MEMORY;
 
 		// deinterlace implemented using avfilter
 		_ProcessFilterGraph(&deinterlacedPicture, &rawPicture,
-				fCodecContext->pix_fmt, displayWidth, displayHeight);
+			fCodecContext->pix_fmt, displayWidth, displayHeight);
 		useDeinterlacedPicture = true;
 	}
 
@@ -1717,7 +1724,7 @@ AVCodecDecoder::_DeinterlaceAndColorConvertVideoFrame()
 	}
 
 	if (fRawDecodedPicture->interlaced_frame)
-		avpicture_free(&deinterlacedPicture);
+		av_freep(&deinterlacedPicture.data[0]);
 
 	return B_OK;
 }
@@ -1787,7 +1794,7 @@ AVCodecDecoder::_InitFilterGraph(enum AVPixelFormat pixfmt, int32 width,
 	\returns B_NO_MEMORY Not enough memory available for correct operation.
 */
 status_t
-AVCodecDecoder::_ProcessFilterGraph(AVPicture *dst, const AVPicture *src,
+AVCodecDecoder::_ProcessFilterGraph(AVFrame *dst, const AVFrame *src,
 	enum AVPixelFormat pixfmt, int32 width, int32 height)
 {
 	if (fFilterGraph == NULL || width != fLastWidth
@@ -1812,8 +1819,8 @@ AVCodecDecoder::_ProcessFilterGraph(AVPicture *dst, const AVPicture *src,
 	if (ret < 0)
 		return B_BAD_DATA;
 
-	av_picture_copy(dst, (const AVPicture *)fFilterFrame, pixfmt, width,
-		height);
+	av_image_copy(dst->data, dst->linesize, (const uint8**)fFilterFrame->data,
+		fFilterFrame->linesize, pixfmt, width, height);
 	av_frame_unref(fFilterFrame);
 	return B_OK;
 }

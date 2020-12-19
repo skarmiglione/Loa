@@ -1,6 +1,5 @@
 SubDir HAIKU_TOP src tests servers app stacktile ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 UseHeaders [ FDirName $(HAIKU_TOP) os app ] ;
@@ -9,7 +8,7 @@ UsePrivateHeaders interface ;
 
 Application StackTileTest :
 	main.cpp
-	: [ TargetLibstdc++ ] be
+	: [ TargetLibstdc++ ] [ TargetLibstdc++ ] be
 ;
 
 if ( $(TARGET_PLATFORM) = libbe_test ) {

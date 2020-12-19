@@ -53,6 +53,19 @@ static mutex sConditionVariablesLock = MUTEX_INITIALIZER("condition variables");
 // #pragma mark - ConditionVariableEntry
 
 
+ConditionVariableEntry::ConditionVariableEntry()
+	: fVariable(NULL)
+{
+}
+
+
+ConditionVariableEntry::~ConditionVariableEntry()
+{
+	if (fVariable != NULL)
+		_RemoveFromVariable();
+}
+
+
 bool
 ConditionVariableEntry::Add(const void* object)
 {
@@ -95,14 +108,7 @@ ConditionVariableEntry::Wait(uint32 flags, bigtime_t timeout)
 	while ((error = _kern_block_thread(flags, timeout)) == B_INTERRUPTED) {
 	}
 
-	conditionLocker.Lock();
-
-	// remove entry from variable, if not done yet
-	if (fVariable != NULL) {
-		fVariable->fEntries.Remove(this);
-		fVariable = NULL;
-	}
-
+	_RemoveFromVariable();
 	return error;
 }
 
@@ -118,15 +124,23 @@ ConditionVariableEntry::Wait(const void* object, uint32 flags,
 
 
 inline void
-ConditionVariableEntry::AddToVariable(ConditionVariable* variable)
+ConditionVariableEntry::_AddToLockedVariable(ConditionVariable* variable)
 {
 	fThread = get_current_thread();
-
-	MutexLocker _(sConditionVariablesLock);
-
 	fVariable = variable;
 	fWaitStatus = STATUS_ADDED;
 	fVariable->fEntries.Add(this);
+}
+
+
+void
+ConditionVariableEntry::_RemoveFromVariable()
+{
+	MutexLocker _(sConditionVariablesLock);
+	if (fVariable != NULL) {
+		fVariable->fEntries.Remove(this);
+		fVariable = NULL;
+	}
 }
 
 
@@ -180,7 +194,8 @@ ConditionVariable::Unpublish()
 void
 ConditionVariable::Add(ConditionVariableEntry* entry)
 {
-	entry->AddToVariable(this);
+	MutexLocker _(sConditionVariablesLock);
+	entry->_AddToLockedVariable(this);
 }
 
 

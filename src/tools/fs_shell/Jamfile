@@ -2,7 +2,7 @@ SubDir HAIKU_TOP src tools fs_shell ;
 
 UseHeaders [ FDirName $(HAIKU_TOP) headers build ] : true ;
 
-if ! $(HOST_PLATFORM_BEOS_COMPATIBLE) {
+if ! $(HOST_PLATFORM_HAIKU_COMPATIBLE) {
 	UseHeaders [ FDirName $(HAIKU_TOP) headers build os ] : true ;
 	UseHeaders [ FDirName $(HAIKU_TOP) headers build os kernel ] : true ;
 	UseHeaders [ FDirName $(HAIKU_TOP) headers build os storage ] : true ;
@@ -14,14 +14,14 @@ UsePrivateHeaders shared ;
 
 DEFINES += FS_SHELL=1 ;
 
-# prevent inclusion of HaikuBuildCompatibility.h
-DEFINES += HAIKU_BUILD_COMPATIBILITY_H ;
+# prevent inclusion of HaikuBuildCompatibility.h and _BSD_SOURCE headers
+DEFINES += HAIKU_BUILD_COMPATIBILITY_H __STRICT_ANSI__ ;
 
 # platform specific sources/libraries
 local fsShellCommandSources ;
 local externalCommandsSources ;
 local fsShellCommandLibs ;
-if $(HOST_PLATFORM_BEOS_COMPATIBLE) && $(HOST_PLATFORM) != haiku_host {
+if $(HOST_PLATFORM_HAIKU_COMPATIBLE) && $(HOST_PLATFORM) != haiku_host {
 	# BeOS compatible, but not Haiku -- use BeOS ports for communication
 	fsShellCommandSources = fs_shell_command_beos.cpp ;
 	externalCommandsSources = external_commands_beos.cpp ;

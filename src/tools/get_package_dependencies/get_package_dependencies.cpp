@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2018, Haiku, Inc. All Rights Reserved.
+ * Copyright 2013-2020, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -90,7 +90,7 @@ main(int argc, const char* const* argv)
 		for (int i = 0; i < packageCount; i++)
 			installedRepositoryBuilder.AddPackage(packages[i]);
 		installedRepositoryBuilder.AddToSolver(solver, true);
-	} catch (BFatalErrorException e) {
+	} catch (BFatalErrorException& e) {
 		DIE(e.Error(), "%s %s", e.Message().String(), e.Details().String());
 	}
 
@@ -104,6 +104,10 @@ main(int argc, const char* const* argv)
 			DIE(error, "failed to read repository file '%s'", repositories[i]);
 		BRepositoryBuilder(*repository, cache)
 			.AddToSolver(solver, false);
+		if (cache.Info().BaseURL().IsEmpty()) {
+			DIE(B_ERROR, "missing base url in repository file '%s'",
+				repositories[i]);
+		}
 		repositoryInfos[repository] = cache.Info();
 	}
 
@@ -155,7 +159,7 @@ main(int argc, const char* const* argv)
 				if (package->Repository() != &installedRepository) {
 					const BRepositoryInfo& info
 						= repositoryInfos[package->Repository()];
-					BString url = info.URL();
+					BString url = info.BaseURL();
 					url << "/packages/" << package->Info().CanonicalFileName();
 					printf("%s\n", url.String());
 				}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2017, Axel Dörfler, axeld@pinc-software.de.
+ * Copyright 2001-2020, Axel Dörfler, axeld@pinc-software.de.
  * Copyright 2010, Clemens Zeidler <haiku@clemens-zeidler.de>
  * This file may be used under the terms of the MIT License.
  */
@@ -384,9 +384,9 @@ Equation::Match(Inode* inode, const char* attributeName, int32 type,
 		buffer = const_cast<uint8*>(key);
 	} else if (!strcmp(fAttribute, "name")) {
 		// we need to lock before accessing Inode::Name()
-		nodeGetter.SetToNode(inode);
-		if (nodeGetter.Node() == NULL)
-			return B_IO_ERROR;
+		status_t status = nodeGetter.SetTo(inode);
+		if (status != B_OK)
+			return status;
 
 		recursive_lock_lock(&inode->SmallDataLock());
 		locked = true;
@@ -417,9 +417,9 @@ Equation::Match(Inode* inode, const char* attributeName, int32 type,
 	} else {
 		// then for attributes in the small_data section, and finally for the
 		// real attributes
-		nodeGetter.SetToNode(inode);
-		if (nodeGetter.Node() == NULL)
-			return B_IO_ERROR;
+		status_t status = nodeGetter.SetTo(inode);
+		if (status != B_OK)
+			return status;
 
 		Inode* attribute;
 
@@ -667,13 +667,14 @@ Equation::GetNextMatching(Volume* volume, TreeIterator* iterator,
 			dirent->d_ino = offset;
 			dirent->d_pdev = volume->ID();
 			dirent->d_pino = volume->ToVnode(inode->Parent());
+			dirent->d_reclen = sizeof(struct dirent);
 
 			if (inode->GetName(dirent->d_name) < B_OK) {
 				FATAL(("inode %" B_PRIdOFF " in query has no name!\n",
 					inode->BlockNumber()));
+			} else {
+				dirent->d_reclen += strlen(dirent->d_name);
 			}
-
-			dirent->d_reclen = sizeof(struct dirent) + strlen(dirent->d_name);
 		}
 
 		if (status == MATCH_OK)

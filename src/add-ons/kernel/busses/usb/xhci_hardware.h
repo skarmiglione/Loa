@@ -102,6 +102,7 @@
 
 
 // Host Controller Runtime Registers
+#define XHCI_MFINDEX		0x0000
 // Section 5.5.2.1
 #define XHCI_IMAN(n)		(0x0020 + (0x20 * (n)))
 // IMAN
@@ -119,7 +120,7 @@
 #define XHCI_ERDP_LO(n)		(0x0038 + (0x20 * (n)))
 #define XHCI_ERDP_HI(n)		(0x003C + (0x20 * (n)))
 // Event Handler Busy (EHB)
-#define ERST_EHB			(1 << 3)
+#define ERDP_BUSY			(1 << 3)
 
 
 // Host Controller Doorbell Registers
@@ -148,7 +149,6 @@
 
 #define XHCI_SUPPORTED_PROTOCOLS_1_COUNT(x)	(((x) >> 8) & 0xff)
 #define XHCI_SUPPORTED_PROTOCOLS_1_OFFSET(x) (((x) >> 0) & 0xff)
-
 
 
 // Port status Registers
@@ -273,6 +273,7 @@
 #define TRB_3_TC_BIT				(1U << 1)
 #define TRB_3_ENT_BIT				(1U << 1)
 #define TRB_3_ISP_BIT				(1U << 2)
+#define TRB_3_EVENT_DATA_BIT		(1U << 2)
 #define TRB_3_NSNOOP_BIT			(1U << 3)
 #define TRB_3_CHAIN_BIT				(1U << 4)
 #define TRB_3_IOC_BIT				(1U << 5)
@@ -309,27 +310,13 @@
 #define XHCI_MAX_SCRATCHPADS	256
 #define XHCI_MAX_DEVICES		128
 #define XHCI_MAX_TRANSFERS		8
-#define XHCI_MAX_TRBS_PER_TD	18
 
 
 struct xhci_trb {
-	uint64	qwtrb0;
-	uint32	dwtrb2;
-	uint32	dwtrb3;
+	uint64 address;
+	uint32 status;
+	uint32 flags;
 } __attribute__((__aligned__(4)));
-
-
-struct xhci_segment {
-	xhci_trb *		trbs;
-	xhci_segment *	next;
-};
-
-
-struct xhci_ring {
-	xhci_segment *	first_seg;
-	xhci_trb *		enqueue;
-	xhci_trb *		dequeue;
-};
 
 
 // Section 6.5
@@ -450,10 +437,6 @@ struct xhci_device_ctx {
 	struct xhci_slot_ctx slot;
 	struct xhci_endpoint_ctx endpoints[XHCI_MAX_ENDPOINTS - 1];
 };
-
-
-#define XHCI_ENDPOINT_ID(pipe)	(2 * pipe->EndpointAddress()	\
-		+ (pipe->Direction() != Pipe::Out ? 1 : 0))
 
 
 #endif // !XHCI_HARDWARE_H

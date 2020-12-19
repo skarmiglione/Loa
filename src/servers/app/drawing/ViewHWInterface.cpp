@@ -146,7 +146,6 @@ public:
 
 private:
 			CardView*			fView;
-			BMessageRunner*		fUpdateRunner;
 			BRegion				fUpdateRegion;
 			BLocker				fUpdateLock;
 };
@@ -276,6 +275,9 @@ CardMessageFilter::Filter(BMessage* message, BHandler** target)
 		case B_MOUSE_DOWN:
 		case B_MOUSE_UP:
 		case B_MOUSE_WHEEL_CHANGED:
+			if (message->what == B_MOUSE_DOWN)
+				fView->SetMouseEventMask(B_POINTER_EVENTS);
+
 			fView->ForwardMessage(message);
 			return B_SKIP_MESSAGE;
 
@@ -305,7 +307,6 @@ CardWindow::CardWindow(BRect frame)
 	:
 	BWindow(frame, "Haiku App Server", B_TITLED_WINDOW,
 		B_NOT_ZOOMABLE | B_NOT_RESIZABLE | B_NO_SERVER_SIDE_WINDOW_MODIFIERS),
-	fUpdateRunner(NULL),
 	fUpdateRegion(),
 	fUpdateLock("update lock")
 {
@@ -318,7 +319,6 @@ CardWindow::CardWindow(BRect frame)
 
 CardWindow::~CardWindow()
 {
-	delete fUpdateRunner;
 }
 
 
@@ -381,14 +381,9 @@ CardWindow::SetBitmap(const BBitmap* bitmap)
 void
 CardWindow::Invalidate(const BRect& frame)
 {
-	if (fUpdateLock.Lock()) {
-		if (!fUpdateRunner) {
-			BMessage message(MSG_UPDATE);
-			fUpdateRunner = new BMessageRunner(BMessenger(this, this), &message,
-				20000);
-		}
-		fUpdateRegion.Include(frame);
-		fUpdateLock.Unlock();
+	if (LockWithTimeout(1000000) >= B_OK) {
+		fView->Invalidate(frame);
+		Unlock();
 	}
 }
 
@@ -416,9 +411,6 @@ ViewHWInterface::~ViewHWInterface()
 		fWindow->Quit();
 	}
 
-	delete fBackBuffer;
-	delete fFrontBuffer;
-
 	be_app->Lock();
 	be_app->Quit();
 }
@@ -445,7 +437,7 @@ ViewHWInterface::SetMode(const display_mode& mode)
 
 	status_t ret = B_OK;
 	// prevent from doing the unnecessary
-	if (fBackBuffer && fFrontBuffer
+	if (fBackBuffer.Get() != NULL && fFrontBuffer.Get() != NULL
 		&& fDisplayMode.virtual_width == mode.virtual_width
 		&& fDisplayMode.virtual_height == mode.virtual_height
 		&& fDisplayMode.space == mode.space)
@@ -483,19 +475,22 @@ ViewHWInterface::SetMode(const display_mode& mode)
 		// has not been created either, but we need one to display
 		// a real BWindow in the test environment.
 		// be_app->Run() needs to be called in another thread
-		BApplication* app = new BApplication(
-			"application/x-vnd.Haiku-test-app_server");
-		app->Unlock();
 
-		thread_id appThread = spawn_thread(run_app_thread, "app thread",
-			B_NORMAL_PRIORITY, app);
-		if (appThread >= B_OK)
-			ret = resume_thread(appThread);
-		else
-			ret = appThread;
+		if (be_app == NULL) {
+			BApplication* app = new BApplication(
+				"application/x-vnd.Haiku-test-app_server");
+			app->Unlock();
 
-		if (ret < B_OK)
-			return ret;
+			thread_id appThread = spawn_thread(run_app_thread, "app thread",
+				B_NORMAL_PRIORITY, app);
+			if (appThread >= B_OK)
+				ret = resume_thread(appThread);
+			else
+				ret = appThread;
+
+			if (ret < B_OK)
+				return ret;
+		}
 
 		fWindow = new CardWindow(frame.OffsetToCopy(BPoint(50.0, 50.0)));
 
@@ -510,9 +505,8 @@ ViewHWInterface::SetMode(const display_mode& mode)
 
 		// free and reallocate the bitmaps while the window is locked,
 		// so that the view does not accidentally draw a freed bitmap
-		delete fBackBuffer;
-		fBackBuffer = NULL;
-		delete fFrontBuffer;
+		fBackBuffer.Unset();
+		fFrontBuffer.Unset();
 
 		// NOTE: backbuffer is always B_RGBA32, this simplifies the
 		// drawing backend implementation tremendously for the time
@@ -528,12 +522,11 @@ ViewHWInterface::SetMode(const display_mode& mode)
 
 		BBitmap* frontBitmap
 			= new BBitmap(frame, 0, (color_space)fDisplayMode.space);
-		fFrontBuffer = new BBitmapBuffer(frontBitmap);
+		fFrontBuffer.SetTo(new BBitmapBuffer(frontBitmap));
 
 		status_t err = fFrontBuffer->InitCheck();
 		if (err < B_OK) {
-			delete fFrontBuffer;
-			fFrontBuffer = NULL;
+			fFrontBuffer.Unset();
 			ret = err;
 		}
 
@@ -542,12 +535,11 @@ ViewHWInterface::SetMode(const display_mode& mode)
 			// since we override IsDoubleBuffered(), the drawing buffer
 			// is in effect also always B_RGBA32.
 			BBitmap* backBitmap = new BBitmap(frame, 0, B_RGBA32);
-			fBackBuffer = new BBitmapBuffer(backBitmap);
+			fBackBuffer.SetTo(new BBitmapBuffer(backBitmap));
 
 			err = fBackBuffer->InitCheck();
 			if (err < B_OK) {
-				delete fBackBuffer;
-				fBackBuffer = NULL;
+				fBackBuffer.Unset();
 				ret = err;
 			}
 		}
@@ -557,7 +549,7 @@ ViewHWInterface::SetMode(const display_mode& mode)
 		if (ret >= B_OK) {
 			// clear out buffers, alpha is 255 this way
 			// TODO: maybe this should handle different color spaces in different ways
-			if (fBackBuffer)
+			if (fBackBuffer.Get() != NULL)
 				memset(fBackBuffer->Bits(), 255, fBackBuffer->BitsLength());
 			memset(fFrontBuffer->Bits(), 255, fFrontBuffer->BitsLength());
 
@@ -611,7 +603,7 @@ ViewHWInterface::GetDeviceInfo(accelerant_device_info* info)
 status_t
 ViewHWInterface::GetFrameBufferConfig(frame_buffer_config& config)
 {
-	if (fFrontBuffer == NULL)
+	if (fFrontBuffer.Get() == NULL)
 		return B_ERROR;
 
 	config.frame_buffer = fFrontBuffer->Bits();
@@ -771,22 +763,22 @@ ViewHWInterface::WaitForRetrace(bigtime_t timeout)
 RenderingBuffer*
 ViewHWInterface::FrontBuffer() const
 {
-	return fFrontBuffer;
+	return fFrontBuffer.Get();
 }
 
 
 RenderingBuffer*
 ViewHWInterface::BackBuffer() const
 {
-	return fBackBuffer;
+	return fBackBuffer.Get();
 }
 
 
 bool
 ViewHWInterface::IsDoubleBuffered() const
 {
-	if (fFrontBuffer)
-		return fBackBuffer != NULL;
+	if (fFrontBuffer.Get() != NULL)
+		return fBackBuffer.Get() != NULL;
 
 	return HWInterface::IsDoubleBuffered();
 }

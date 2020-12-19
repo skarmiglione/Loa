@@ -1,5 +1,5 @@
-#ifndef ICON_H
-#define ICON_H
+#ifndef AUTORAISEAPP_H
+#define AUTORAISEAPP_H
 
 #include <Application.h>
 #include <Archivable.h>
@@ -9,8 +9,6 @@
 
 
 class AutoRaiseApp: public BApplication{
-	protected:
-		bool _directToDeskbar;
 
 	public:
 		AutoRaiseApp();
@@ -20,6 +18,10 @@ class AutoRaiseApp: public BApplication{
 		virtual void ReadyToRun();
 		
 		void PutInTray(bool);
+
+	private:
+		bool fPersist;
+		bool fDone;
 };
 
 #endif

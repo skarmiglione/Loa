@@ -8,6 +8,7 @@
  */
 
 
+#include <algorithm>
 #include <ctype.h>
 
 #ifndef FS_SHELL
@@ -528,16 +529,6 @@ fs_read(fs_volume* _volume, fs_vnode* _node, void* cookie, off_t pos,
 	if ((node->flags & ISO_IS_DIR) != 0)
 		return EISDIR;
 
-	uint32 fileSize = node->dataLen[FS_DATA_FORMAT];
-
-	// set/check boundaries for pos/length
-	if (pos < 0)
-		return B_BAD_VALUE;
-	if (pos >= fileSize) {
-		*_length = 0;
-		return B_OK;
-	}
-
 	return file_cache_read(node->cache, NULL, pos, buffer, _length);
 }
 
@@ -573,13 +564,12 @@ fs_read_link(fs_volume* _volume, fs_vnode* _node, char* buffer,
 		return B_BAD_VALUE;
 
 	size_t length = strlen(node->attr.slName);
-	if (length > *_bufferSize)
-		memcpy(buffer, node->attr.slName, *_bufferSize);
-	else {
-		memcpy(buffer, node->attr.slName, length);
-		*_bufferSize = length;
-	}
 
+	size_t bytesToCopy = std::min(length, *_bufferSize);
+
+	*_bufferSize = length;
+
+	memcpy(buffer, node->attr.slName, bytesToCopy);
 	return B_OK;
 }
 

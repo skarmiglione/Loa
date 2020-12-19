@@ -1,10 +1,11 @@
 /*
- * Copyright 2006-2015 Haiku, Inc. All rights reserved.
+ * Copyright 2006-2018 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Stefano Ceccherini, burton666@libero.it
  *		Julian Harnath, <julian.harnath@rwth-achen.de>
+ *		Stephan Aßmus <superstippi@gmx.de>
  */
 #ifndef _PICTURE_DATA_WRITER_H
 #define _PICTURE_DATA_WRITER_H
@@ -19,6 +20,7 @@
 
 
 class Layer;
+class BGradient;
 class BPositionIO;
 class BRegion;
 
@@ -39,6 +41,7 @@ public:
 			status_t			WriteSetLineMode(const cap_mode& cap,
 									const join_mode& join,
 									const float& miterLimit);
+			status_t			WriteSetFillRule(int32 fillRule);
 			status_t			WriteSetScale(const float& scale);
 			status_t			WriteSetTransform(BAffineTransform transform);
 			status_t			WriteTranslateBy(double x, double y);
@@ -84,9 +87,30 @@ public:
 			status_t			WriteDrawString(const BPoint& where,
 									const char* string, const int32& length,
 									const escapement_delta& delta);
+			status_t			WriteDrawString(const char* string,
+									int32 length, const BPoint* locations,
+									int32 locationCount);
 			status_t			WriteDrawShape(const int32& opCount,
 									const void* opList, const int32& ptCount,
 									const void* ptList, const bool& fill);
+			status_t			WriteDrawRectGradient(const BRect& rect, const BGradient& gradient,
+									const bool& fill);
+			status_t			WriteDrawRoundRectGradient(const BRect& rect,
+									const BPoint& radius, const BGradient& gradient, const bool& fill);
+			status_t			WriteDrawBezierGradient(const BPoint points[4], const BGradient& gradient,
+									const bool& fill);
+			status_t			WriteDrawArcGradient(const BPoint& center,
+									const BPoint& radius,
+									const float& startTheta,
+									const float& arcTheta, const BGradient& gradient, const bool& fill);
+			status_t			WriteDrawEllipseGradient(const BRect& rect, const BGradient& gradient,
+									const bool& fill);
+			status_t			WriteDrawPolygonGradient(const int32& numPoints,
+									BPoint* points, const bool& isClosed, const BGradient& gradient,
+									const bool& fill);
+			status_t			WriteDrawShapeGradient(const int32& opCount,
+									const void* opList, const int32& ptCount,
+									const void* ptList, const BGradient& gradient, const bool& fill);
 			status_t			WriteDrawBitmap(const BRect& srcRect,
 									const BRect& dstRect, const int32& width,
 									const int32& height,

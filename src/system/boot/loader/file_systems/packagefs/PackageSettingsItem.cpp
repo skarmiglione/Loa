@@ -8,7 +8,7 @@
 
 #include <driver_settings.h>
 
-#include <AutoDeleter.h>
+#include <AutoDeleterDrivers.h>
 #include <boot/vfs.h>
 #include <system/directories.h>
 
@@ -43,7 +43,7 @@ PackageSettingsItem::Load(::Directory* systemDirectory, const char* name)
 {
 	// open the driver settings file
 	const char* settingsFilePath
-		= kSystemSettingsDirectory "/packages" + strlen(kSystemDirectory) + 1;
+		= &(kSystemSettingsDirectory "/packages")[strlen(kSystemDirectory) + 1];
 
 	int fd = open_from(systemDirectory, settingsFilePath, B_READ_ONLY, 0);
 	if (fd < 0)
@@ -54,8 +54,7 @@ PackageSettingsItem::Load(::Directory* systemDirectory, const char* name)
 	void* settingsHandle = load_driver_settings_file(fd);
 	if (settingsHandle == NULL)
 		return NULL;
-	CObjectDeleter<void, status_t> settingsDeleter(settingsHandle,
-		&unload_driver_settings);
+	DriverSettingsUnloader settingsDeleter(settingsHandle);
 
 	const driver_settings* settings = get_driver_settings(settingsHandle);
 	for (int i = 0; i < settings->parameter_count; i++) {

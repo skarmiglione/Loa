@@ -43,7 +43,7 @@ AddFilesToPackage add-ons kernel debugger
 	  <kdebug>run_on_exit ;
 AddFilesToPackage add-ons kernel file_systems : $(SYSTEM_ADD_ONS_FILE_SYSTEMS) ;
 AddFilesToPackage add-ons kernel generic
-	: ata_adapter@ata bios@x86,x86_64 dpc
+	: ata_adapter bios@x86,x86_64 dpc
 		locked_pool mpu401 scsi_periph <module>tty ;
 AddFilesToPackage add-ons kernel partitioning_systems
 	: amiga_rdb@m68k apple@ppc efi_gpt intel session ;
@@ -71,8 +71,6 @@ AddDriversToPackage midi			: $(SYSTEM_ADD_ONS_DRIVERS_MIDI) ;
 AddDriversToPackage bus				: usb_raw fw_raw@x86 ;
 AddDriversToPackage disk floppy		: pc_floppy@x86 ;
 AddDriversToPackage disk usb		: usb_disk ;
-AddDriversToPackage disk usb		: usb_floppy ;
-AddDriversToPackage printer usb		: usb_printer ;
 AddDriversToPackage disk virtual	: nbd ;
 AddDriversToPackage graphics		: $(SYSTEM_ADD_ONS_DRIVERS_GRAPHICS) ;
 AddDriversToPackage input			: ps2_hid usb_hid wacom ;
@@ -89,7 +87,7 @@ AddLibrariesToPackage lib
 	: [ HaikuImageGetSystemLibs ] [ HaikuImageGetPrivateSystemLibs ] ;
 
 # libnetwork.so replaces quite a few libraries
-if $(HAIKU_GCC_VERSION_$(architecture)[1]) = 2 {
+if $(HAIKU_CC_IS_LEGACY_GCC_$(architecture)) = 1 {
 	local libNetworkAliases = libsocket.so libbind.so libnet.so ;
 	local lib ;
 	for lib in $(libNetworkAliases) {
@@ -104,7 +102,7 @@ if $(HAIKU_GCC_VERSION_$(architecture)[1]) = 2 {
 AddFilesToPackage servers : $(SYSTEM_SERVERS) ;
 
 # apps
-AddFilesToPackage  				: runtime_loader Deskbar Tracker ;
+AddFilesToPackage				: runtime_loader Deskbar Tracker ;
 AddFilesToPackage bin			: $(SYSTEM_BIN) consoled ;
 AddFilesToPackage apps			: $(SYSTEM_APPS) ;
 AddFilesToPackage preferences	: $(SYSTEM_PREFERENCES) ;
@@ -117,8 +115,7 @@ AddSymlinkToPackage bin : trash : untrash ;
 AddSymlinkToPackage bin : less : more ;
 
 # scripts and data files
-local bootScripts = PostInstallScript SetupEnvironment
-	InstallerInitScript InstallerFinishScript ;
+local bootScripts = PostInstallScript SetupEnvironment ;
 SEARCH on $(bootScripts) = [ FDirName $(HAIKU_TOP) data system boot ] ;
 AddFilesToPackage boot : $(bootScripts) ;
 
@@ -164,10 +161,10 @@ AddFilesToPackage data KeyboardLayouts ThinkPad
 
 # boot module links
 AddBootModuleSymlinksToPackage
-	acpi@x86,x86_64 ata@ata pci isa@x86,x86_64 config_manager dpc
+	acpi@x86,x86_64 ata pci isa@x86,x86_64 config_manager dpc
 	scsi usb
 	openpic@ppc
-	ata_adapter@ata locked_pool scsi_periph
+	ata_adapter locked_pool scsi_periph
 	ahci generic_ide_pci it8211 legacy_sata silicon_image_3112
 	highpoint_ide_pci
 	ide_isa@x86

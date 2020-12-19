@@ -124,8 +124,8 @@ FontManager::FontManager()
 
 		if (fInitStatus == B_OK) {
 			// Precache the plain and bold fonts
-			_PrecacheFontFile(fDefaultPlainFont);
-			_PrecacheFontFile(fDefaultBoldFont);
+			_PrecacheFontFile(fDefaultPlainFont.Get());
+			_PrecacheFontFile(fDefaultBoldFont.Get());
 		}
 	}
 }
@@ -134,9 +134,9 @@ FontManager::FontManager()
 //! Frees items allocated in the constructor and shuts down FreeType
 FontManager::~FontManager()
 {
-	delete fDefaultPlainFont;
-	delete fDefaultBoldFont;
-	delete fDefaultFixedFont;
+	fDefaultPlainFont.Unset();
+	fDefaultBoldFont.Unset();
+	fDefaultFixedFont.Unset();
 
 	// free families before we're done with FreeType
 
@@ -334,16 +334,16 @@ FontManager::_LoadRecentFontMappings()
 		ttfontsPath.Append("ttfonts");
 
 		BPath veraFontPath = ttfontsPath;
-		veraFontPath.Append("NotoSans-Regular.ttf");
-		_AddDefaultMapping("Noto Sans", "Book", veraFontPath.Path());
+		veraFontPath.Append("NotoSansDisplay-Regular.ttf");
+		_AddDefaultMapping("Noto Sans Display", "Book", veraFontPath.Path());
 
 		veraFontPath.SetTo(ttfontsPath.Path());
-		veraFontPath.Append("NotoSans-Bold.ttf");
-		_AddDefaultMapping("Noto Sans", "Bold", veraFontPath.Path());
+		veraFontPath.Append("NotoSansDisplay-Bold.ttf");
+		_AddDefaultMapping("Noto Sans Display", "Bold", veraFontPath.Path());
 
 		veraFontPath.SetTo(ttfontsPath.Path());
-		veraFontPath.Append("NotoMono-Regular.ttf");
-		_AddDefaultMapping("Noto Mono", "Regular", veraFontPath.Path());
+		veraFontPath.Append("NotoSansMono-Regular.ttf");
+		_AddDefaultMapping("Noto Sans Mono", "Regular", veraFontPath.Path());
 
 		return true;
 	}
@@ -406,9 +406,9 @@ FontManager::_RemoveStyle(font_directory& directory, FontStyle* style)
 	directory.styles.RemoveItem(style);
 	directory.revision++;
 
-	fStyleHashTable.RemoveItem(*style);
+	fStyleHashTable.Remove(FontKey(style->Family()->ID(), style->ID()));
 
-	style->Release();
+	style->ReleaseReference();
 }
 
 
@@ -467,27 +467,27 @@ FontManager::_SetDefaultFonts()
 	if (style == NULL)
 		return B_ERROR;
 
-	fDefaultPlainFont = new (std::nothrow) ServerFont(*style,
-		DEFAULT_PLAIN_FONT_SIZE);
-	if (fDefaultPlainFont == NULL)
+	fDefaultPlainFont.SetTo(new (std::nothrow) ServerFont(*style,
+		DEFAULT_PLAIN_FONT_SIZE));
+	if (fDefaultPlainFont.Get() == NULL)
 		return B_NO_MEMORY;
 
 	// bold font
 	style = _GetDefaultStyle(DEFAULT_BOLD_FONT_FAMILY, DEFAULT_BOLD_FONT_STYLE,
 		FALLBACK_BOLD_FONT_FAMILY, DEFAULT_BOLD_FONT_STYLE, B_BOLD_FACE);
 
-	fDefaultBoldFont = new (std::nothrow) ServerFont(*style,
-		DEFAULT_BOLD_FONT_SIZE);
-	if (fDefaultBoldFont == NULL)
+	fDefaultBoldFont.SetTo(new (std::nothrow) ServerFont(*style,
+		DEFAULT_BOLD_FONT_SIZE));
+	if (fDefaultBoldFont.Get() == NULL)
 		return B_NO_MEMORY;
 
 	// fixed font
 	style = _GetDefaultStyle(DEFAULT_FIXED_FONT_FAMILY, DEFAULT_FIXED_FONT_STYLE,
 		FALLBACK_FIXED_FONT_FAMILY, DEFAULT_FIXED_FONT_STYLE, B_REGULAR_FACE);
 
-	fDefaultFixedFont = new (std::nothrow) ServerFont(*style,
-		DEFAULT_FIXED_FONT_SIZE);
-	if (fDefaultFixedFont == NULL)
+	fDefaultFixedFont.SetTo(new (std::nothrow) ServerFont(*style,
+		DEFAULT_FIXED_FONT_SIZE));
+	if (fDefaultFixedFont.Get() == NULL)
 		return B_NO_MEMORY;
 
 	fDefaultFixedFont->SetSpacing(B_FIXED_SPACING);
@@ -619,7 +619,7 @@ FontManager::_AddFont(font_directory& directory, BEntry& entry)
 	}
 
 	directory.styles.AddItem(style);
-	fStyleHashTable.AddItem(style);
+	fStyleHashTable.Put(FontKey(style->Family()->ID(), style->ID()), style);
 
 	if (directory.AlreadyScanned())
 		directory.revision++;
@@ -981,7 +981,7 @@ FontFamily*
 FontManager::GetFamily(uint16 familyID) const
 {
 	FontKey key(familyID, 0);
-	FontStyle* style = (FontStyle*)fStyleHashTable.GetValue(key);
+	FontStyle* style = fStyleHashTable.Get(key);
 	if (style != NULL)
 		return style->Family();
 
@@ -1074,7 +1074,7 @@ FontStyle*
 FontManager::GetStyle(uint16 familyID, uint16 styleID) const
 {
 	FontKey key(familyID, styleID);
-	return (FontStyle*)fStyleHashTable.GetValue(key);
+	return fStyleHashTable.Get(key);
 }
 
 
@@ -1121,21 +1121,21 @@ FontManager::RemoveStyle(FontStyle* style)
 const ServerFont*
 FontManager::DefaultPlainFont() const
 {
-	return fDefaultPlainFont;
+	return fDefaultPlainFont.Get();
 }
 
 
 const ServerFont*
 FontManager::DefaultBoldFont() const
 {
-	return fDefaultBoldFont;
+	return fDefaultBoldFont.Get();
 }
 
 
 const ServerFont*
 FontManager::DefaultFixedFont() const
 {
-	return fDefaultFixedFont;
+	return fDefaultFixedFont.Get();
 }
 
 

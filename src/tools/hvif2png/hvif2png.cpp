@@ -92,7 +92,7 @@ h2p_close_state(h2p_state* state)
 static bool
 h2p_open_streams(h2p_state* state)
 {
-	CObjectDeleter<h2p_state> stateCloser(state, &h2p_close_state);
+	CObjectDeleter<h2p_state, void, &h2p_close_state> stateCloser(state);
 
 	if (state->params.in_filename != NULL)
 		state->in = fopen(state->params.in_filename, "rb");
@@ -263,8 +263,8 @@ h2p_parse_args(h2p_parameters* result, int argc, char* argv[])
 
 				result->size = atoi(argv[i + 1]);
 
-				if (result->size <= 0 || result->size > 1024) {
-					fprintf(stderr,"bad size specified; '%s'\n", argv[i]);
+				if (result->size <= 0 || result->size > 8192) {
+					fprintf(stderr,"bad size specified; '%s'\n", argv[i + 1]);
 					h2p_fprintsyntax(stderr);
 					return false;
 				}

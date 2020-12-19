@@ -139,8 +139,8 @@ typedef struct acpi_data {
 
 
 enum {
-	ACPI_ALLOCATE_BUFFER = -1,
-	ACPI_ALLOCATE_LOCAL_BUFFER = -2,
+	ACPI_ALLOCATE_BUFFER = (acpi_size)-1,
+	ACPI_ALLOCATE_LOCAL_BUFFER = (acpi_size)-2,
 };
 
 
@@ -173,6 +173,9 @@ typedef void (*acpi_notify_handler)(acpi_handle device, uint32 value,
 
 typedef acpi_status (*acpi_walk_resources_callback)(acpi_resource* resource,
 	void* context);
+
+typedef acpi_status (*acpi_walk_callback) (acpi_handle object, uint32 nestingLevel,
+	void *context, void** returnValue);
 
 
 struct acpi_module_info {
@@ -240,11 +243,17 @@ struct acpi_module_info {
 					char *result, size_t length, void **_counter);
 	status_t	(*get_next_object)(uint32 objectType, acpi_handle parent,
 					acpi_handle* currentChild);
+	status_t	(*walk_namespace)(acpi_handle busDeviceHandle,
+					uint32 objectType, uint32 maxDepth,
+					acpi_walk_callback descendingCallback,
+					acpi_walk_callback ascendingCallback, void* context,
+					void** returnValue);
+
 	status_t	(*get_device)(const char *hid, uint32 index, char *result,
 					size_t resultLength);
 
-	status_t	(*get_device_hid)(const char *path, char *hid,
-					size_t hidLength);
+	status_t	(*get_device_info)(const char *path, char** hid,
+					char** cidList, size_t cidListLength, char** uid);
 	uint32		(*get_object_type)(const char *path);
 	status_t	(*get_object)(const char *path,
 					acpi_object_type **_returnValue);
@@ -303,9 +312,13 @@ enum {
 };
 
 
+#define ACPI_DEVICE_ADDR_ITEM	"acpi/addr"
+#define ACPI_DEVICE_CID_ITEM	"acpi/cid"
+#define ACPI_DEVICE_HANDLE_ITEM	"acpi/handle"
 #define ACPI_DEVICE_HID_ITEM	"acpi/hid"
 #define ACPI_DEVICE_PATH_ITEM	"acpi/path"
 #define ACPI_DEVICE_TYPE_ITEM	"acpi/type"
+#define ACPI_DEVICE_UID_ITEM	"acpi/uid"
 
 
 typedef struct acpi_device_cookie *acpi_device;
@@ -335,6 +348,11 @@ typedef struct acpi_device_module_info {
 	uint32		(*get_object_type)(acpi_device device);
 	status_t	(*get_object)(acpi_device device, const char *path,
 					acpi_object_type **_returnValue);
+	status_t	(*walk_namespace)(acpi_device device,
+					uint32 objectType, uint32 maxDepth,
+					acpi_walk_callback descendingCallback,
+					acpi_walk_callback ascendingCallback,
+					void* context, void** returnValue);
 
 	/* Control method execution and data acquisition */
 	status_t	(*evaluate_method)(acpi_device device, const char *method,

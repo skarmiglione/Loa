@@ -1522,12 +1522,16 @@ StreamReader::_ReadIndirectItem(off_t offset, void *buffer, size_t bufferSize)
 			off_t blockOffset = i * (off_t)fBlockSize;
 			uint32 localOffset = max_c(0LL, offset - blockOffset);
 			uint32 toRead = min_c(fBlockSize - localOffset, bufferSize);
-			memcpy(buffer, (uint8*)block->GetData() + localOffset, toRead);
+			memcpy(buffer,
+				reinterpret_cast<uint8*>(block->GetData()) + localOffset,
+				toRead);
+
 			block->Put();
 			bufferSize -= toRead;
 			buffer = (uint8*)buffer + toRead;
 		} else {
-			FATAL(("failed to get block %Lu\n", indirect.BlockNumberAt(i)));
+			FATAL(("failed to get block %" B_PRIu64 "\n",
+				indirect.BlockNumberAt(i)));
 			error = B_IO_ERROR;
 		}
 	}
@@ -1541,7 +1545,8 @@ StreamReader::_ReadDirectItem(off_t offset, void *buffer, size_t bufferSize)
 {
 //PRINT(("StreamReader::_ReadDirectItem(%Ld, %p, %lu)\n", offset, buffer, bufferSize));
 	// copy the data into the buffer
-	memcpy(buffer, (uint8*)fItem.GetData() + offset, bufferSize);
+	memcpy(buffer,
+		reinterpret_cast<uint8*>(fItem.GetData()) + offset, bufferSize);
 	return B_OK;
 }
 

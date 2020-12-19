@@ -40,165 +40,6 @@
 #define CALLED(x...) TRACE("CALLED %s\n", __PRETTY_FUNCTION__)
 
 
-#if 0
-// This hack needs to die. Leaving in for a little while
-// incase we *really* need it.
-static void
-retrieve_current_mode(display_mode& mode, uint32 pllRegister)
-{
-	uint32 pll = read32(pllRegister);
-	uint32 pllDivisor;
-	uint32 hTotalRegister;
-	uint32 vTotalRegister;
-	uint32 hSyncRegister;
-	uint32 vSyncRegister;
-	uint32 imageSizeRegister;
-	uint32 controlRegister;
-
-	if (pllRegister == INTEL_DISPLAY_A_PLL) {
-		pllDivisor = read32((pll & DISPLAY_PLL_DIVISOR_1) != 0
-			? INTEL_DISPLAY_A_PLL_DIVISOR_1 : INTEL_DISPLAY_A_PLL_DIVISOR_0);
-
-		hTotalRegister = INTEL_DISPLAY_A_HTOTAL;
-		vTotalRegister = INTEL_DISPLAY_A_VTOTAL;
-		hSyncRegister = INTEL_DISPLAY_A_HSYNC;
-		vSyncRegister = INTEL_DISPLAY_A_VSYNC;
-		imageSizeRegister = INTEL_DISPLAY_A_IMAGE_SIZE;
-		controlRegister = INTEL_DISPLAY_A_CONTROL;
-	} else if (pllRegister == INTEL_DISPLAY_B_PLL) {
-		pllDivisor = read32((pll & DISPLAY_PLL_DIVISOR_1) != 0
-			? INTEL_DISPLAY_B_PLL_DIVISOR_1 : INTEL_DISPLAY_B_PLL_DIVISOR_0);
-
-		hTotalRegister = INTEL_DISPLAY_B_HTOTAL;
-		vTotalRegister = INTEL_DISPLAY_B_VTOTAL;
-		hSyncRegister = INTEL_DISPLAY_B_HSYNC;
-		vSyncRegister = INTEL_DISPLAY_B_VSYNC;
-		imageSizeRegister = INTEL_DISPLAY_B_IMAGE_SIZE;
-		controlRegister = INTEL_DISPLAY_B_CONTROL;
-	} else {
-		ERROR("%s: PLL not supported\n", __func__);
-		return;
-	}
-
-	pll_divisors divisors;
-	if (gInfo->shared_info->device_type.InGroup(INTEL_GROUP_PIN)) {
-		divisors.m1 = 0;
-		divisors.m2 = (pllDivisor & DISPLAY_PLL_IGD_M2_DIVISOR_MASK)
-			>> DISPLAY_PLL_M2_DIVISOR_SHIFT;
-		divisors.n = ((pllDivisor & DISPLAY_PLL_IGD_N_DIVISOR_MASK)
-			>> DISPLAY_PLL_N_DIVISOR_SHIFT) - 1;
-	} else {
-		divisors.m1 = (pllDivisor & DISPLAY_PLL_M1_DIVISOR_MASK)
-			>> DISPLAY_PLL_M1_DIVISOR_SHIFT;
-		divisors.m2 = (pllDivisor & DISPLAY_PLL_M2_DIVISOR_MASK)
-			>> DISPLAY_PLL_M2_DIVISOR_SHIFT;
-		divisors.n = (pllDivisor & DISPLAY_PLL_N_DIVISOR_MASK)
-			>> DISPLAY_PLL_N_DIVISOR_SHIFT;
-	}
-
-	pll_limits limits;
-	get_pll_limits(&limits, false);
-		// TODO: Detect LVDS connector vs assume no
-
-	if (gInfo->shared_info->device_type.Generation() >= 3) {
-
-		if (gInfo->shared_info->device_type.InGroup(INTEL_GROUP_PIN)) {
-			divisors.post1 = (pll & DISPLAY_PLL_IGD_POST1_DIVISOR_MASK)
-				>> DISPLAY_PLL_IGD_POST1_DIVISOR_SHIFT;
-		} else {
-			divisors.post1 = (pll & DISPLAY_PLL_9xx_POST1_DIVISOR_MASK)
-				>> DISPLAY_PLL_POST1_DIVISOR_SHIFT;
-		}
-
-		if (pllRegister == INTEL_DISPLAY_B_PLL
-			&& !gInfo->shared_info->device_type.InGroup(INTEL_GROUP_96x)) {
-			// TODO: Fix this? Need to support dual channel LVDS.
-			divisors.post2 = LVDS_POST2_RATE_SLOW;
-		} else {
-			if ((pll & DISPLAY_PLL_DIVIDE_HIGH) != 0)
-				divisors.post2 = limits.max.post2;
-			else
-				divisors.post2 = limits.min.post2;
-		}
-	} else {
-		// 8xx
-		divisors.post1 = (pll & DISPLAY_PLL_POST1_DIVISOR_MASK)
-			>> DISPLAY_PLL_POST1_DIVISOR_SHIFT;
-
-		if ((pll & DISPLAY_PLL_DIVIDE_4X) != 0)
-			divisors.post2 = limits.max.post2;
-		else
-			divisors.post2 = limits.min.post2;
-	}
-
-	divisors.m = 5 * divisors.m1 + divisors.m2;
-	divisors.post = divisors.post1 * divisors.post2;
-
-	float referenceClock
-		= gInfo->shared_info->pll_info.reference_frequency / 1000.0f;
-	float pixelClock
-		= ((referenceClock * divisors.m) / divisors.n) / divisors.post;
-
-	// timing
-
-	mode.timing.pixel_clock = uint32(pixelClock * 1000);
-	mode.timing.flags = 0;
-
-	uint32 value = read32(hTotalRegister);
-	mode.timing.h_total = (value >> 16) + 1;
-	mode.timing.h_display = (value & 0xffff) + 1;
-
-	value = read32(hSyncRegister);
-	mode.timing.h_sync_end = (value >> 16) + 1;
-	mode.timing.h_sync_start = (value & 0xffff) + 1;
-
-	value = read32(vTotalRegister);
-	mode.timing.v_total = (value >> 16) + 1;
-	mode.timing.v_display = (value & 0xffff) + 1;
-
-	value = read32(vSyncRegister);
-	mode.timing.v_sync_end = (value >> 16) + 1;
-	mode.timing.v_sync_start = (value & 0xffff) + 1;
-
-	// image size and color space
-
-	value = read32(imageSizeRegister);
-	mode.virtual_width = (value >> 16) + 1;
-	mode.virtual_height = (value & 0xffff) + 1;
-
-	// using virtual size based on image size is the 'proper' way to do it,
-	// however the bios appears to be suggesting scaling or somesuch, so ignore
-	// the proper virtual dimension for now if they'd suggest a smaller size.
-	if (mode.virtual_width < mode.timing.h_display)
-		mode.virtual_width = mode.timing.h_display;
-	if (mode.virtual_height < mode.timing.v_display)
-		mode.virtual_height = mode.timing.v_display;
-
-	value = read32(controlRegister);
-	switch (value & DISPLAY_CONTROL_COLOR_MASK) {
-		case DISPLAY_CONTROL_RGB32:
-		default:
-			mode.space = B_RGB32;
-			break;
-		case DISPLAY_CONTROL_RGB16:
-			mode.space = B_RGB16;
-			break;
-		case DISPLAY_CONTROL_RGB15:
-			mode.space = B_RGB15;
-			break;
-		case DISPLAY_CONTROL_CMAP8:
-			mode.space = B_CMAP8;
-			break;
-	}
-
-	mode.h_display_start = 0;
-	mode.v_display_start = 0;
-	mode.flags = B_8_BIT_DAC | B_HARDWARE_CURSOR | B_PARALLEL_ACCESS
-		| B_DPMS | B_SUPPORTS_OVERLAYS;
-}
-#endif
-
-
 static void
 get_color_space_format(const display_mode &mode, uint32 &colorMode,
 	uint32 &bytesPerRow, uint32 &bitsPerPixel)
@@ -232,7 +73,6 @@ get_color_space_format(const display_mode &mode, uint32 &colorMode,
 	bytesPerRow = mode.virtual_width * bytesPerPixel;
 
 	// Make sure bytesPerRow is a multiple of 64
-	// TODO: check if the older chips have the same restriction!
 	if ((bytesPerRow & 63) != 0)
 		bytesPerRow = (bytesPerRow + 63) & ~63;
 }
@@ -241,29 +81,25 @@ get_color_space_format(const display_mode &mode, uint32 &colorMode,
 static bool
 sanitize_display_mode(display_mode& mode)
 {
-	// Some cards only support even pixel counts, while others require an odd
-	// one.
 	uint16 pixelCount = 1;
+	// Older cards require pixel count to be even
 	if (gInfo->shared_info->device_type.InGroup(INTEL_GROUP_Gxx)
 			|| gInfo->shared_info->device_type.InGroup(INTEL_GROUP_96x)
 			|| gInfo->shared_info->device_type.InGroup(INTEL_GROUP_94x)
 			|| gInfo->shared_info->device_type.InGroup(INTEL_GROUP_91x)
-			|| gInfo->shared_info->device_type.InFamily(INTEL_FAMILY_8xx)
-			|| gInfo->shared_info->device_type.InFamily(INTEL_FAMILY_7xx)) {
+			|| gInfo->shared_info->device_type.InFamily(INTEL_FAMILY_8xx)) {
 		pixelCount = 2;
 	}
 
-	// TODO: verify constraints - these are more or less taken from the
-	// radeon driver!
 	display_constraints constraints = {
 		// resolution
-		320, 8192, 200, 4096,
+		320, 4096, 200, 4096,
 		// pixel clock
 		gInfo->shared_info->pll_info.min_frequency,
 		gInfo->shared_info->pll_info.max_frequency,
 		// horizontal
 		{pixelCount, 0, 8160, 32, 8192, 0, 8192},
-		{1, 1, 4092, 2, 63, 1, 4096}
+		{1, 1, 8190, 2, 8192, 1, 8192}
 	};
 
 	return sanitize_display_mode(mode, constraints,
@@ -309,12 +145,29 @@ set_frame_buffer_base()
 }
 
 
+static bool
+limit_modes_for_gen3_lvds(display_mode* mode)
+{
+	// Filter out modes with resolution higher than the internal LCD can
+	// display.
+	// FIXME do this only for that display. The whole display mode logic
+	// needs to be adjusted to know which display we're talking about.
+	if (gInfo->shared_info->panel_mode.virtual_width < mode->virtual_width)
+		return false;
+	if (gInfo->shared_info->panel_mode.virtual_height < mode->virtual_height)
+		return false;
+
+	return true;
+}
+
 /*!	Creates the initial mode list of the primary accelerant.
 	It's called from intel_init_accelerant().
 */
 status_t
 create_mode_list(void)
 {
+	CALLED();
+
 	for (uint32 i = 0; i < gInfo->port_count; i++) {
 		if (gInfo->ports[i] == NULL)
 			continue;
@@ -324,37 +177,43 @@ create_mode_list(void)
 			gInfo->has_edid = true;
 	}
 
+	display_mode* list;
+	uint32 count = 0;
+
+	const color_space kSupportedSpaces[] = {B_RGB32_LITTLE, B_RGB16_LITTLE,
+		B_CMAP8};
+	const color_space* supportedSpaces;
+	int colorSpaceCount;
+
+	if (gInfo->shared_info->device_type.Generation() >= 4) {
+		// No B_RGB15, use our custom colorspace list
+		supportedSpaces = kSupportedSpaces;
+		colorSpaceCount = B_COUNT_OF(kSupportedSpaces);
+	} else {
+		supportedSpaces = NULL;
+		colorSpaceCount = 0;
+	}
+
 	// If no EDID, but have vbt from driver, use that mode
 	if (!gInfo->has_edid && gInfo->shared_info->got_vbt) {
 		// We could not read any EDID info. Fallback to creating a list with
 		// only the mode set up by the BIOS.
 
+		check_display_mode_hook limitModes = NULL;
+		if (gInfo->shared_info->device_type.Generation() < 4)
+			limitModes = limit_modes_for_gen3_lvds;
+
 		// TODO: support lower modes via scaling and windowing
-		size_t size = (sizeof(display_mode) + B_PAGE_SIZE - 1)
-			& ~(B_PAGE_SIZE - 1);
-
-		display_mode* list;
-		area_id area = create_area("intel extreme modes",
-			(void**)&list, B_ANY_ADDRESS, size, B_NO_LOCK,
-			B_READ_AREA | B_WRITE_AREA);
-		if (area < 0)
-			return area;
-
-		memcpy(list, &gInfo->shared_info->panel_mode, sizeof(display_mode));
-
-		gInfo->mode_list_area = area;
-		gInfo->mode_list = list;
-		gInfo->shared_info->mode_list_area = gInfo->mode_list_area;
-		gInfo->shared_info->mode_count = 1;
-		return B_OK;
+		gInfo->mode_list_area = create_display_modes("intel extreme modes",
+			NULL, &gInfo->shared_info->panel_mode, 1,
+			supportedSpaces, colorSpaceCount, limitModes, &list, &count);
+	} else {
+		// Otherwise return the 'real' list of modes
+		gInfo->mode_list_area = create_display_modes("intel extreme modes",
+			gInfo->has_edid ? &gInfo->edid_info : NULL, NULL, 0,
+			supportedSpaces, colorSpaceCount, NULL, &list, &count);
 	}
 
-	// Otherwise return the 'real' list of modes
-	display_mode* list;
-	uint32 count = 0;
-	gInfo->mode_list_area = create_display_modes("intel extreme modes",
-		gInfo->has_edid ? &gInfo->edid_info : NULL, NULL, 0, NULL, 0, NULL,
-		&list, &count);
 	if (gInfo->mode_list_area < B_OK)
 		return gInfo->mode_list_area;
 
@@ -370,9 +229,11 @@ void
 wait_for_vblank(void)
 {
 	acquire_sem_etc(gInfo->shared_info->vblank_sem, 1, B_RELATIVE_TIMEOUT,
-		25000);
+		21000);
 		// With the output turned off via DPMS, we might not get any interrupts
-		// anymore that's why we don't wait forever for it.
+		// anymore that's why we don't wait forever for it. At 50Hz, we're sure
+		// to get a vblank in at most 20ms, so there is no need to wait longer
+		// than that.
 }
 
 
@@ -405,7 +266,7 @@ intel_propose_display_mode(display_mode* target, const display_mode* low,
 
 	// first search for the specified mode in the list, if no mode is found
 	// try to fix the target mode in sanitize_display_mode
-	// TODO: Only sanitize_display_mode should be used. However, at the moments
+	// TODO: Only sanitize_display_mode should be used. However, at the moment
 	// the mode constraints are not optimal and do not work for all
 	// configurations.
 	for (uint32 i = 0; i < gInfo->shared_info->mode_count; i++) {
@@ -433,17 +294,14 @@ intel_propose_display_mode(display_mode* target, const display_mode* low,
 status_t
 intel_set_display_mode(display_mode* mode)
 {
-	TRACE("%s(%" B_PRIu16 "x%" B_PRIu16 ")\n", __func__,
-		mode->virtual_width, mode->virtual_height);
-
 	if (mode == NULL)
 		return B_BAD_VALUE;
 
+	TRACE("%s(%" B_PRIu16 "x%" B_PRIu16 ")\n", __func__,
+		mode->virtual_width, mode->virtual_height);
+
 	display_mode target = *mode;
 
-	// TODO: it may be acceptable to continue when using panel fitting or
-	// centering, since the data from propose_display_mode will not actually be
-	// used as is in this case.
 	if (sanitize_display_mode(target)) {
 		TRACE("Video mode was adjusted by sanitize_display_mode\n");
 		TRACE("Initial mode: Hd %d Hs %d He %d Ht %d Vd %d Vs %d Ve %d Vt %d\n",
@@ -482,7 +340,7 @@ intel_set_display_mode(display_mode* mode)
 	if (intel_allocate_memory(bytesPerRow * target.virtual_height, 0,
 			base) < B_OK) {
 		// oh, how did that happen? Unfortunately, there is no really good way
-		// back
+		// back. Try to restore a framebuffer for the previous mode, at least.
 		if (intel_allocate_memory(gInfo->current_mode.virtual_height
 				* sharedInfo.bytes_per_row, 0, base) == B_OK) {
 			sharedInfo.frame_buffer = base;
@@ -491,7 +349,7 @@ intel_set_display_mode(display_mode* mode)
 			set_frame_buffer_base();
 		}
 
-		TRACE("%s: Failed to allocate framebuffer !\n", __func__);
+		ERROR("%s: Failed to allocate framebuffer !\n", __func__);
 		return B_NO_MEMORY;
 	}
 
@@ -646,8 +504,6 @@ intel_get_display_mode(display_mode* _currentMode)
 status_t
 intel_get_edid_info(void* info, size_t size, uint32* _version)
 {
-	CALLED();
-
 	if (!gInfo->has_edid)
 		return B_ERROR;
 	if (size < sizeof(struct edid1_info))
@@ -681,8 +537,19 @@ intel_set_brightness(float brightness)
 		return B_BAD_VALUE;
 
 	uint32_t period = read32(intel_get_backlight_register(true)) >> 16;
+
+	// The "duty cycle" is a proportion of the period (0 = backlight off,
+	// period = maximum brightness). The low bit must be masked out because
+	// it is apparently used for something else on some Atom machines (no
+	// reference to that in the documentation that I know of).
+	// Additionally we don't want it to be completely 0 here, because then
+	// it becomes hard to turn the display on again (at least until we get
+	// working ACPI keyboard shortcuts for this). So always keep the backlight
+	// at least a little bit on for now.
 	uint32_t duty = (uint32_t)(period * brightness) & 0xfffe;
-		/* Setting the low bit seems to give strange results on some Atom machines */
+	if (duty == 0 && period != 0)
+		duty = 2;
+
 	write32(intel_get_backlight_register(false), duty | (period << 16));
 
 	return B_OK;

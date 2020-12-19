@@ -1,6 +1,6 @@
 /*
  * Copyright 2013-2014, Stephan Aßmus <superstippi@gmx.de>.
- * Copyright 2016-2018, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2016-2020, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 #ifndef PACKAGE_INFO_H
@@ -8,11 +8,12 @@
 
 
 #include <set>
+#include <vector>
 
+#include <Language.h>
 #include <Referenceable.h>
 #include <package/PackageInfo.h>
 
-#include "DateTime.h"
 #include "List.h"
 #include "PackageInfoListener.h"
 #include "SharedBitmap.h"
@@ -21,25 +22,44 @@
 class BPath;
 
 
+/*! This class represents a language that is supported by the Haiku
+    Depot Server system.  This may differ from the set of languages
+    that are supported in the platform itself.
+*/
+
+class Language : public BReferenceable, public BLanguage {
+public:
+								Language(const char* language,
+									const BString& serverName,
+									bool isPopular);
+								Language(const Language& other);
+
+			status_t			GetName(BString& name,
+									const BLanguage* displayLanguage = NULL
+									) const;
+			bool				IsPopular() const
+									{ return fIsPopular; }
+
+private:
+			BString				fServerName;
+			bool				fIsPopular;
+};
+
+
 class UserInfo {
 public:
 								UserInfo();
 								UserInfo(const BString& nickName);
-								UserInfo(const BitmapRef& avatar,
-									const BString& nickName);
 								UserInfo(const UserInfo& other);
 
 			UserInfo&			operator=(const UserInfo& other);
 			bool				operator==(const UserInfo& other) const;
 			bool				operator!=(const UserInfo& other) const;
 
-			const BitmapRef&	Avatar() const
-									{ return fAvatar; }
 			const BString&		NickName() const
 									{ return fNickName; }
 
 private:
-			BitmapRef			fAvatar;
 			BString				fNickName;
 };
 
@@ -52,8 +72,7 @@ public:
 									const BString& comment,
 									const BString& language,
 									const BString& packageVersion,
-									int32 upVotes, int32 downVotes,
-									const BDateTime& createTimestamp);
+									uint64 createTimestamp);
 								UserRating(const UserRating& other);
 
 			UserRating&			operator=(const UserRating& other);
@@ -70,12 +89,7 @@ public:
 									{ return fRating; }
 			const BString&		PackageVersion() const
 									{ return fPackageVersion; }
-
-			int32				UpVotes() const
-									{ return fUpVotes; }
-			int32				DownVotes() const
-									{ return fDownVotes; }
-			const BDateTime&	CreateTimestamp() const
+			const uint64		CreateTimestamp() const
 									{ return fCreateTimestamp; }
 private:
 			UserInfo			fUserInfo;
@@ -83,9 +97,8 @@ private:
 			BString				fComment;
 			BString				fLanguage;
 			BString				fPackageVersion;
-			int32				fUpVotes;
-			int32				fDownVotes;
-			BDateTime			fCreateTimestamp;
+			uint64				fCreateTimestamp;
+				// milliseconds since epoc
 };
 
 
@@ -107,31 +120,6 @@ public:
 
 			int					ratingCountByStar[5];
 };
-
-
-class StabilityRating {
-public:
-								StabilityRating();
-								StabilityRating(
-									const BString& label,
-									const BString& name);
-								StabilityRating(const StabilityRating& other);
-
-			StabilityRating&	operator=(const StabilityRating& other);
-			bool				operator==(const StabilityRating& other) const;
-			bool				operator!=(const StabilityRating& other) const;
-
-			const BString&		Label() const
-									{ return fLabel; }
-			const BString&		Name() const
-									{ return fName; }
-private:
-			BString				fLabel;
-			BString				fName;
-};
-
-
-typedef List<StabilityRating, false> StabilityRatingList;
 
 
 class PublisherInfo {
@@ -167,8 +155,7 @@ private:
 class PackageCategory : public BReferenceable {
 public:
 								PackageCategory();
-								PackageCategory(const BitmapRef& icon,
-									const BString& label,
+								PackageCategory(const BString& code,
 									const BString& name);
 								PackageCategory(const PackageCategory& other);
 
@@ -176,21 +163,24 @@ public:
 			bool				operator==(const PackageCategory& other) const;
 			bool				operator!=(const PackageCategory& other) const;
 
-			const BitmapRef&	Icon() const
-									{ return fIcon; }
-			const BString&		Label() const
-									{ return fLabel; }
+			const BString&		Code() const
+									{ return fCode; }
 			const BString&		Name() const
 									{ return fName; }
+
+			int					Compare(const PackageCategory& other) const;
+
 private:
-			BitmapRef			fIcon;
-			BString				fLabel;
+			BString				fCode;
 			BString				fName;
 };
 
 
 typedef BReference<PackageCategory> CategoryRef;
-typedef List<CategoryRef, false> CategoryList;
+
+
+extern bool IsPackageCategoryBefore(const CategoryRef& c1,
+	const CategoryRef& c2);
 
 
 class ScreenshotInfo {
@@ -275,9 +265,9 @@ public:
 			const PublisherInfo& Publisher() const
 									{ return fPublisher; }
 
-			void				SetIcon(const BitmapRef& icon);
-			const BitmapRef&	Icon() const
-									{ return fIcon; }
+			void				SetHasChangelog(bool value);
+			bool				HasChangelog() const
+									{ return fHasChangelog; }
 			void				SetChangelog(const BString& changelog);
 			const BString&		Changelog() const
 									{ return fChangelog; }
@@ -315,8 +305,8 @@ public:
 
 			void				ClearCategories();
 			bool				AddCategory(const CategoryRef& category);
-			const CategoryList&	Categories() const
-									{ return fCategories; }
+			int32				CountCategories() const;
+			CategoryRef			CategoryAtIndex(int32 index) const;
 
 			void				ClearUserRatings();
 			bool				AddUserRating(const UserRating& rating);
@@ -325,11 +315,11 @@ public:
 			void				SetRatingSummary(const RatingSummary& summary);
 			RatingSummary		CalculateRatingSummary() const;
 
-			void				SetProminence(float prominence);
-			float				Prominence() const
+			void				SetProminence(int64 prominence);
+			int64				Prominence() const
 									{ return fProminence; }
 			bool				HasProminence() const
-									{ return fProminence != 0.0f; }
+									{ return fProminence != 0; }
 			bool				IsProminent() const;
 
 			void				ClearScreenshotInfos();
@@ -355,28 +345,28 @@ public:
 			void				RemoveListener(
 									const PackageInfoListenerRef& listener);
 
-	static	void				CleanupDefaultIcon();
-
 			void				StartCollatingChanges();
 			void				EndCollatingChanges();
+			void				NotifyChangedIcon();
 
 private:
 			void				_NotifyListeners(uint32 changes);
 			void				_NotifyListenersImmediate(uint32 changes);
 
 private:
-			BitmapRef			fIcon;
 			BString				fName;
 			BString				fTitle;
 			BPackageVersion		fVersion;
 			PublisherInfo		fPublisher;
 			BString				fShortDescription;
 			BString				fFullDescription;
+			bool				fHasChangelog;
 			BString				fChangelog;
-			CategoryList		fCategories;
+			std::vector<CategoryRef>
+								fCategories;
 			UserRatingList		fUserRatings;
 			RatingSummary		fCachedRatingSummary;
-			float				fProminence;
+			int64				fProminence;
 			ScreenshotInfoList	fScreenshotInfos;
 			BitmapList			fScreenshots;
 			PackageState		fState;
@@ -394,8 +384,6 @@ private:
 
 			bool				fIsCollatingChanges;
 			uint32				fCollatedChanges;
-
-	static	BitmapRef			sDefaultIcon;
 };
 
 
@@ -405,7 +393,7 @@ typedef BReference<PackageInfo> PackageInfoRef;
 typedef List<PackageInfoRef, false> PackageList;
 
 
-class DepotInfo {
+class DepotInfo : public BReferenceable {
 public:
 								DepotInfo();
 								DepotInfo(const BString& name);
@@ -423,13 +411,12 @@ public:
 
 			bool				AddPackage(const PackageInfoRef& package);
 
-			int32				PackageIndexByName(const BString& packageName);
+			int32				PackageIndexByName(const BString& packageName)
+									const;
 
 			void				SyncPackages(const PackageList& packages);
 
-			void				SetBaseURL(const BString& baseURL);
-			const BString&		BaseURL() const
-									{ return fBaseURL; }
+			bool				HasAnyProminentPackages() const;
 
 			void				SetURL(const BString& URL);
 			const BString&		URL() const
@@ -449,18 +436,12 @@ private:
 			PackageList			fPackages;
 			BString				fWebAppRepositoryCode;
 			BString				fWebAppRepositorySourceCode;
-			BString				fBaseURL;
-				// this is the URL at which the configured repository will be
-				// accessed to get data.
 			BString				fURL;
 				// this is actually a unique identifier for the repository.
 };
 
 
-typedef List<DepotInfo, false> DepotList;
-
-
-typedef List<BString, false> StringList;
+typedef BReference<DepotInfo> DepotInfoRef;
 
 
 #endif // PACKAGE_INFO_H

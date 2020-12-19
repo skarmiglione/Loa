@@ -80,6 +80,7 @@ WIndex::SetTo(const char *dataPath, const char *indexPath)
 	dataFile = new BFile();
 
 	if (dataFile->SetTo(dataPath, B_READ_ONLY) != B_OK) {
+		delete dataFile;
 		return B_ERROR;
 	} else {
 		bool buildIndex = true;
@@ -268,9 +269,14 @@ WIndex::_BlockCheck(void)
 	if (fEntries < fMaxEntries)
 		return B_OK;
 	fBlocks = fEntries / fEntriesPerBlock + 1;
-	fEntryList = (uint8 *)realloc(fEntryList, fBlockSize * fBlocks);
-	if (!fEntryList)
+	uint8* tmpEntryList = (uint8 *)realloc(fEntryList, fBlockSize * fBlocks);
+	if (!tmpEntryList) {
+		free(fEntryList);
+		fEntryList = NULL;
 		return B_ERROR;
+	} else {
+		fEntryList = tmpEntryList;
+	}
 	return B_OK;
 }
 

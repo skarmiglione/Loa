@@ -1,11 +1,12 @@
 /*
- * Copyright 2001-2015, Haiku.
+ * Copyright 2001-2019, Haiku.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		DarkWyrm <bpmagic@columbus.rr.com>
  *		Stefano Ceccherini <stefano.ceccherini@gmail.com>
  *		Julian Harnath <julian.harnath@rwth-aachen.de>
+ *		Stephan Aßmus <superstippi@gmx.de>
  */
 #ifndef SERVER_PICTURE_H
 #define SERVER_PICTURE_H
@@ -13,6 +14,7 @@
 
 #include <DataIO.h>
 
+#include <AutoDeleter.h>
 #include <ObjectList.h>
 #include <PictureDataWriter.h>
 #include <Referenceable.h>
@@ -21,6 +23,7 @@
 class BFile;
 class Canvas;
 class ServerApp;
+class ServerFont;
 class View;
 
 namespace BPrivate {
@@ -47,8 +50,9 @@ public:
 			void				EnterStateChange();
 			void				ExitStateChange();
 
-			void				SyncState(View* view);
-			void				SetFontFromLink(BPrivate::LinkReceiver& link);
+			void				SyncState(Canvas* canvas);
+			void				WriteFontState(const ServerFont& font,
+									uint16 mask);
 
 			void				Play(Canvas* target);
 
@@ -69,10 +73,14 @@ private:
 			typedef BObjectList<ServerPicture> PictureList;
 
 			int32				fToken;
-			BFile*				fFile;
-			BPositionIO*		fData;
-			PictureList*		fPictures;
-			ServerPicture*		fPushed;
+			ObjectDeleter<BFile>
+								fFile;
+			ObjectDeleter<BPositionIO>
+								fData;
+			ObjectDeleter<PictureList>
+								fPictures;
+			BReference<ServerPicture>
+								fPushed;
 			ServerApp*			fOwner;
 };
 

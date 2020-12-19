@@ -158,6 +158,8 @@ status_t
 DMAResource::Init(const dma_restrictions& restrictions,
 	generic_size_t blockSize, uint32 bufferCount, uint32 bounceBufferCount)
 {
+	ASSERT(restrictions.alignment <= blockSize);
+
 	fRestrictions = restrictions;
 	fBlockSize = blockSize == 0 ? 1 : blockSize;
 	fBufferCount = bufferCount;
@@ -479,7 +481,6 @@ DMAResource::TranslateNext(IORequest* request, IOOperation* operation,
 		vecOffset = 0;
 	} else {
 		// We do already have physical addresses.
-		locker.Unlock();
 		vecs = buffer->Vecs();
 		segmentCount = min_c(buffer->VecCount() - vecIndex,
 			fRestrictions.max_segment_count);

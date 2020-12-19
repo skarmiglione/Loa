@@ -1,6 +1,6 @@
 /*
 ** Copyright 2011, Oliver Tappe, zooey@hirschkaefer.de. All rights reserved.
-** Distributed under the terms of the Haiku License.
+** Distributed under the terms of the MIT License.
 */
 
 #include <errno_private.h>
@@ -28,5 +28,4 @@ __wcscoll(const wchar_t* wcs1, const wchar_t* wcs2)
 }
 
 
-extern "C"
 B_DEFINE_WEAK_ALIAS(__wcscoll, wcscoll);

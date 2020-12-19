@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, Jérôme Duval, korli@users.berlios.de.
+ * Copyright 2011-2019, Jérôme Duval, jerome.duval@gmail.com.
  * Copyright 2014 Haiku, Inc. All Rights reserved.
  *
  * Distributed under the terms of the MIT License.
@@ -26,6 +26,7 @@ typedef uint32 cluster_t;
 
 
 #define EXFAT_SUPER_BLOCK_OFFSET	0x0
+#define EXFAT_FIRST_DATA_CLUSTER	2
 
 
 struct exfat_super_block {
@@ -55,7 +56,7 @@ struct exfat_super_block {
 	bool IsValid();
 		// implemented in Volume.cpp
 	uint64 FirstBlock() const { return B_LENDIAN_TO_HOST_INT64(first_block); }
-	uint64 NumBlocks() const { return B_LENDIAN_TO_HOST_INT32(num_blocks); }
+	uint64 NumBlocks() const { return B_LENDIAN_TO_HOST_INT64(num_blocks); }
 	uint32 FirstFatBlock() const
 		{ return B_LENDIAN_TO_HOST_INT32(first_fat_block); }
 	uint32 FatLength() const
@@ -169,7 +170,7 @@ struct exfat_entry {
 			void SetFlag(uint8 newFlag)
 				{ flag = newFlag; }
 			uint64 Size() const
-				{ return B_LENDIAN_TO_HOST_INT64(size1); }
+				{ return B_LENDIAN_TO_HOST_INT64(size2); }
 		} _PACKED file_info;
 		struct {
 			uint8 flags;

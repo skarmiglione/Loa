@@ -772,10 +772,9 @@ AcpiOsRemoveInterruptHandler(UINT32 interruptNumber,
 	DEBUG_FUNCTION_F("vector: %lu; handler: %p", (uint32)interruptNumber,
 		serviceRoutine);
 #ifdef _KERNEL_MODE
-	remove_io_interrupt_handler(interruptNumber,
-		(interrupt_handler) serviceRoutine,
-		sInterruptHandlerData[interruptNumber]);
-	return AE_OK;
+	return remove_io_interrupt_handler(interruptNumber,
+		(interrupt_handler)serviceRoutine,
+		sInterruptHandlerData[interruptNumber]) == B_OK ? AE_OK : AE_ERROR;
 #else
 	return AE_ERROR;
 #endif
@@ -1299,9 +1298,11 @@ AcpiOsAcquireMutex(ACPI_MUTEX handle, UINT16 timeout)
 	ACPI_STATUS result = AE_OK;
 	DEBUG_FUNCTION_VF("mutex: %p; timeout: %u", handle, timeout);
 
-	if (timeout == ACPI_WAIT_FOREVER)
-		result = mutex_lock(handle) == B_OK ? AE_OK : AE_BAD_PARAMETER;
-	else {
+	if (timeout == ACPI_WAIT_FOREVER) {
+		result = (mutex_lock(handle) == B_OK) ? AE_OK : AE_BAD_PARAMETER;
+	} else if (timeout == ACPI_DO_NOT_WAIT) {
+		result = (mutex_trylock(handle) == B_OK) ? AE_OK : AE_TIME;
+	} else {
 		switch (mutex_lock_with_timeout(handle, B_RELATIVE_TIMEOUT,
 			(bigtime_t)timeout * 1000)) {
 			case B_OK:

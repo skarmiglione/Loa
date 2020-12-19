@@ -26,6 +26,8 @@
 #include <util/KernelReferenceable.h>
 #include <util/list.h>
 
+#include <SupportDefs.h>
+
 
 enum additional_thread_state {
 	THREAD_STATE_FREE_ON_RESCHED = 7, // free the thread structure upon reschedule
@@ -64,6 +66,9 @@ struct select_info;
 struct user_thread;				// defined in libroot/user_thread.h
 struct VMAddressSpace;
 struct xsi_sem_context;			// defined in xsi_semaphore.cpp
+struct LockedPages;
+
+typedef DoublyLinkedList<LockedPages> LockedPagesList;
 
 namespace Scheduler {
 	struct ThreadData;
@@ -83,9 +88,8 @@ struct thread_death_entry {
 };
 
 struct team_loading_info {
-	Thread*				thread;	// the waiting thread
+	ConditionVariable	condition;
 	status_t			result;		// the result of the loading
-	bool				done;		// set when loading is done/aborted
 };
 
 struct team_watcher {
@@ -97,8 +101,6 @@ struct team_watcher {
 
 #define MAX_DEAD_CHILDREN	32
 	// this is a soft limit for the number of child death entries in a team
-#define MAX_DEAD_THREADS	32
-	// this is a soft limit for the number of thread death entries in a team
 
 
 struct job_control_entry : DoublyLinkedListLinkImpl<job_control_entry> {
@@ -239,7 +241,8 @@ struct Team : TeamThreadIteratorEntry<team_id>, KernelReferenceable,
 	struct xsi_sem_context *xsi_sem_context;
 	struct team_death_entry *death_entry;	// protected by fLock
 	struct list		dead_threads;
-	int				dead_threads_count;
+
+	LockedPagesList	locked_pages_list;
 
 	// protected by the team's fLock
 	team_dead_children dead_children;

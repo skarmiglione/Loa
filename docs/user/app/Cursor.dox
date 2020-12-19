@@ -1,13 +1,13 @@
 /*
- * Copyright 2012-2014 Haiku, Inc. All rights reserved.
+ * Copyright 2012-2014, 2019 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		John Scipione, jscipione@gmail.com
  * 
  * Corresponds to:
- *		headers/os/app/Cursor.h	 hrev47355
- *		src/kits/app/Cursor.cpp	 hrev47355
+ *		headers/os/app/Cursor.h	 hrev54621
+ *		src/kits/app/Cursor.cpp	 hrev54621
  */
 
 
@@ -316,6 +316,18 @@
 
 
 /*!
+	\fn BCursor::BCursor(const BBitmap* bitmap, const BPoint& hotspot)
+	\brief Initializes a new cursor object from a bitmap object and a point
+           object.
+
+	\param bitmap The bitmap object to initialize from.
+	\param hotspot The cursor hotspot.
+
+	\since Haiku R1
+*/
+
+
+/*!
 	\fn BCursor::~BCursor()
 	\brief Destroy the cursor and free its memory.
 
@@ -324,7 +336,18 @@
 
 
 /*!
-	status_t BCursor::Archive(BMessage *into, bool deep) const
+	\fn status_t BCursor::InitCheck() const
+	\brief Returns the initialization status.
+
+	\return \c B_OK if the object was properly initialized or an error code
+	        otherwise.
+
+	\since Haiku R1
+*/
+
+
+/*!
+	\fn status_t BCursor::Archive(BMessage *into, bool deep) const
 	\brief Archive the cursor. Not implemented.
 
 	\since BeOS R5
@@ -332,7 +355,7 @@
 
 
 /*!
-	BArchivable* BCursor::Instantiate(BMessage *data)
+	\fn BArchivable* BCursor::Instantiate(BMessage *archive)
 	\brief Instantiate the cursor from a message. Not implemented.
 
 	\since BeOS R5
@@ -340,7 +363,7 @@
 
 
 /*!
-	BCursor& BCursor::operator=(const BCursor& other)
+	\fn BCursor& BCursor::operator=(const BCursor &other)
 	\brief Set the cursor to another cursor object.
 
 	\param other The cursor object to copy from.
@@ -352,7 +375,7 @@
 
 
 /*!
-	bool BCursor::operator==(const BCursor& other) const
+	\fn bool BCursor::operator==(const BCursor &other) const
 	\brief Compare a cursor object to another and return if they are equal.
 
 	\param other The cursor object to compare to.
@@ -365,7 +388,7 @@
 
 
 /*!
-	bool BCursor::operator!=(const BCursor& other) const
+	\fn bool BCursor::operator!=(const BCursor &other) const
 	\brief Compare a cursor object to another and return if they are not equal.
 
 	\param other The cursor object to compare to.

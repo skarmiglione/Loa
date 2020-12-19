@@ -1,5 +1,7 @@
-// Entry.h
-
+/*
+ * Copyright 2007, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * All rights reserved. Distributed under the terms of the MIT license.
+ */
 #ifndef ENTRY_H
 #define ENTRY_H
 
@@ -21,6 +23,8 @@ public:
 	~Entry();
 
 	status_t InitCheck() const;
+
+	Entry*& HashLink()	{ return fHashLink; }
 
 	inline void SetParent(Directory *parent)	{ fParent = parent; }
 	Directory *GetParent() const				{ return fParent; }
@@ -48,6 +52,7 @@ public:
 	void GetAllocationInfo(AllocationInfo &info);
 
 private:
+	Entry					*fHashLink;
 	Directory				*fParent;
 	Node					*fNode;
 	String					fName;

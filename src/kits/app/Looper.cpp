@@ -18,6 +18,7 @@
 #include <new>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <Autolock.h>
 #include <Message.h>
@@ -284,8 +285,56 @@ BLooper::DispatchMessage(BMessage* message, BHandler* handler)
 void
 BLooper::MessageReceived(BMessage* message)
 {
-	// TODO: implement scripting support
-	BHandler::MessageReceived(message);
+	if (!message->HasSpecifiers()) {
+		BHandler::MessageReceived(message);
+		return;
+	}
+
+	BMessage replyMsg(B_REPLY);
+	status_t err = B_BAD_SCRIPT_SYNTAX;
+	int32 index;
+	BMessage specifier;
+	int32 what;
+	const char* property;
+
+	if (message->GetCurrentSpecifier(&index, &specifier, &what, &property)
+			!= B_OK) {
+		return BHandler::MessageReceived(message);
+	}
+
+	BPropertyInfo propertyInfo(sLooperPropInfo);
+	switch (propertyInfo.FindMatch(message, index, &specifier, what,
+			property)) {
+		case 1: // Handlers: GET
+			if (message->what == B_GET_PROPERTY) {
+				int32 count = CountHandlers();
+				err = B_OK;
+				for (int32 i = 0; err == B_OK && i < count; i++) {
+					BMessenger messenger(HandlerAt(i));
+					err = replyMsg.AddMessenger("result", messenger);
+				}
+			}
+			break;
+		case 2: // Handler: COUNT
+			if (message->what == B_COUNT_PROPERTIES)
+				err = replyMsg.AddInt32("result", CountHandlers());
+			break;
+
+		default:
+			return BHandler::MessageReceived(message);
+	}
+
+	if (err != B_OK) {
+		replyMsg.what = B_MESSAGE_NOT_UNDERSTOOD;
+
+		if (err == B_BAD_SCRIPT_SYNTAX)
+			replyMsg.AddString("message", "Didn't understand the specifier(s)");
+		else
+			replyMsg.AddString("message", strerror(err));
+	}
+
+	replyMsg.AddInt32("error", err);
+	message->SendReply(&replyMsg);
 }
 
 
@@ -454,6 +503,24 @@ BLooper::Run()
 		return err;
 
 	return fThread;
+}
+
+
+void
+BLooper::Loop()
+{
+	AssertLocked();
+
+	if (fRunCalled) {
+		// Not allowed to call Loop() or Run() more than once
+		debugger("can't call BLooper::Loop twice!");
+		return;
+	}
+
+	fThread = find_thread(NULL);
+	fRunCalled = true;
+
+	task_looper();
 }
 
 
@@ -814,6 +881,7 @@ void BLooper::_ReservedLooper5() {}
 void BLooper::_ReservedLooper6() {}
 
 
+#ifdef _BEOS_R5_COMPATIBLE_
 BLooper::BLooper(const BLooper& other)
 {
 	// Copy construction not allowed
@@ -826,6 +894,7 @@ BLooper::operator=(const BLooper& other)
 	// Looper copying not allowed
 	return *this;
 }
+#endif
 
 
 BLooper::BLooper(int32 priority, port_id port, const char* name)

@@ -17,15 +17,8 @@
 // This file contains various BitTester classes, each of which defines a
 // sequence of bit testing logics to do on a uint32.
 
-#ifndef __HAIKU__
-#ifndef __INTEL__
-#pragma export on
-#endif
-#endif
-
-
 // The abstract base class. Defines the interface.
-_EXPORT class BitFieldTester;
+class _EXPORT BitFieldTester;
 class BitFieldTester : public BArchivable {
 public:
 								BitFieldTester();
@@ -38,7 +31,7 @@ public:
 
 
 // This version always returns the value specified in the constructor.
-_EXPORT class ConstantFieldTester;
+class _EXPORT ConstantFieldTester;
 class ConstantFieldTester : public BitFieldTester {
 public:
 								ConstantFieldTester(bool result);
@@ -56,7 +49,7 @@ private:
 
 // This version matches if all requiredBits are found in the field,
 // and no forbiddenBits are found.
-_EXPORT class HasBitsFieldTester;
+class _EXPORT HasBitsFieldTester;
 class HasBitsFieldTester : public BitFieldTester {
 public:
 								HasBitsFieldTester(uint32 requiredBits,
@@ -75,7 +68,7 @@ private:
 
 
 // This one negates the tester it holds.
-_EXPORT class NotFieldTester;
+class _EXPORT NotFieldTester;
 class NotFieldTester : public BitFieldTester {
 public:
 	// (slave) should be allocated with new, becomes property of this object.
@@ -94,9 +87,9 @@ private:
 
 
 // The most interesting class: This one returns true if at least (minNum) of
-// its slaves return true. It can be used for OR (i.e. minNum==1), AND 
+// its slaves return true. It can be used for OR (i.e. minNum==1), AND
 // (i.e. minNum==numberofchildren), or anything in between!
-_EXPORT class MinMatchFieldTester;
+class _EXPORT MinMatchFieldTester;
 class MinMatchFieldTester : public BitFieldTester {
 public:
 								MinMatchFieldTester(int32 minNum,
@@ -119,11 +112,5 @@ private:
 			bool				fDeleteSlaves;
 };
 
-
-#ifndef __HAIKU__
-#ifndef __INTEL__
-#pragma export reset
-#endif
-#endif
 
 #endif	// _BIT_FIELD_TESTERS_H

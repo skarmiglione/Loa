@@ -127,6 +127,14 @@ VirtioDevice::NegotiateFeatures(uint32 supported, uint32* negotiated,
 
 
 status_t
+VirtioDevice::ClearFeature(uint32 feature)
+{
+	fFeatures &= ~feature;
+	return fController->write_guest_features(fCookie, fFeatures);
+}
+
+
+status_t
 VirtioDevice::ReadDeviceConfig(uint8 offset, void* buffer, size_t bufferSize)
 {
 	return fController->read_device_config(fCookie, offset, buffer,
@@ -280,8 +288,9 @@ VirtioDevice::_DumpFeatures(const char* title, uint32 features,
 		if (name == NULL)
 			name = get_feature_name(feature);
 		if (name != NULL) {
-			snprintf(features_string, sizeof(features_string), "%s[%s] ",
-			features_string, name);
+			strlcat(features_string, "[", sizeof(features_string));
+			strlcat(features_string, name, sizeof(features_string));
+			strlcat(features_string, "] ", sizeof(features_string));
 		}
 	}
 	TRACE("%s: %s\n", title, features_string);

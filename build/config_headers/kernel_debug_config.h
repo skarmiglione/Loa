@@ -96,7 +96,7 @@
 #define DEBUG_PAGE_ACCESS				KDEBUG_LEVEL_2
 
 // Enables a global list of all vm_cache structures.
-#define DEBUG_CACHE_LIST				KDEBUG_LEVEL_1
+#define DEBUG_CACHE_LIST				KDEBUG_LEVEL_2
 
 // Enables swap support.
 #define ENABLE_SWAP_SUPPORT				1
@@ -138,6 +138,12 @@
 #define SYSTEM_PROFILE_SIZE				40 * 1024 * 1024
 #define SYSTEM_PROFILE_STACK_DEPTH		10
 #define SYSTEM_PROFILE_INTERVAL			10000
+
+
+// Network
+
+// Enables additional assertions in the tcp add-on.
+#define DEBUG_TCP_BUFFER_QUEUE			KDEBUG_LEVEL_2
 
 
 #endif	// KERNEL_DEBUG_CONFIG_H

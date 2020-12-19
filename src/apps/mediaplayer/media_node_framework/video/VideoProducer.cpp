@@ -357,14 +357,22 @@ VideoProducer::PrepareToConnect(const media_source& source,
 		return B_MEDIA_BAD_FORMAT;
 	}
 
-	if (format->u.raw_video.display.line_width == 0)
-		format->u.raw_video.display.line_width = 384;
-	if (format->u.raw_video.display.line_count == 0)
-		format->u.raw_video.display.line_count = 288;
-	if (format->u.raw_video.field_rate == 0)
-		format->u.raw_video.field_rate = 25.0;
-	if (format->u.raw_video.display.bytes_per_row == 0)
-		format->u.raw_video.display.bytes_per_row = format->u.raw_video.display.line_width * 4;
+	if (format->u.raw_video.display.line_width == 0) {
+		format->u.raw_video.display.line_width
+			= fSupplier->Format().u.raw_video.display.line_width;
+	}
+	if (format->u.raw_video.display.line_count == 0) {
+		format->u.raw_video.display.line_count
+			= fSupplier->Format().u.raw_video.display.line_count;
+	}
+	if (format->u.raw_video.field_rate == 0) {
+		format->u.raw_video.field_rate
+			= fSupplier->Format().u.raw_video.field_rate;
+	}
+	if (format->u.raw_video.display.bytes_per_row == 0) {
+		format->u.raw_video.display.bytes_per_row
+			= fSupplier->Format().u.raw_video.display.bytes_per_row;
+	}
 
 	*outSource = fOutput.source;
 	strcpy(outName, fOutput.name);
@@ -762,15 +770,20 @@ VideoProducer::_FrameGeneratorThread()
 						err = B_OK;
 					}
 					// clean the buffer if something went wrong
-					if (err != B_OK) {
+					if (err != B_OK && err != B_LAST_BUFFER_ERROR) {
 						// TODO: should use "back value" according
 						// to color space!
 						memset(buffer->Data(), 0, h->size_used);
 						err = B_OK;
+					} else if (err == B_LAST_BUFFER_ERROR) {
+						wasCached = true;
+							// Don't send the buffer: we don't have a buffer
+						err = B_OK;
+						running = false;
 					}
 					// Send the buffer on down to the consumer
-					if (wasCached || (err = SendBuffer(buffer, fOutput.source,
-							fOutput.destination) != B_OK)) {
+					if (wasCached || ((err = SendBuffer(buffer, fOutput.source,
+							fOutput.destination)) != B_OK)) {
 						// If there is a problem sending the buffer,
 						// or if we don't send the buffer because its
 						// contents are the same as the last one,
@@ -806,6 +819,7 @@ VideoProducer::_FrameGeneratorThread()
 				break;
 		}
 	}
+	fManager->SetCurrentVideoTime(INT64_MAX);
 	TRACE("_FrameGeneratorThread: frame generator thread done.\n");
 	return B_OK;
 }

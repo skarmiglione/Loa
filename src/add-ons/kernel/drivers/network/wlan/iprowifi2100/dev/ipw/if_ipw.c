@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2004-2006
  *      Damien Bergamini <damien.bergamini@free.fr>. All rights reserved.
  * Copyright (c) 2006 Sam Leffler, Errno Consulting
@@ -28,7 +30,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: releng/11.1/sys/dev/ipw/if_ipw.c 300239 2016-05-19 22:19:35Z avos $");
+__FBSDID("$FreeBSD: releng/12.0/sys/dev/ipw/if_ipw.c 339975 2018-10-31 23:02:59Z glebius $");
 
 /*-
  * Intel(R) PRO/Wireless 2100 MiniPCI driver
@@ -200,6 +202,8 @@ static driver_t ipw_driver = {
 static devclass_t ipw_devclass;
 
 DRIVER_MODULE(ipw, pci, ipw_driver, ipw_devclass, NULL, NULL);
+MODULE_PNP_INFO("U16:vendor;U16:device;D:#", pci, ipw, ipw_ident_table,
+    nitems(ipw_ident_table) - 1);
 
 MODULE_VERSION(ipw, 1);
 
@@ -1733,7 +1737,7 @@ ipw_start(struct ipw_softc *sc)
 
 	IPW_LOCK_ASSERT(sc);
 
-	while (sc->txfree < 1 + IPW_MAX_NSEG &&
+	while (sc->txfree >= 1 + IPW_MAX_NSEG &&
 	    (m = mbufq_dequeue(&sc->sc_snd)) != NULL) {
 		ni = (struct ieee80211_node *) m->m_pkthdr.rcvif;
 		if (ipw_tx_start(sc, m, ni) != 0) {

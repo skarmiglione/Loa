@@ -360,18 +360,21 @@ get_boot_partitions(KMessage& bootVolume, PartitionStack& partitions)
 
 	status = manager->InitialDeviceScan();
 	if (status != B_OK) {
-		dprintf("KDiskDeviceManager::InitialDeviceScan() failed: %s\n",
+		dprintf("KDiskDeviceManager::InitialDeviceScan() returned error: %s\n",
 			strerror(status));
-		return status;
+		// InitialDeviceScan returns error if one (or more) partitions are
+		// determined to be invalid. The partition we are trying to boot from
+		// may be usuable anyway, so don't fail here.
 	}
 
-	if (1 /* dump devices and partitions */) {
-		KDiskDevice *device;
-		int32 cookie = 0;
-		while ((device = manager->NextDevice(&cookie)) != NULL) {
-			device->Dump(true, 0);
-		}
+#if KDEBUG
+	// dump devices and partitions
+	KDiskDevice *device;
+	int32 cookie = 0;
+	while ((device = manager->NextDevice(&cookie)) != NULL) {
+		device->Dump(true, 0);
 	}
+#endif
 
 	struct BootPartitionVisitor : KPartitionVisitor {
 		BootPartitionVisitor(BootMethod* bootMethod, PartitionStack &stack)
@@ -475,7 +478,7 @@ vfs_mount_boot_file_system(kernel_args* args)
 		panic("get_boot_partitions failed!");
 	}
 	if (partitions.IsEmpty()) {
-		panic("did not find any boot partitions!");
+		panic("did not find any boot partitions! @! syslog | tail 15");
 	}
 
 	dev_t bootDevice = -1;

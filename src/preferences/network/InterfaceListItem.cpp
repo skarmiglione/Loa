@@ -175,6 +175,12 @@ InterfaceListItem::_Init()
 		case B_NETWORK_INTERFACE_TYPE_ETHERNET:
 			_PopulateBitmaps("ether");
 			break;
+		case B_NETWORK_INTERFACE_TYPE_VPN:
+			_PopulateBitmaps("vpn");
+			break;
+		case B_NETWORK_INTERFACE_TYPE_DIAL_UP:
+			_PopulateBitmaps("dialup");
+			break;
 	}
 }
 
@@ -266,9 +272,11 @@ InterfaceListItem::_UpdateState()
 			break;
 		case B_NETWORK_INTERFACE_TYPE_DIAL_UP:
 			fSubtitle = B_TRANSLATE("Dial-up connection");
+			fDisabled = false;
 			break;
 		case B_NETWORK_INTERFACE_TYPE_VPN:
 			fSubtitle = B_TRANSLATE("VPN connection");
+			fDisabled = false;
 			break;
 		default:
 			fSubtitle = "";
@@ -300,8 +308,16 @@ InterfaceListItem::_StateText() const
 {
 	if (fDisabled)
 		return B_TRANSLATE("disabled");
-	if (!fInterface.HasLink())
-		return B_TRANSLATE("no link");
+
+	if (!fInterface.HasLink()) {
+		switch (fType) {
+			case B_NETWORK_INTERFACE_TYPE_VPN:
+			case B_NETWORK_INTERFACE_TYPE_DIAL_UP:
+				return B_TRANSLATE("disconnected");
+			default:
+				return B_TRANSLATE("no link");
+		}
+	}
 
 	// TODO!
 //	} else if ((fSettings->IPAddr(AF_INET).IsEmpty()

@@ -42,28 +42,15 @@ static const char* const kLockName = "runtime loader";
 
 
 typedef void (*init_term_function)(image_id);
+typedef void (*initfini_array_function)();
 
 bool gProgramLoaded = false;
 image_t* gProgramImage;
 
-static image_t** sPreloadedImages = NULL;
-static uint32 sPreloadedImageCount = 0;
+static image_t** sPreloadedAddons = NULL;
+static uint32 sPreloadedAddonCount = 0;
 
 static recursive_lock sLock = RECURSIVE_LOCK_INITIALIZER(kLockName);
-
-
-static inline void
-rld_lock()
-{
-	recursive_lock_lock(&sLock);
-}
-
-
-static inline void
-rld_unlock()
-{
-	recursive_lock_unlock(&sLock);
-}
 
 
 static const char *
@@ -81,8 +68,81 @@ find_dt_rpath(image_t *image)
 }
 
 
+image_id
+preload_image(char const* path, image_t **image)
+{
+	if (path == NULL)
+		return B_BAD_VALUE;
+
+	KTRACE("rld: preload_image(\"%s\")", path);
+
+	status_t status = load_image(path, B_LIBRARY_IMAGE, NULL, NULL, image);
+	if (status < B_OK) {
+		KTRACE("rld: preload_image(\"%s\") failed to load container: %s", path,
+			strerror(status));
+		return status;
+	}
+
+	if ((*image)->find_undefined_symbol == NULL)
+		(*image)->find_undefined_symbol = find_undefined_symbol_global;
+
+	KTRACE("rld: preload_image(\"%s\") done: id: %" B_PRId32, path, (*image)->id);
+
+	return (*image)->id;
+}
+
+
+static void
+preload_images(image_t **image, int32 *_count = NULL)
+{
+	const char* imagePaths = getenv("LD_PRELOAD");
+	if (imagePaths == NULL) {
+		if (_count != NULL)
+			*_count = 0;
+		return;
+	}
+
+	int32 count = 0;
+
+	while (*imagePaths != '\0') {
+		// find begin of image path
+		while (*imagePaths != '\0' && isspace(*imagePaths))
+			imagePaths++;
+
+		if (*imagePaths == '\0')
+			break;
+
+		// find end of image path
+		const char* imagePath = imagePaths;
+		while (*imagePaths != '\0' && !isspace(*imagePaths))
+			imagePaths++;
+
+		// extract the path
+		char path[B_PATH_NAME_LENGTH];
+		size_t pathLen = imagePaths - imagePath;
+		if (pathLen > sizeof(path) - 1)
+			continue;
+
+		if (image == NULL) {
+			count++;
+			continue;
+		}
+		memcpy(path, imagePath, pathLen);
+		path[pathLen] = '\0';
+
+		// load the image
+		preload_image(path, &image[count++]);
+	}
+
+	KTRACE("rld: preload_images count: %d", count);
+
+	if (_count != NULL)
+		*_count = count;
+}
+
+
 static status_t
-load_immediate_dependencies(image_t *image)
+load_immediate_dependencies(image_t *image, bool preload)
 {
 	elf_dyn *d = (elf_dyn *)image->dynamic_ptr;
 	bool reportErrors = report_errors();
@@ -95,6 +155,11 @@ load_immediate_dependencies(image_t *image)
 
 	image->flags |= RFLAG_DEPENDENCIES_LOADED;
 
+	int32 preloadedCount = 0;
+	if (preload) {
+		preload_images(NULL, &preloadedCount);
+		image->num_needed += preloadedCount;
+	}
 	if (image->num_needed == 0)
 		return B_OK;
 
@@ -110,9 +175,11 @@ load_immediate_dependencies(image_t *image)
 	}
 
 	memset(image->needed, 0, image->num_needed * sizeof(image_t *));
+	if (preload)
+		preload_images(image->needed);
 	rpath = find_dt_rpath(image);
 
-	for (i = 0, j = 0; d[i].d_tag != DT_NULL; i++) {
+	for (i = 0, j = preloadedCount; d[i].d_tag != DT_NULL; i++) {
 		switch (d[i].d_tag) {
 			case DT_NEEDED:
 			{
@@ -172,14 +239,15 @@ load_immediate_dependencies(image_t *image)
 
 
 static status_t
-load_dependencies(image_t* image)
+load_dependencies(image_t* image, bool preload = false)
 {
 	// load dependencies (breadth-first)
 	for (image_t* otherImage = image; otherImage != NULL;
 			otherImage = otherImage->next) {
-		status_t status = load_immediate_dependencies(otherImage);
+		status_t status = load_immediate_dependencies(otherImage, preload);
 		if (status != B_OK)
 			return status;
+		preload = false;
 	}
 
 	// Check the needed versions for the given image and all newly loaded
@@ -238,12 +306,20 @@ relocate_dependencies(image_t *image)
 static void
 init_dependencies(image_t *image, bool initHead)
 {
-	image_t **initList;
+	image_t **initList = NULL;
 	ssize_t count, i;
 
+	if (initHead && image->preinit_array) {
+		uint count_preinit = image->preinit_array_len / sizeof(addr_t);
+		for (uint j = 0; j < count_preinit; j++)
+			((initfini_array_function)image->preinit_array[j])();
+	}
+
 	count = get_sorted_image_list(image, &initList, RFLAG_INITIALIZED);
-	if (count <= 0)
+	if (count <= 0) {
+		free(initList);
 		return;
+	}
 
 	if (!initHead) {
 		// this removes the "calling" image
@@ -257,10 +333,11 @@ init_dependencies(image_t *image, bool initHead)
 
 		TRACE(("%ld:  init: %s\n", find_thread(NULL), image->name));
 
-		if (image->preinit_array) {
-			uint count_preinit = image->preinit_array_len / sizeof(addr_t);
-			for (uint j = 0; j < count_preinit; j++)
-				((init_term_function)image->preinit_array[j])(image->id);
+		init_term_function before;
+		if (find_symbol(image,
+				SymbolLookupInfo(B_INIT_BEFORE_FUNCTION_NAME, B_SYMBOL_TYPE_TEXT),
+				(void**)&before) == B_OK) {
+			before(image->id);
 		}
 
 		if (image->init_routine != 0)
@@ -269,14 +346,49 @@ init_dependencies(image_t *image, bool initHead)
 		if (image->init_array) {
 			uint count_init = image->init_array_len / sizeof(addr_t);
 			for (uint j = 0; j < count_init; j++)
-				((init_term_function)image->init_array[j])(image->id);
+				((initfini_array_function)image->init_array[j])();
+		}
+
+		init_term_function after;
+		if (find_symbol(image,
+				SymbolLookupInfo(B_INIT_AFTER_FUNCTION_NAME, B_SYMBOL_TYPE_TEXT),
+				(void**)&after) == B_OK) {
+			after(image->id);
 		}
 
 		image_event(image, IMAGE_EVENT_INITIALIZED);
 	}
-	TRACE(("%ld:  init done.\n", find_thread(NULL)));
+	TRACE(("%ld: init done.\n", find_thread(NULL)));
 
 	free(initList);
+}
+
+
+static void
+call_term_functions(image_t* image)
+{
+	init_term_function before;
+	if (find_symbol(image,
+			SymbolLookupInfo(B_TERM_BEFORE_FUNCTION_NAME, B_SYMBOL_TYPE_TEXT),
+			(void**)&before) == B_OK) {
+		before(image->id);
+	}
+
+	if (image->term_array) {
+		uint count_term = image->term_array_len / sizeof(addr_t);
+		for (uint i = count_term; i-- > 0;)
+			((initfini_array_function)image->term_array[i])();
+	}
+
+	if (image->term_routine)
+		((init_term_function)image->term_routine)(image->id);
+
+	init_term_function after;
+	if (find_symbol(image,
+			SymbolLookupInfo(B_TERM_AFTER_FUNCTION_NAME, B_SYMBOL_TYPE_TEXT),
+			(void**)&after) == B_OK) {
+		after(image->id);
+	}
 }
 
 
@@ -296,34 +408,34 @@ inject_runtime_loader_api(image_t* rootImage)
 
 
 static status_t
-add_preloaded_image(image_t* image)
+add_preloaded_addon(image_t* image)
 {
 	// We realloc() everytime -- not particularly efficient, but good enough for
-	// small number of preloaded images.
-	image_t** newArray = (image_t**)realloc(sPreloadedImages,
-		sizeof(image_t*) * (sPreloadedImageCount + 1));
+	// small number of preloaded addons.
+	image_t** newArray = (image_t**)realloc(sPreloadedAddons,
+		sizeof(image_t*) * (sPreloadedAddonCount + 1));
 	if (newArray == NULL)
 		return B_NO_MEMORY;
 
-	sPreloadedImages = newArray;
-	newArray[sPreloadedImageCount++] = image;
+	sPreloadedAddons = newArray;
+	newArray[sPreloadedAddonCount++] = image;
 
 	return B_OK;
 }
 
 
 image_id
-preload_image(char const* path)
+preload_addon(char const* path)
 {
 	if (path == NULL)
 		return B_BAD_VALUE;
 
-	KTRACE("rld: preload_image(\"%s\")", path);
+	KTRACE("rld: preload_addon(\"%s\")", path);
 
 	image_t *image = NULL;
 	status_t status = load_image(path, B_LIBRARY_IMAGE, NULL, NULL, &image);
 	if (status < B_OK) {
-		KTRACE("rld: preload_image(\"%s\") failed to load container: %s", path,
+		KTRACE("rld: preload_addon(\"%s\") failed to load container: %s", path,
 			strerror(status));
 		return status;
 	}
@@ -341,7 +453,7 @@ preload_image(char const* path)
 	if (status < B_OK)
 		goto err;
 
-	status = add_preloaded_image(image);
+	status = add_preloaded_addon(image);
 	if (status < B_OK)
 		goto err;
 
@@ -358,12 +470,12 @@ preload_image(char const* path)
 		add_add_on(image, addOnStruct);
 	}
 
-	KTRACE("rld: preload_image(\"%s\") done: id: %" B_PRId32, path, image->id);
+	KTRACE("rld: preload_addon(\"%s\") done: id: %" B_PRId32, path, image->id);
 
 	return image->id;
 
 err:
-	KTRACE("rld: preload_image(\"%s\") failed: %s", path, strerror(status));
+	KTRACE("rld: preload_addon(\"%s\") failed: %s", path, strerror(status));
 
 	dequeue_loaded_image(image);
 	delete_image(image);
@@ -372,9 +484,9 @@ err:
 
 
 static void
-preload_images()
+preload_addons()
 {
-	const char* imagePaths = getenv("LD_PRELOAD");
+	const char* imagePaths = getenv("LD_PRELOAD_ADDONS");
 	if (imagePaths == NULL)
 		return;
 
@@ -400,7 +512,7 @@ preload_images()
 		path[pathLen] = '\0';
 
 		// load the image
-		preload_image(path);
+		preload_addon(path);
 	}
 }
 
@@ -416,10 +528,10 @@ load_program(char const *path, void **_entry)
 
 	KTRACE("rld: load_program(\"%s\")", path);
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
-	preload_images();
+	preload_addons();
 
 	TRACE(("rld: load %s\n", path));
 
@@ -430,7 +542,7 @@ load_program(char const *path, void **_entry)
 	if (gProgramImage->find_undefined_symbol == NULL)
 		gProgramImage->find_undefined_symbol = find_undefined_symbol_global;
 
-	status = load_dependencies(gProgramImage);
+	status = load_dependencies(gProgramImage, true);
 	if (status < B_OK)
 		goto err;
 
@@ -460,8 +572,6 @@ load_program(char const *path, void **_entry)
 
 	*_entry = (void *)(gProgramImage->entry_point);
 
-	rld_unlock();
-
 	gProgramLoaded = true;
 
 	KTRACE("rld: load_program(\"%s\") done: entry: %p, id: %" B_PRId32 , path,
@@ -484,7 +594,6 @@ err:
 			gErrorMessage.Buffer(), gErrorMessage.ContentSize(), 0, 0);
 	}
 	_kern_loading_app_failed(status);
-	rld_unlock();
 
 	return status;
 }
@@ -502,7 +611,7 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 
 	KTRACE("rld: load_library(\"%s\", %#" B_PRIx32 ", %d)", path, flags, addOn);
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	// have we already loaded this library?
@@ -511,7 +620,6 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 		// a NULL path is fine -- it means the global scope shall be opened
 		if (path == NULL) {
 			*_handle = RLD_GLOBAL_SCOPE;
-			rld_unlock();
 			return 0;
 		}
 
@@ -521,7 +629,6 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 
 		if (image) {
 			atomic_add(&image->ref_count, 1);
-			rld_unlock();
 			KTRACE("rld: load_library(\"%s\"): already loaded: %" B_PRId32,
 				path, image->id);
 			*_handle = image;
@@ -531,7 +638,6 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 
 	status = load_image(path, type, NULL, NULL, &image);
 	if (status < B_OK) {
-		rld_unlock();
 		KTRACE("rld: load_library(\"%s\") failed to load container: %s", path,
 			strerror(status));
 		return status;
@@ -567,8 +673,6 @@ load_library(char const *path, uint32 flags, bool addOn, void** _handle)
 	remap_images();
 	init_dependencies(image, true);
 
-	rld_unlock();
-
 	KTRACE("rld: load_library(\"%s\") done: id: %" B_PRId32, path, image->id);
 
 	*_handle = image;
@@ -579,7 +683,6 @@ err:
 
 	dequeue_loaded_image(image);
 	delete_image(image);
-	rld_unlock();
 	return status;
 }
 
@@ -596,7 +699,7 @@ unload_library(void* handle, image_id imageID, bool addOn)
 	if (handle == RLD_GLOBAL_SCOPE)
 		return B_OK;
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	if (gInvalidImageIDs) {
@@ -645,14 +748,7 @@ unload_library(void* handle, image_id imageID, bool addOn)
 
 			image_event(image, IMAGE_EVENT_UNINITIALIZING);
 
-			if (image->term_array) {
-				uint count_term = image->term_array_len / sizeof(addr_t);
-				for (uint i = count_term; i-- > 0;)
-					((init_term_function)image->term_array[i])(image->id);
-			}
-
-			if (image->term_routine)
-				((init_term_function)image->term_routine)(image->id);
+			call_term_functions(image);
 
 			TLSBlockTemplates::Get().Unregister(image->dso_tls_id);
 
@@ -665,7 +761,6 @@ unload_library(void* handle, image_id imageID, bool addOn)
 		}
 	}
 
-	rld_unlock();
 	return status;
 }
 
@@ -678,14 +773,12 @@ get_nth_symbol(image_id imageID, int32 num, char *nameBuffer,
 	uint32 i;
 	image_t *image;
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 
 	// get the image from those who have been already initialized
 	image = find_loaded_image_by_id(imageID, false);
-	if (image == NULL) {
-		rld_unlock();
+	if (image == NULL)
 		return B_BAD_IMAGE_ID;
-	}
 
 	// iterate through all the hash buckets until we've found the one
 	for (i = 0; i < HASHTABSIZE(image); i++) {
@@ -720,8 +813,6 @@ get_nth_symbol(image_id imageID, int32 num, char *nameBuffer,
 		}
 	}
 out:
-	rld_unlock();
-
 	if (num != count)
 		return B_BAD_INDEX;
 
@@ -734,13 +825,23 @@ get_nearest_symbol_at_address(void* address, image_id* _imageID,
 	char** _imagePath, char** _imageName, char** _symbolName, int32* _type,
 	void** _location, bool* _exactMatch)
 {
-	rld_lock();
+	RecursiveLocker _(sLock);
 
 	image_t* image = find_loaded_image_by_address((addr_t)address);
-	if (image == NULL) {
-		rld_unlock();
+	if (image == NULL)
 		return B_BAD_VALUE;
-	}
+
+	if (_imageID != NULL)
+		*_imageID = image->id;
+	if (_imagePath != NULL)
+		*_imagePath = image->path;
+	if (_imageName != NULL)
+		*_imageName = image->name;
+
+	// If the caller does not want the actual symbol name, only the image,
+	// we can just return immediately.
+	if (_symbolName == NULL && _type == NULL && _location == NULL)
+		return B_OK;
 
 	bool exactMatch = false;
 	elf_sym* foundSymbol = NULL;
@@ -765,12 +866,6 @@ get_nearest_symbol_at_address(void* address, image_id* _imageID,
 		}
 	}
 
-	if (_imageID != NULL)
-		*_imageID = image->id;
-	if (_imagePath != NULL)
-		*_imagePath = image->path;
-	if (_imageName != NULL)
-		*_imageName = image->name;
 	if (_exactMatch != NULL)
 		*_exactMatch = exactMatch;
 
@@ -795,7 +890,6 @@ get_nearest_symbol_at_address(void* address, image_id* _imageID,
 			*_location = NULL;
 	}
 
-	rld_unlock();
 	return B_OK;
 }
 
@@ -812,7 +906,16 @@ get_symbol(image_id imageID, char const *symbolName, int32 symbolType,
 	if (symbolName == NULL)
 		return B_BAD_VALUE;
 
-	rld_lock();
+	// Previously, these functions were called in __haiku_init_before
+	// and __haiku_init_after. Now we call them inside runtime_loader,
+	// so we prevent applications from fetching them.
+	if (strcmp(symbolName, B_INIT_BEFORE_FUNCTION_NAME) == 0
+		|| strcmp(symbolName, B_INIT_AFTER_FUNCTION_NAME) == 0
+		|| strcmp(symbolName, B_TERM_BEFORE_FUNCTION_NAME) == 0
+		|| strcmp(symbolName, B_TERM_AFTER_FUNCTION_NAME) == 0)
+		return B_BAD_VALUE;
+
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	// get the image from those who have been already initialized
@@ -836,7 +939,6 @@ get_symbol(image_id imageID, char const *symbolName, int32 symbolType,
 	} else
 		status = B_BAD_IMAGE_ID;
 
-	rld_unlock();
 	return status;
 }
 
@@ -850,7 +952,7 @@ get_library_symbol(void* handle, void* caller, const char* symbolName,
 	if (symbolName == NULL)
 		return B_BAD_VALUE;
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 		// for now, just do stupid simple global locking
 
 	if (handle == RTLD_DEFAULT || handle == RLD_GLOBAL_SCOPE) {
@@ -948,7 +1050,6 @@ get_library_symbol(void* handle, void* caller, const char* symbolName,
 			&inImage, _location);
 	}
 
-	rld_unlock();
 	return status;
 }
 
@@ -963,19 +1064,15 @@ get_next_image_dependency(image_id id, uint32 *cookie, const char **_name)
 	if (_name == NULL)
 		return B_BAD_VALUE;
 
-	rld_lock();
+	RecursiveLocker _(sLock);
 
 	image = find_loaded_image_by_id(id, false);
-	if (image == NULL) {
-		rld_unlock();
+	if (image == NULL)
 		return B_BAD_IMAGE_ID;
-	}
 
 	dynamicSection = (elf_dyn *)image->dynamic_ptr;
-	if (dynamicSection == NULL || image->num_needed <= searchIndex) {
-		rld_unlock();
+	if (dynamicSection == NULL || image->num_needed <= searchIndex)
 		return B_ENTRY_NOT_FOUND;
-	}
 
 	for (i = 0, j = 0; dynamicSection[i].d_tag != DT_NULL; i++) {
 		if (dynamicSection[i].d_tag != DT_NEEDED)
@@ -986,12 +1083,10 @@ get_next_image_dependency(image_id id, uint32 *cookie, const char **_name)
 
 			*_name = STRING(image, neededOffset);
 			*cookie = searchIndex + 1;
-			rld_unlock();
 			return B_OK;
 		}
 	}
 
-	rld_unlock();
 	return B_ENTRY_NOT_FOUND;
 }
 
@@ -1062,14 +1157,7 @@ terminate_program(void)
 
 		image_event(image, IMAGE_EVENT_UNINITIALIZING);
 
-		if (image->term_array) {
-			uint count_term = image->term_array_len / sizeof(addr_t);
-			for (uint j = count_term; j-- > 0;)
-				((init_term_function)image->term_array[j])(image->id);
-		}
-
-		if (image->term_routine)
-			((init_term_function)image->term_routine)(image->id);
+		call_term_functions(image);
 
 		image_event(image, IMAGE_EVENT_UNLOADING);
 	}
@@ -1091,7 +1179,7 @@ rldelf_init(void)
 		runtime_loader_debug_area *area;
 		area_id areaID = _kern_create_area(RUNTIME_LOADER_DEBUG_AREA_NAME,
 			(void **)&area, B_RANDOMIZED_ANY_ADDRESS, size, B_NO_LOCK,
-			B_READ_AREA | B_WRITE_AREA);
+			B_READ_AREA | B_WRITE_AREA | B_CLONEABLE_AREA);
 		if (areaID < B_OK) {
 			FATAL("Failed to create debug area.\n");
 			_kern_loading_app_failed(areaID);

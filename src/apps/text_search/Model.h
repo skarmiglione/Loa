@@ -25,7 +25,7 @@ enum {
 	MSG_CASE_SENSITIVE,
 	MSG_REGULAR_EXPRESSION,
 	MSG_TEXT_ONLY,
-	MSG_INVOKE_PE,
+	MSG_INVOKE_EDITOR,
 	MSG_CHECKBOX_SHOW_LINES,
 	MSG_SEARCH_TEXT,
 	MSG_INVOKE_ITEM,
@@ -41,6 +41,7 @@ enum {
 	MSG_NEW_WINDOW,
 	MSG_OPEN_PANEL,
 	MSG_REFS_RECEIVED,
+	MSG_SET_TARGET_TO_PARENT,
 	MSG_TRY_QUIT,
 	MSG_QUIT_NOW,
 
@@ -93,8 +94,8 @@ public:
 			// Whether we look at text files only.
 			bool				fTextOnly;
 
-			// Whether we open the item in Pe and jump to the correct line.
-			bool				fInvokePe;
+			// Whether we open the item in the preferred code editor.
+			bool				fInvokeEditor;
 
 			// The dimensions of the window.
 			BRect				fFrame;

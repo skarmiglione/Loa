@@ -53,9 +53,9 @@
 #define O_RSYNC			0x00020000	/* read synchronized I/O file integrity */
 #define O_DSYNC			0x00040000	/* write synchronized I/O data integrity */
 #define O_NOFOLLOW		0x00080000	/* fail on symlinks */
-#define O_NOCACHE		0x00100000	/* do not use the file system cache if */
+#define O_DIRECT		0x00100000	/* do not use the file system cache if */
 									/* possible */
-#define O_DIRECT		O_NOCACHE
+#define O_NOCACHE		O_DIRECT
 #define O_DIRECTORY		0x00200000	/* fail if not a directory */
 
 /* flags for the *at() functions */
@@ -66,6 +66,14 @@
 #define AT_SYMLINK_FOLLOW	0x02	/* linkat() */
 #define AT_REMOVEDIR		0x04	/* unlinkat() */
 #define AT_EACCESS			0x08	/* faccessat() */
+
+/* file advisory information, unused by Haiku */
+#define POSIX_FADV_NORMAL		0	/* no advice */
+#define POSIX_FADV_SEQUENTIAL	1	/* expect sequential access */
+#define POSIX_FADV_RANDOM		2	/* expect access in a random order */
+#define POSIX_FADV_WILLNEED		3	/* expect access in the near future */
+#define POSIX_FADV_DONTNEED		4	/* expect no access in the near future */
+#define POSIX_FADV_NOREUSE		5	/* expect access only once */
 
 /* advisory file locking */
 
@@ -89,6 +97,9 @@ extern int	open(const char *path, int openMode, ...);
 extern int	openat(int fd, const char *path, int openMode, ...);
 
 extern int	fcntl(int fd, int op, ...);
+
+extern int	posix_fadvise(int fd, off_t offset, off_t len, int advice);
+extern int	posix_fallocate(int fd, off_t offset, off_t len);
 
 #ifdef __cplusplus
 }

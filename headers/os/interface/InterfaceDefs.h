@@ -8,6 +8,7 @@
 
 #include <GraphicsDefs.h>
 #include <OS.h>
+#include <String.h>
 
 
 class BBitmap;
@@ -419,12 +420,16 @@ status_t		set_scroll_bar_info(scroll_bar_info* info);
 
 status_t		get_mouse_type(int32* type);
 status_t		set_mouse_type(int32 type);
+status_t		get_mouse_type_by_name(BString mouse_name, int32* type);
+status_t		set_mouse_type_by_name(BString mouse_name, int32 type);
 status_t		get_mouse_map(mouse_map* map);
 status_t		set_mouse_map(mouse_map* map);
 status_t		get_click_speed(bigtime_t* speed);
 status_t		set_click_speed(bigtime_t speed);
 status_t		get_mouse_speed(int32* speed);
 status_t		set_mouse_speed(int32 speed);
+status_t		get_mouse_speed_by_name(BString mouse_name, int32* speed);
+status_t		set_mouse_speed_by_name(BString mouse_name, int32 speed);
 status_t		get_mouse_acceleration(int32* speed);
 status_t		set_mouse_acceleration(int32 speed);
 

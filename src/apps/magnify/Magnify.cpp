@@ -55,6 +55,11 @@ const int32 msg_make_square = 'sqar';
 const int32 msg_shrink_pixel = 'pshk';
 const int32 msg_grow_pixel = 'pgrw';
 
+const int32 msg_mouse_left = 'mslf';
+const int32 msg_mouse_right = 'msrt';
+const int32 msg_mouse_up = 'msup';
+const int32 msg_mouse_down = 'msdn';
+
 const int32 msg_new_color = 'colr';
 const int32 msg_toggle_ruler = 'rulr';
 const int32 msg_copy_image = 'copy';
@@ -331,6 +336,10 @@ TWindow::TWindow(int32 pixelCount)
 	AddShortcut('/', B_COMMAND_KEY, new BMessage(msg_make_square));
 	AddShortcut(',', B_COMMAND_KEY, new BMessage(msg_shrink_pixel));
 	AddShortcut('.', B_COMMAND_KEY, new BMessage(msg_grow_pixel));
+	AddShortcut(B_LEFT_ARROW, B_COMMAND_KEY, new BMessage(msg_mouse_left));
+	AddShortcut(B_RIGHT_ARROW, B_COMMAND_KEY, new BMessage(msg_mouse_right));
+	AddShortcut(B_UP_ARROW, B_COMMAND_KEY, new BMessage(msg_mouse_up));
+	AddShortcut(B_DOWN_ARROW, B_COMMAND_KEY, new BMessage(msg_mouse_down));
 }
 
 
@@ -347,7 +356,7 @@ TWindow::GetSupportedSuites(BMessage* msg)
 	BPropertyInfo propertyInfo(sProperties);
 	msg->AddFlat("messages", &propertyInfo);
 
-	return BHandler::GetSupportedSuites(msg);
+	return BWindow::GetSupportedSuites(msg);
 }
 
 
@@ -359,7 +368,7 @@ TWindow::ResolveSpecifier(BMessage* msg, int32 index, BMessage* specifier,
 	if (propertyInfo.FindMatch(msg, index, specifier, what, property) >= 0)
 		return this;
 
-	return BHandler::ResolveSpecifier(msg, index, specifier, what, property);
+	return BWindow::ResolveSpecifier(msg, index, specifier, what, property);
 }
 
 
@@ -495,6 +504,23 @@ TWindow::MessageReceived(BMessage* m)
 		case msg_grow_pixel:
 			if (active)
 				SetPixelSize(true);
+			break;
+
+		case msg_mouse_left:
+			if (active)
+				fFatBits->NudgeMouse(-1, 0);
+			break;
+		case msg_mouse_right:
+			if (active)
+				fFatBits->NudgeMouse(1, 0);
+			break;
+		case msg_mouse_up:
+			if (active)
+				fFatBits->NudgeMouse(0, -1);
+			break;
+		case msg_mouse_down:
+			if (active)
+				fFatBits->NudgeMouse(0, 1);
 			break;
 
 		case msg_add_cross_hair:
@@ -1322,8 +1348,6 @@ TMagnify::KeyDown(const char *key, int32 numBytes)
 	if (!fShowSelection)
 		BView::KeyDown(key, numBytes);
 
-	uint32 mods = modifiers();
-
 	switch (key[0]) {
 		case B_TAB:
 			if (fShowCrossHair1) {
@@ -1342,28 +1366,16 @@ TMagnify::KeyDown(const char *key, int32 numBytes)
 			break;
 
 		case B_LEFT_ARROW:
-			if (mods & B_OPTION_KEY)
-				NudgeMouse(-1,0);
-			else
-				MoveSelection(-1,0);
+			MoveSelection(-1,0);
 			break;
 		case B_RIGHT_ARROW:
-			if (mods & B_OPTION_KEY)
-				NudgeMouse(1, 0);
-			else
-				MoveSelection(1,0);
+			MoveSelection(1,0);
 			break;
 		case B_UP_ARROW:
-			if (mods & B_OPTION_KEY)
-				NudgeMouse(0, -1);
-			else
-				MoveSelection(0,-1);
+			MoveSelection(0,-1);
 			break;
 		case B_DOWN_ARROW:
-			if (mods & B_OPTION_KEY)
-				NudgeMouse(0, 1);
-			else
-				MoveSelection(0,1);
+			MoveSelection(0,1);
 			break;
 
 		default:
@@ -1706,7 +1718,7 @@ TMagnify::CopyImage()
 
 	BMessage *message = be_clipboard->Data();
 	if (!message) {
-		printf(B_TRANSLATE_CONTEXT("no clip msg\n",
+		puts(B_TRANSLATE_CONTEXT("no clip msg",
 			"In console, when clipboard is empty after clicking Copy image"));
 		return;
 	}
@@ -1991,7 +2003,7 @@ TOSMagnify::CreateImage(BPoint mouseLoc, bool force)
 		}
 		Window()->Unlock();
 	} else
-		printf("window problem\n");
+		puts("window problem");
 
 	return created;
 }
@@ -2156,8 +2168,8 @@ main(int argc, char* argv[])
 	int32 pixelCount = -1;
 
 	if (argc > 2) {
-		printf(B_TRANSLATE_CONTEXT(
-			"usage: magnify [size] (magnify size * size pixels)\n",
+		puts(B_TRANSLATE_CONTEXT(
+			"usage: magnify [size] (magnify size * size pixels)",
 			"Console"));
 		exit(1);
 	} else {
@@ -2165,18 +2177,18 @@ main(int argc, char* argv[])
 			pixelCount = abs(atoi(argv[1]));
 
 			if ((pixelCount > 100) || (pixelCount < 4)) {
-				printf(B_TRANSLATE_CONTEXT(
-					"usage: magnify [size] (magnify size * size pixels)\n",
+				puts(B_TRANSLATE_CONTEXT(
+					"usage: magnify [size] (magnify size * size pixels)",
 					"Console"));
-				printf(B_TRANSLATE_CONTEXT(
-					"  size must be > 4 and a multiple of 4\n",
+				puts(B_TRANSLATE_CONTEXT(
+					"  size must be > 4 and a multiple of 4",
 					"Console"));
 				exit(1);
 			}
 
 			if (pixelCount % 4) {
-				printf(B_TRANSLATE_CONTEXT(
-					"magnify: size must be a multiple of 4\n",
+				puts(B_TRANSLATE_CONTEXT(
+					"magnify: size must be a multiple of 4",
 					"Console"));
 				exit(1);
 			}

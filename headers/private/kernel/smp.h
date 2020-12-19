@@ -91,6 +91,11 @@ int32 smp_get_current_cpu(void);
 
 int smp_intercpu_int_handler(int32 cpu);
 
+void call_single_cpu(uint32 targetCPU, void (*func)(void*, int), void* cookie);
+void call_single_cpu_sync(uint32 targetCPU, void (*func)(void*, int),
+	void* cookie);
+
+
 #ifdef __cplusplus
 }
 #endif
@@ -282,14 +287,16 @@ release_write_seqlock_inline(seqlock* lock) {
 
 
 static inline uint32
-acquire_read_seqlock_inline(seqlock* lock) {
-	return atomic_get((int32*)&lock->count);
+acquire_read_seqlock_inline(seqlock* lock)
+{
+	return (uint32)atomic_get((int32*)&lock->count);
 }
 
 
 static inline bool
-release_read_seqlock_inline(seqlock* lock, uint32 count) {
-	uint32 current = atomic_get((int32*)&lock->count);
+release_read_seqlock_inline(seqlock* lock, uint32 count)
+{
+	uint32 current = (uint32)atomic_get((int32*)&lock->count);
 
 	return count % 2 == 0 && current == count;
 }

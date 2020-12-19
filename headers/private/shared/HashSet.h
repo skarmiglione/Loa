@@ -1,71 +1,62 @@
-// HashSet.h
-//
-// Copyright (c) 2004, Ingo Weinhold (bonefish@cs.tu-berlin.de)
-//
-// Permission is hereby granted, free of charge, to any person obtaining a
-// copy of this software and associated documentation files (the "Software"),
-// to deal in the Software without restriction, including without limitation
-// the rights to use, copy, modify, merge, publish, distribute, sublicense,
-// and/or sell copies of the Software, and to permit persons to whom the
-// Software is furnished to do so, subject to the following conditions:
-//
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-//
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-// THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-// FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-// DEALINGS IN THE SOFTWARE.
-//
-// Except as contained in this notice, the name of a copyright holder shall
-// not be used in advertising or otherwise to promote the sale, use or other
-// dealings in this Software without prior written authorization of the
-// copyright holder.
-
+/*
+ * Copyright 2004-2009, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * Copyright 2019, Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ */
 #ifndef HASH_SET_H
 #define HASH_SET_H
 
+#include <OpenHashTable.h>
 #include <Locker.h>
 
 #include "AutoLocker.h"
-#include "OpenHashTable.h"
 
 
 namespace BPrivate {
 
+
 // HashSetElement
 template<typename Key>
-class HashSetElement : public OpenHashElement {
+class HashSetElement {
 private:
 	typedef HashSetElement<Key> Element;
+
 public:
-
-	HashSetElement() : OpenHashElement(), fKey()
+	HashSetElement()
+		:
+		fKey(),
+		fNext(NULL)
 	{
-		fNext = -1;
 	}
 
-	inline uint32 Hash() const
+	HashSetElement(const Key& key)
+		:
+		fKey(key),
+		fNext(NULL)
 	{
-		return fKey.GetHashCode();
 	}
 
-	inline bool operator==(const OpenHashElement &_element) const
-	{
-		const Element &element = static_cast<const Element&>(_element);
-		return (fKey == element.fKey);
-	}
-
-	inline void Adopt(Element &element)
-	{
-		fKey = element.fKey;
-	}
-
-	Key		fKey;
+	Key				fKey;
+	HashSetElement*	fNext;
 };
+
+
+// HashSetTableDefinition
+template<typename Key>
+struct HashSetTableDefinition {
+	typedef Key					KeyType;
+	typedef	HashSetElement<Key>	ValueType;
+
+	size_t HashKey(const KeyType& key) const
+		{ return key.GetHashCode(); }
+	size_t Hash(const ValueType* value) const
+		{ return HashKey(value->fKey); }
+	bool Compare(const KeyType& key, const ValueType* value) const
+		{ return value->fKey == key; }
+	ValueType*& GetLink(ValueType* value) const
+		{ return value->fNext; }
+};
+
 
 // HashSet
 template<typename Key>
@@ -76,76 +67,53 @@ public:
 		typedef HashSetElement<Key>	Element;
 	public:
 		Iterator(const Iterator& other)
-			: fSet(other.fSet),
-			  fIndex(other.fIndex),
-			  fElement(other.fElement),
-			  fLastElement(other.fElement)
+			:
+			fSet(other.fSet),
+			fIterator(other.fIterator),
+			fElement(other.fElement)
 		{
 		}
 
 		bool HasNext() const
 		{
-			return fElement;
+			return fIterator.HasNext();
 		}
 
 		Key Next()
 		{
-			if (!fElement)
+			fElement = fIterator.Next();
+			if (fElement == NULL)
 				return Key();
-			Key result(fElement->fKey);
-			_FindNext();
-			return result;
-		}
 
-		bool Remove()
-		{
-			if (!fLastElement)
-				return false;
-			fSet->fTable.Remove(fLastElement);
-			fLastElement = NULL;
-			return true;
+			return fElement->fKey;
 		}
 
 		Iterator& operator=(const Iterator& other)
 		{
 			fSet = other.fSet;
-			fIndex = other.fIndex;
+			fIterator = other.fIterator;
 			fElement = other.fElement;
-			fLastElement = other.fLastElement;
 			return *this;
 		}
 
 	private:
-		Iterator(HashSet<Key>* map)
-			: fSet(map),
-			  fIndex(0),
-			  fElement(NULL),
-			  fLastElement(NULL)
+		Iterator(const HashSet<Key>* set)
+			:
+			fSet(set),
+			fIterator(set->fTable.GetIterator()),
+			fElement(NULL)
 		{
-			// find first
-			_FindNext();
-		}
-
-		void _FindNext()
-		{
-			fLastElement = fElement;
-			if (fElement && fElement->fNext >= 0) {
-				fElement = fSet->fTable.ElementAt(fElement->fNext);
-				return;
-			}
-			fElement = NULL;
-			int32 arraySize = fSet->fTable.ArraySize();
-			for (; !fElement && fIndex < arraySize; fIndex++)
-				fElement = fSet->fTable.FindFirst(fIndex);
 		}
 
 	private:
-		friend class HashSet<Key>;
+		typedef BOpenHashTable<HashSetTableDefinition<Key> > ElementTable;
 
-		HashSet<Key>*	fSet;
-		int32			fIndex;
-		Element*		fElement;
-		Element*		fLastElement;
+		const HashSet<Key>*				fSet;
+		typename ElementTable::Iterator fIterator;
+		Element*						fElement;
+
+	private:
+		friend class HashSet<Key>;
 	};
 
 	HashSet();
@@ -155,34 +123,32 @@ public:
 
 	status_t Add(const Key& key);
 	bool Remove(const Key& key);
+	bool Remove(Iterator& it);
 	void Clear();
 	bool Contains(const Key& key) const;
 
 	int32 Size() const;
-	bool IsEmpty() const	{ return Size() == 0; }
 
-	Iterator GetIterator();
+	Iterator GetIterator() const;
 
 protected:
+	typedef BOpenHashTable<HashSetTableDefinition<Key> > ElementTable;
 	typedef HashSetElement<Key>	Element;
 	friend class Iterator;
 
-private:
-	Element *_FindElement(const Key& key) const;
-
 protected:
-	OpenHashElementArray<Element>							fElementArray;
-	OpenHashTable<Element, OpenHashElementArray<Element> >	fTable;
+	ElementTable	fTable;
 };
 
+
 // SynchronizedHashSet
-template<typename Key>
-class SynchronizedHashSet : public BLocker {
+template<typename Key, typename Locker = BLocker>
+class SynchronizedHashSet : public Locker {
 public:
 	typedef typename HashSet<Key>::Iterator Iterator;
 
-	SynchronizedHashSet() : BLocker("synchronized hash set")	{}
-	~SynchronizedHashSet()	{ Lock(); }
+	SynchronizedHashSet() : Locker("synchronized hash set")	{}
+	~SynchronizedHashSet()	{ Locker::Lock(); }
 
 	status_t InitCheck() const
 	{
@@ -205,10 +171,16 @@ public:
 		return fSet.Remove(key);
 	}
 
+	void Clear()
+	{
+		MapLocker locker(this);
+		fSet.Clear();
+	}
+
 	bool Contains(const Key& key) const
 	{
-		const BLocker* lock = this;
-		MapLocker locker(const_cast<BLocker*>(lock));
+		const Locker* lock = this;
+		MapLocker locker(const_cast<Locker*>(lock));
 		if (!locker.IsLocked())
 			return false;
 		return fSet.Contains(key);
@@ -216,12 +188,12 @@ public:
 
 	int32 Size() const
 	{
-		const BLocker* lock = this;
-		MapLocker locker(const_cast<BLocker*>(lock));
+		const Locker* lock = this;
+		MapLocker locker(const_cast<Locker*>(lock));
 		return fSet.Size();
 	}
 
-	Iterator GetIterator()
+	Iterator GetIterator() const
 	{
 		return fSet.GetIterator();
 	}
@@ -231,77 +203,121 @@ public:
 	HashSet<Key>& GetUnsynchronizedSet()				{ return fSet; }
 
 protected:
-	typedef AutoLocker<BLocker> MapLocker;
+	typedef AutoLocker<Locker> MapLocker;
 
 	HashSet<Key>	fSet;
 };
+
 
 // HashSet
 
 // constructor
 template<typename Key>
 HashSet<Key>::HashSet()
-	: fElementArray(1000),
-	  fTable(1000, &fElementArray)
+	:
+	fTable()
 {
+	fTable.Init();
 }
+
 
 // destructor
 template<typename Key>
 HashSet<Key>::~HashSet()
 {
+	Clear();
 }
+
 
 // InitCheck
 template<typename Key>
 status_t
 HashSet<Key>::InitCheck() const
 {
-	return (fTable.InitCheck() && fElementArray.InitCheck()
-			? B_OK : B_NO_MEMORY);
+	return (fTable.TableSize() > 0 ? B_OK : B_NO_MEMORY);
 }
+
 
 // Add
 template<typename Key>
 status_t
 HashSet<Key>::Add(const Key& key)
 {
-	if (Contains(key))
+	Element* element = fTable.Lookup(key);
+	if (element) {
+		// already contains the value
 		return B_OK;
-	Element* element = fTable.Add(key.GetHashCode());
+	}
+
+	// does not contain the key yet: create an element and add it
+	element = new(std::nothrow) Element(key);
 	if (!element)
 		return B_NO_MEMORY;
-	element->fKey = key;
-	return B_OK;
+
+	status_t error = fTable.Insert(element);
+	if (error != B_OK)
+		delete element;
+
+	return error;
 }
+
 
 // Remove
 template<typename Key>
 bool
 HashSet<Key>::Remove(const Key& key)
 {
-	if (Element* element = _FindElement(key)) {
-		fTable.Remove(element);
-		return true;
-	}
-	return false;
+	Element* element = fTable.Lookup(key);
+	if (element == NULL)
+		return false;
+
+	fTable.Remove(element);
+	delete element;
+
+	return true;
 }
+
+
+// Remove
+template<typename Key>
+bool
+HashSet<Key>::Remove(Iterator& it)
+{
+	Element* element = it.fElement;
+	if (element == NULL)
+		return false;
+
+	fTable.RemoveUnchecked(element);
+	delete element;
+	it.fElement = NULL;
+
+	return true;
+}
+
 
 // Clear
 template<typename Key>
 void
 HashSet<Key>::Clear()
 {
-	fTable.RemoveAll();
+	// clear the table and delete the elements
+	Element* element = fTable.Clear(true);
+	while (element != NULL) {
+		Element* next = element->fNext;
+		delete element;
+		element = next;
+	}
 }
+
 
 // Contains
 template<typename Key>
 bool
 HashSet<Key>::Contains(const Key& key) const
 {
-	return _FindElement(key);
+	return fTable.Lookup(key) != NULL;
 }
+
 
 // Size
 template<typename Key>
@@ -311,32 +327,17 @@ HashSet<Key>::Size() const
 	return fTable.CountElements();
 }
 
+
 // GetIterator
 template<typename Key>
 typename HashSet<Key>::Iterator
-HashSet<Key>::GetIterator()
+HashSet<Key>::GetIterator() const
 {
 	return Iterator(this);
 }
 
-// _FindElement
-template<typename Key>
-HashSetElement<Key> *
-HashSet<Key>::_FindElement(const Key& key) const
-{
-	Element* element = fTable.FindFirst(key.GetHashCode());
-	while (element && element->fKey != key) {
-		if (element->fNext >= 0)
-			element = fTable.ElementAt(element->fNext);
-		else
-			element = NULL;
-	}
-	return element;
-}
-
-}	// namespace BPrivate
+} // namespace BPrivate
 
 using BPrivate::HashSet;
-using BPrivate::SynchronizedHashSet;
 
 #endif	// HASH_SET_H

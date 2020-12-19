@@ -1,4 +1,7 @@
-// Index.cpp
+/*
+ * Copyright 2007, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * All rights reserved. Distributed under the terms of the MIT license.
+ */
 
 #include "DebugSupport.h"
 #include "Directory.h"
@@ -72,11 +75,11 @@ void
 Index::Dump()
 {
 	D(
-		PRINT(("Index: `%s', type: %lx\n", GetName(), GetType()));
+		PRINT("Index: `%s', type: %lx\n", GetName(), GetType());
 		for (IndexEntryIterator it(this); it.GetCurrent(); it.GetNext()) {
 			Entry *entry = it.GetCurrent();
-			PRINT(("  entry: `%s', dir: %Ld\n", entry->GetName(),
-												entry->GetParent()->GetID()));
+			PRINT("  entry: `%s', dir: %Ld\n", entry->GetName(),
+												entry->GetParent()->GetID());
 		}
 	)
 }

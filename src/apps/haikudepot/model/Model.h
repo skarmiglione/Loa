@@ -1,24 +1,32 @@
 /*
  * Copyright 2013-2014, Stephan Aßmus <superstippi@gmx.de>.
- * Copyright 2016-2018, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2016-2020, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 #ifndef MODEL_H
 #define MODEL_H
 
-#include <FindDirectory.h>
+#include <vector>
+
 #include <Locker.h>
 
-#include "AbstractServerProcess.h"
-#include "LocalIconStore.h"
-#include "BulkLoadContext.h"
+#include "AbstractProcess.h"
+#include "PackageIconTarRepository.h"
+#include "LanguageModel.h"
 #include "PackageInfo.h"
+#include "RatingStability.h"
 #include "WebAppInterface.h"
 
 
 class BFile;
 class BMessage;
 class BPath;
+
+
+typedef enum package_list_view_mode {
+	PROMINENT,
+	ALL
+} package_list_view_mode;
 
 
 class PackageFilter : public BReferenceable {
@@ -37,13 +45,7 @@ public:
 	virtual						~ModelListener();
 
 	virtual	void				AuthorizationChanged() = 0;
-};
-
-
-class DepotMapper {
-public:
-	virtual DepotInfo			MapDepot(const DepotInfo& depot,
-									void* context) = 0;
+	virtual void				CategoryListChanged() = 0;
 };
 
 
@@ -64,52 +66,40 @@ public:
 								Model();
 	virtual						~Model();
 
+			LanguageModel*		Language();
+			PackageIconRepository&
+								GetPackageIconRepository();
+			status_t			InitPackageIconRepository();
+
 			BLocker*			Lock()
 									{ return &fLock; }
 
 			bool				AddListener(const ModelListenerRef& listener);
 
-			// !Returns new PackageInfoList from current parameters
-			PackageList			CreatePackageList() const;
-
+			PackageInfoRef		PackageForName(const BString& name);
 			bool				MatchesFilter(
 									const PackageInfoRef& package) const;
 
-			bool				AddDepot(const DepotInfo& depot);
+			void				MergeOrAddDepot(const DepotInfoRef depot);
 			bool				HasDepot(const BString& name) const;
-			const DepotList&	Depots() const
-									{ return fDepots; }
-			const DepotInfo*	DepotForName(const BString& name) const;
-			bool				SyncDepot(const DepotInfo& depot);
+			int32				CountDepots() const;
+			DepotInfoRef		DepotAtIndex(int32 index) const;
+			const DepotInfoRef	DepotForName(const BString& name) const;
+			bool				HasAnyProminentPackages();
 
 			void				Clear();
 
-			// Access to global categories
-			const CategoryRef&	CategoryAudio() const
-									{ return fCategoryAudio; }
-			const CategoryRef&	CategoryBusiness() const
-									{ return fCategoryBusiness; }
-			const CategoryRef&	CategoryDevelopment() const
-									{ return fCategoryDevelopment; }
-			const CategoryRef&	CategoryEducation() const
-									{ return fCategoryEducation; }
-			const CategoryRef&	CategoryInternetAndNetwork() const
-									{ return fCategoryInternetAndNetwork; }
-			const CategoryRef&	CategoryGames() const
-									{ return fCategoryGames; }
-			const CategoryRef&	CategoryGraphics() const
-									{ return fCategoryGraphics; }
-			const CategoryRef&	CategoryProductivity() const
-									{ return fCategoryProductivity; }
-			const CategoryRef&	CategoryScienceAndMathematics() const
-									{ return fCategoryScienceAndMathematics; }
-			const CategoryRef&	CategorySystemAndUtilities() const
-									{ return fCategorySystemAndUtilities; }
-			const CategoryRef&	CategoryVideo() const
-									{ return fCategoryVideo; }
+			int32				CountCategories() const;
+			CategoryRef			CategoryByCode(BString& code) const;
+			CategoryRef			CategoryAtIndex(int32 index) const;
+			void				AddCategories(
+									std::vector<CategoryRef>& values);
 
-			const CategoryList&	Categories() const
-									{ return fCategories; }
+			int32				CountRatingStabilities() const;
+			RatingStabilityRef	RatingStabilityByCode(BString& code) const;
+			RatingStabilityRef	RatingStabilityAtIndex(int32 index) const;
+			void				AddRatingStabilities(
+									std::vector<RatingStabilityRef>& values);
 
 			void				SetPackageState(
 									const PackageInfoRef& package,
@@ -123,9 +113,11 @@ public:
 			void				SetSearchTerms(const BString& searchTerms);
 			BString				SearchTerms() const;
 
-			void				SetShowFeaturedPackages(bool show);
-			bool				ShowFeaturedPackages() const
-									{ return fShowFeaturedPackages; }
+			void				SetPackageListViewMode(
+									package_list_view_mode mode);
+			package_list_view_mode
+								PackageListViewMode() const
+									{ return fPackageListViewMode; }
 			void				SetShowAvailablePackages(bool show);
 			bool				ShowAvailablePackages() const
 									{ return fShowAvailablePackages; }
@@ -151,54 +143,31 @@ public:
 			void				PopulatePackage(const PackageInfoRef& package,
 									uint32 flags);
 
-			const StringList&	SupportedLanguages() const
-									{ return fSupportedLanguages; }
-
-			const BString&		PreferredLanguage() const
-									{ return fPreferredLanguage; }
-
-			void				SetUsername(BString username);
-			const BString&		Username() const;
-			void				SetAuthorization(const BString& username,
-									const BString& password,
+			void				SetNickname(BString nickname);
+			const BString&		Nickname() const;
+			void				SetAuthorization(const BString& nickname,
+									const BString& passwordClear,
 									bool storePassword);
 
-			const WebAppInterface& GetWebAppInterface() const
+			const WebAppInterface&
+								GetWebAppInterface() const
 									{ return fWebAppInterface; }
 
-			void				ReplaceDepotByUrl(
-									const BString& URL,
-									const BString& baseURL,
-									DepotMapper* depotMapper,
-									void* context);
-
-			void				ForAllDepots(
-									void (*func)(const DepotInfo& depot,
-										void* context),
-									void* context);
-
-			void				ForAllPackages(PackageConsumer* packageConsumer,
-									void* context);
-
-			void				ForPackageByNameInDepot(
-									const BString& depotName,
-									const BString& packageName,
-									PackageConsumer* packageConsumer,
-									void* context);
-
-			status_t			IconStoragePath(BPath& path) const;
-			status_t			DumpExportRepositoryDataPath(BPath& path) const;
+			status_t			IconTarPath(BPath& path) const;
+			status_t			DumpExportReferenceDataPath(BPath& path);
+			status_t			DumpExportRepositoryDataPath(BPath& path);
 			status_t			DumpExportPkgDataPath(BPath& path,
-									const BString& repositorySourceCode) const;
-
-			void				LogDepotsWithNoWebAppRepositoryCode() const;
+									const BString& repositorySourceCode);
 
 private:
+			void				_AddCategory(const CategoryRef& category);
+
+			void				_AddRatingStability(
+									const RatingStabilityRef& value);
+
 			void				_MaybeLogJsonRpcError(
 									const BMessage &responsePayload,
 									const char *sourceDescription) const;
-
-			void				_UpdateIsFeaturedFilter();
 
 	static	int32				_PopulateAllPackagesEntry(void* cookie);
 
@@ -210,38 +179,18 @@ private:
 									const ScreenshotInfo& info,
 									int32 scaledWidth, bool fromCacheOnly);
 
-			bool				_GetCacheFile(BPath& path, BFile& file,
-									directory_which directory,
-									const char* relativeLocation,
-									const char* fileName,
-									uint32 openMode) const;
-			bool				_GetCacheFile(BPath& path, BFile& file,
-									directory_which directory,
-									const char* relativeLocation,
-									const char* fileName,
-									bool ignoreAge, time_t maxAge) const;
-
 			void				_NotifyAuthorizationChanged();
+			void				_NotifyCategoryListChanged();
 
 private:
 			BLocker				fLock;
 
-			DepotList			fDepots;
-
-			CategoryRef			fCategoryAudio;
-			CategoryRef			fCategoryBusiness;
-			CategoryRef			fCategoryDevelopment;
-			CategoryRef			fCategoryEducation;
-			CategoryRef			fCategoryGames;
-			CategoryRef			fCategoryGraphics;
-			CategoryRef			fCategoryInternetAndNetwork;
-			CategoryRef			fCategoryProductivity;
-			CategoryRef			fCategoryScienceAndMathematics;
-			CategoryRef			fCategorySystemAndUtilities;
-			CategoryRef			fCategoryVideo;
-			// TODO: Dynamic categories retrieved from web-app
-
-			CategoryList		fCategories;
+			std::vector<DepotInfoRef>
+								fDepots;
+			std::vector<CategoryRef>
+								fCategories;
+			std::vector<RatingStabilityRef>
+								fRatingStabilities;
 
 			PackageList			fInstalledPackages;
 			PackageList			fActivatedPackages;
@@ -253,17 +202,17 @@ private:
 			PackageFilterRef	fCategoryFilter;
 			BString				fDepotFilter;
 			PackageFilterRef	fSearchTermsFilter;
-			PackageFilterRef	fIsFeaturedFilter;
 
-			bool				fShowFeaturedPackages;
+			package_list_view_mode
+								fPackageListViewMode;
 			bool				fShowAvailablePackages;
 			bool				fShowInstalledPackages;
 			bool				fShowSourcePackages;
 			bool				fShowDevelopPackages;
 
-			StringList			fSupportedLanguages;
-			BString				fPreferredLanguage;
-
+			LanguageModel		fLanguageModel;
+			PackageIconTarRepository
+								fPackageIconRepository;
 			WebAppInterface		fWebAppInterface;
 
 			ModelListenerList	fListeners;

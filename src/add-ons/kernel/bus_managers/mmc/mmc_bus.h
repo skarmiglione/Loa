@@ -15,7 +15,7 @@
 
 #include <lock.h>
 #include <util/AutoLock.h>
-#include "../../busses/mmc/sdhci_pci.h"
+#include "mmc.h"
 
 
 #define MMCBUS_TRACE
@@ -36,17 +36,32 @@ class MMCBus;
 class MMCBus {
 public:
 
-			MMCBus(device_node *node);
-			~MMCBus();
-			status_t InitCheck();
+								MMCBus(device_node *node);
+								~MMCBus();
+				status_t		InitCheck();
+				void			Rescan();
+
+				status_t		ExecuteCommand(uint8_t command,
+									uint32_t argument, uint32_t* response);
+				status_t		Read(uint16_t rca, off_t position, void* buffer,
+									size_t* length);
+
+				void			AcquireBus() { acquire_sem(fLockSemaphore); }
+				void			ReleaseBus() { release_sem(fLockSemaphore); }
+private:
+				status_t		_ActivateDevice(uint16_t rca);
+		static	status_t		_WorkerThread(void*);
 
 private:
 
-		device_node* 				fNode;
-		sdhci_mmc_bus_interface* 	fController;
-		void* 						fCookie;
-		status_t					fStatus;
-		void*						fDriverCookie;
+		device_node* 			fNode;
+		mmc_bus_interface* 		fController;
+		void* 					fCookie;
+		status_t				fStatus;
+		thread_id				fWorkerThread;
+		sem_id					fScanSemaphore;
+		sem_id					fLockSemaphore;
+		uint16					fActiveDevice;
 };
 
 

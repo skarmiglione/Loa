@@ -1,33 +1,39 @@
-1	ukrainian	x-vnd.Haiku.TextSearch	3108411238
-%s: Not enough room to escape the filename.	Grepper		%s: Недостатньо місця для відміни імені файлу.
-Trim to selection	GrepWindow		Обрізати для вибору
-Follow symbolic links	GrepWindow		Дотримуйтесь символічних посилань
-Close	GrepWindow		Закрити
-Cancel	GrepWindow		Відмінити
-The unselected files will be removed from the list.	GrepWindow		Не вибрані файли будуть вилучені зі списку.
-Set target…	GrepWindow		Встановити ціль…
-Please select the files you wish to have selected for you in Tracker.	GrepWindow		Виберіть файли які Ви маєте виділити у Tracker'i.
-Open files in Pe	GrepWindow		Відкрити файл у Pe
+1	ukrainian	x-vnd.Haiku.TextSearch	1757850908
+Please select the files you wish to have selected for you in Tracker.	GrepWindow		Виберіть файли які Ви маєте виділити у Tracker.
 %appname% : %path%	GrepWindow		%appname% : %path%
-Copy text to clipboard	GrepWindow		Копіювати текст до буферу обміну
-Settings	GrepWindow		Налаштування
-Select all	GrepWindow		Вибрати все
-OK	GrepWindow		Гаразд
-Skip folders starting with a dot	GrepWindow		Пропустити папки, що починаються з крапки
-%APP_NAME couldn't open one or more folders.	GrepWindow		%APP_NAME не вдалося відкрити одну або більше тек.
-Search	GrepWindow		Пошук
+Failed to start xargs program!	Grepper		Не вдалося запустити програму xargs!
 Open selection	GrepWindow		Відкрити вибране
-Look in sub-folders	GrepWindow		Дивитися в підтеках
 Actions	GrepWindow		Дії
-File	GrepWindow		Файл
-Encoding	GrepWindow		Кодування
-History	GrepWindow		Історія
 New window	GrepWindow		Нове вікно
-Please select the files you wish to keep searching.	GrepWindow		Будь ласка виберіть файли які ви хочете продовжувати шукати.
-TextSearch	GrepWindow		Пошук тексту
-Quit	GrepWindow		Вийти
-Show files in Tracker	GrepWindow		Показати файл у Tracker'i
-Case-sensitive	GrepWindow		З урахуванням регістру
-Text files only	GrepWindow		Тільки текстові файли
-Show lines	GrepWindow		Показати лінії
+Encoding	GrepWindow		Кодування
+Set target to parent folder	GrepWindow		Зробити батьківську папку цільовою
+OK	GrepWindow		ОК
 %appname% : %path% : %searchtext%	GrepWindow		%appname% : %path% : %searchtext%
+Close	GrepWindow		Закрити
+Look in sub-folders	GrepWindow		Дивитися в підпапках
+%s: Not enough room to escape the filename.	Grepper		%s: Недостатньо місця щоб екранувати ім'я файлу.
+Follow symbolic links	GrepWindow		Дотримуйтесь символічних посилань
+Regular expression	GrepWindow		Регулярний вираз
+Text files only	GrepWindow		Тільки текстові файли
+Quit	GrepWindow		Вийти
+Show files in Tracker	GrepWindow		Показати файли у Tracker
+Please select the files you wish to keep searching.	GrepWindow		Будь ласка виберіть файли в яких Ви хочете продовжити пошук.
+Trim to selection	GrepWindow		Обмежитись вибраними
+Set target…	GrepWindow		Встановити ціль…
+Failed to open input pipe!	Grepper		Збій при відкритті вхідного каналу!
+Search	GrepWindow		Пошук
+Copy text to clipboard	GrepWindow		Копіювати текст до буферу обміну
+Show lines	GrepWindow		Показати лінії
+Failed to open errors pipe!	Grepper		Збій при відкритті каналу помилок!
+The unselected files will be removed from the list.	GrepWindow		Файли, які не вибрані, будуть вилучені зі списку.
+Open files in code editor	GrepWindow		Відкрвати файли в редакторі коду
+Skip folders starting with a dot	GrepWindow		Пропустити папки, що починаються з крапки
+Failed to open output pipe!	Grepper		Збій при відкритті вихідного каналу! 
+Cancel	GrepWindow		Скасувати
+History	GrepWindow		Історія
+TextSearch	System name		TextSearch
+File	GrepWindow		Файл
+Case-sensitive	GrepWindow		З урахуванням регістру
+Select all	GrepWindow		Вибрати все
+%APP_NAME couldn't open one or more folders.	GrepWindow		%APP_NAME не вдалося відкрити одну або більше папок.
+Settings	GrepWindow		Налаштування

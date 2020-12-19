@@ -4,14 +4,14 @@
 #include <string.h>
 #include <strings.h>
 
+#include <Alert.h>
 #include <Button.h>
+#include <Directory.h>
 #include <Rect.h>
 #include <TextControl.h>
 #include <View.h>
-#include <Directory.h>
-#include <Alert.h>
+#include <Url.h>
 
-#include "URL.h"
 #include "IppContent.h"
 #include "IppURLConnection.h"
 #include "IppSetupDlg.h"
@@ -114,17 +114,19 @@ bool IppSetupView::UpdateViewData()
 		request->setURI("printer-uri", url->Text());
 		request->setDelimiter(IPP_END_OF_ATTRIBUTES_TAG);
 
-		IppURLConnection conn(URL(url->Text()));
+		IppURLConnection conn(BUrl(url->Text()));
 		conn.setIppRequest(request);
 		conn.setRequestProperty("Connection", "close");
 
 		HTTP_RESPONSECODE response_code = conn.getResponseCode();
 		if (response_code == HTTP_OK) {
 			const char *content_type = conn.getContentType();
-			if (content_type && !strncasecmp(content_type, "application/ipp", 15)) {
+			if (content_type == NULL
+				|| strncasecmp(content_type, "application/ipp", 15) == 0) {
 				const IppContent *ipp_response = conn.getIppResponse();
 				if (ipp_response->good()) {
-					dir->WriteAttr(IPP_URL, B_STRING_TYPE, 0, url->Text(), strlen(url->Text()) + 1);
+					dir->WriteAttr(IPP_URL, B_STRING_TYPE, 0, url->Text(),
+						strlen(url->Text()) + 1);
 					return true;
 				} else {
 					error_msg = ipp_response->getStatusMessage();

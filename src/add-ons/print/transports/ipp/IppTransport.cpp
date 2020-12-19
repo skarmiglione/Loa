@@ -3,8 +3,9 @@
 
 #include <Alert.h>
 #include <DataIO.h>
-#include <Message.h>
 #include <Directory.h>
+#include <Message.h>
+#include <Url.h>
 
 #include <pwd.h>
 #include <stdio.h>
@@ -12,7 +13,6 @@
 #include <strings.h>
 #include <unistd.h>
 
-#include "URL.h"
 #include "IppContent.h"
 #include "IppURLConnection.h"
 #include "IppSetupDlg.h"
@@ -97,7 +97,7 @@ IppTransport::~IppTransport()
 		__fs.seekg(0, ios::beg);
 		request->setRawData(__fs, fssize);
 
-		URL url(__url);
+		BUrl url(__url);
 		IppURLConnection conn(url);
 		conn.setIppRequest(request);
 		conn.setRequestProperty("Connection", "close");
@@ -107,7 +107,7 @@ IppTransport::~IppTransport()
 		HTTP_RESPONSECODE response_code = conn.getResponseCode();
 		if (response_code == HTTP_OK) {
 			const char *content_type = conn.getContentType();
-			if (content_type && !strncasecmp(content_type, "application/ipp", 15)) {
+			if (content_type == NULL || strncasecmp(content_type, "application/ipp", 15) == 0) {
 				const IppContent *ipp_response = conn.getIppResponse();
 				if (ipp_response->fail()) {
 					__error = true;

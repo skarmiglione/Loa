@@ -63,7 +63,7 @@
 #define PAGE_ASSERT(page, condition)	\
 	ASSERT_PRINT((condition), "page: %p", (page))
 
-#define SCRUB_SIZE 16
+#define SCRUB_SIZE 32
 	// this many pages will be cleared at once in the page scrubber thread
 
 #define MAX_PAGE_WRITER_IO_PRIORITY				B_URGENT_DISPLAY_PRIORITY
@@ -1521,6 +1521,7 @@ free_page(vm_page* page, bool clear)
 	} else {
 		page->SetState(PAGE_STATE_FREE);
 		sFreePageQueue.PrependUnlocked(page);
+		sFreePageCondition.NotifyAll();
 	}
 
 	locker.Unlock();
@@ -1726,7 +1727,7 @@ mark_page_range_in_use(page_num_t startPage, page_num_t length, bool wired)
 
 
 /*!
-	This is a background thread that wakes up every now and then (every 100ms)
+	This is a background thread that wakes up when its condition is notified
 	and moves some pages from the free queue over to the clear queue.
 	Given enough time, it will clear out all pages from the free queue - we
 	could probably slow it down after having reached a certain threshold.
@@ -1738,13 +1739,13 @@ page_scrubber(void *unused)
 
 	TRACE(("page_scrubber starting...\n"));
 
+	ConditionVariableEntry entry;
 	for (;;) {
-		snooze(100000); // 100ms
-
-		if (sFreePageQueue.Count() == 0
+		while (sFreePageQueue.Count() == 0
 				|| atomic_get(&sUnreservedFreePages)
 					< (int32)sFreePagesTarget) {
-			continue;
+			sFreePageCondition.Add(&entry);
+			entry.Wait();
 		}
 
 		// Since we temporarily remove pages from the free pages reserve,
@@ -1802,6 +1803,9 @@ page_scrubber(void *unused)
 		unreserve_pages(reserved);
 
 		TA(ScrubbedPages(scrubCount));
+
+		// wait at least 100ms between runs
+		snooze(100 * 1000);
 	}
 
 	return 0;
@@ -2533,7 +2537,7 @@ free_cached_page(vm_page *page, bool dontWait)
 	VMCache* cache = page->Cache();
 
 	AutoLocker<VMCache> cacheLocker(cache, true);
-	MethodDeleter<VMCache> _2(cache, &VMCache::ReleaseRefLocked);
+	MethodDeleter<VMCache, void, &VMCache::ReleaseRefLocked> _2(cache);
 
 	// check again if that page is still a candidate
 	if (page->busy || page->State() != PAGE_STATE_CACHED)
@@ -2583,6 +2587,8 @@ free_cached_pages(uint32 pagesToFree, bool dontWait)
 	}
 
 	remove_page_marker(marker);
+
+	sFreePageCondition.NotifyAll();
 
 	return pagesFreed;
 }
@@ -3077,8 +3083,8 @@ vm_page_write_modified_page_range(struct VMCache* cache, uint32 firstPage,
 		= new(malloc_flags(allocationFlags)) PageWriteWrapper*[maxPages];
 	if (wrapperPool == NULL || wrappers == NULL) {
 		// don't fail, just limit our capabilities
-		free(wrapperPool);
-		free(wrappers);
+		delete[] wrapperPool;
+		delete[] wrappers;
 		wrapperPool = stackWrappersPool;
 		wrappers = stackWrappers;
 		maxPages = 1;
@@ -3401,7 +3407,6 @@ status_t
 vm_page_init_post_thread(kernel_args *args)
 {
 	new (&sFreePageCondition) ConditionVariable;
-	sFreePageCondition.Publish(&sFreePageQueue, "free page");
 
 	// create a kernel thread to clear out pages
 
@@ -3603,6 +3608,8 @@ allocate_page_run_cleanup(VMPageQueue::PageList& freePages,
 		DEBUG_PAGE_ACCESS_END(page);
 		sClearPageQueue.PrependUnlocked(page);
 	}
+
+	sFreePageCondition.NotifyAll();
 }
 
 
@@ -3746,7 +3753,7 @@ allocate_page_run(page_num_t start, page_num_t length, uint32 flags,
 	if ((flags & VM_PAGE_ALLOC_CLEAR) != 0) {
 		for (VMPageQueue::PageList::Iterator it = freePages.GetIterator();
 				vm_page* page = it.Next();) {
- 			clear_page(page);
+			clear_page(page);
 		}
 	}
 

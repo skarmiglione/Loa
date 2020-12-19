@@ -14,6 +14,7 @@
 #include <stdio.h>
 
 #include <Beep.h>
+#include <ControlLook.h>
 #include <Window.h>
 
 #include "CalcView.h"
@@ -41,6 +42,7 @@ ExpressionTextView::ExpressionTextView(BRect frame, CalcView* calcView)
 	SetDoesUndo(true);
 	SetColorSpace(B_RGB32);
 	SetFontAndColor(be_bold_font, B_FONT_ALL);
+	SetAlignment(B_ALIGN_RIGHT);
 }
 
 
@@ -133,6 +135,9 @@ ExpressionTextView::GetDragParameters(BMessage* dragMessage,
 void
 ExpressionTextView::SetTextRect(BRect rect)
 {
+	float hInset = floorf(be_control_look->DefaultLabelSpacing() / 2);
+	float vInset = floorf((rect.Height() - LineHeight(0)) / 2);
+	InputTextView::SetInsets(hInset, vInset, hInset, vInset);
 	InputTextView::SetTextRect(rect);
 
 	int32 count = fPreviousExpressions.CountItems();
@@ -198,7 +203,8 @@ ExpressionTextView::SetValue(BString value)
 	float stringWidth = font.StringWidth(value);
 
 	// make the string shorter if it does not fit in the view
-	float viewWidth = Frame().Width();
+	float viewWidth = Frame().Width()
+		- floorf(be_control_look->DefaultLabelSpacing() / 2);
 	if (value.CountChars() > 3 && stringWidth > viewWidth) {
 		// get the position of the first digit
 		int32 firstDigit = 0;

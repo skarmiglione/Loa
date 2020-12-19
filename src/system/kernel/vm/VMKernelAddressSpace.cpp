@@ -171,6 +171,18 @@ VMKernelAddressSpace::LookupArea(addr_t address) const
 }
 
 
+//! You must hold the address space's read lock.
+VMArea*
+VMKernelAddressSpace::FindClosestArea(addr_t address, bool less) const
+{
+	Range* range = fRangeTree.FindClosest(address, less);
+	while (range != NULL && range->type != Range::RANGE_AREA)
+		range = fRangeTree.Next(range);
+
+	return range != NULL ? range->area : NULL;
+}
+
+
 /*!	This inserts the area you pass into the address space.
 	It will also set the "_address" argument to its base address when
 	the call succeeds.
@@ -470,19 +482,35 @@ VMKernelAddressSpace::Dump() const
 {
 	VMAddressSpace::Dump();
 
-	kprintf("area_list:\n");
+	kprintf("range list:\n");
 
 	for (RangeList::ConstIterator it = fRangeList.GetIterator();
 			Range* range = it.Next();) {
-		if (range->type != Range::RANGE_AREA)
-			continue;
 
-		VMKernelArea* area = range->area;
-		kprintf(" area %" B_PRId32 ": ", area->id);
-		kprintf("base_addr = %#" B_PRIxADDR " ", area->Base());
-		kprintf("size = %#" B_PRIxSIZE " ", area->Size());
-		kprintf("name = '%s' ", area->name);
-		kprintf("protection = %#" B_PRIx32 "\n", area->protection);
+		switch (range->type) {
+			case Range::RANGE_AREA:
+			{
+				VMKernelArea* area = range->area;
+				kprintf(" area %" B_PRId32 ": ", area->id);
+				kprintf("base_addr = %#" B_PRIxADDR " ", area->Base());
+				kprintf("size = %#" B_PRIxSIZE " ", area->Size());
+				kprintf("name = '%s' ", area->name);
+				kprintf("protection = %#" B_PRIx32 "\n", area->protection);
+				break;
+			}
+
+			case Range::RANGE_RESERVED:
+				kprintf(" reserved: base_addr = %#" B_PRIxADDR
+					" reserved_base = %#" B_PRIxADDR " size = %#"
+					B_PRIxSIZE " flags = %#" B_PRIx32 "\n", range->base,
+					range->reserved.base, range->size, range->reserved.flags);
+				break;
+
+			case Range::RANGE_FREE:
+				kprintf(" free: base_addr = %#" B_PRIxADDR " size = %#"
+					B_PRIxSIZE "\n", range->base, range->size);
+				break;
+		}
 	}
 }
 
@@ -587,10 +615,6 @@ VMKernelAddressSpace::_AllocateRange(
 		case B_ANY_ADDRESS:
 		case B_ANY_KERNEL_ADDRESS:
 			address = fBase;
-			// TODO: remove this again when vm86 mode is moved into the kernel
-			// completely (currently needs a userland address space!)
-			if (address == USER_BASE)
-				address = USER_BASE_ANY;
 			break;
 
 		default:

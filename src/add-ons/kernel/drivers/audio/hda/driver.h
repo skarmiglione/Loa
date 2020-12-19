@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define DEVFS_PATH_FORMAT	"audio/hmulti/hda/%lu"
+#define DEVFS_PATH_FORMAT	"audio/hmulti/hda/%" B_PRIu32
 #include <hmulti_audio.h>
 
 #include "hda_controller_defs.h"
@@ -63,6 +63,7 @@ struct hda_controller {
 	uint32			irq;
 	bool			msi;
 	bool			dma_snooping;
+	bool			is_64_bit;
 
 	uint16			codec_status;
 	uint32			num_input_streams;

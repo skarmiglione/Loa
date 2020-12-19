@@ -1,53 +1,54 @@
 /*
- * Copyright 2017, Andrew Lindesay <apl@lindesay.co.nz>.
+ * Copyright 2017-2020, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
-
 #ifndef SERVER_ICON_EXPORT_UPDATE_PROCESS_H
 #define SERVER_ICON_EXPORT_UPDATE_PROCESS_H
 
-
-#include "AbstractServerProcess.h"
-#include "LocalIconStore.h"
-#include "Model.h"
 
 #include <File.h>
 #include <Path.h>
 #include <String.h>
 #include <Url.h>
 
+#include "AbstractSingleFileServerProcess.h"
+#include "Model.h"
 
-class ServerIconExportUpdateProcess :
-	public AbstractServerProcess, public PackageConsumer {
+
+class DumpExportPkg;
+
+
+class ServerIconExportUpdateProcess : public AbstractSingleFileServerProcess {
 public:
 
 								ServerIconExportUpdateProcess(
-									AbstractServerProcessListener* listener,
-									const BPath& localStorageDirectoryPath,
-									Model* model, uint32 options);
+									Model* model, uint32 serverProcessOptions);
 	virtual						~ServerIconExportUpdateProcess();
 
-			const char*				Name();
-			status_t			RunInternal();
+			const char*			Name() const;
+			const char*			Description() const;
 
-	virtual	bool				ConsumePackage(
-									const PackageInfoRef& packageInfoRef,
-									void *context);
-protected:
-			status_t			PopulateForPkg(const PackageInfoRef& package);
-			status_t			Populate();
-			status_t			DownloadAndUnpack();
-			status_t			HasLocalData(bool* result) const;
-			void				GetStandardMetaDataPath(BPath& path) const;
-			void				GetStandardMetaDataJsonPath(
+	virtual status_t			ProcessLocalData();
+
+	virtual	status_t			GetLocalPath(BPath& path) const;
+	virtual	status_t			IfModifiedSinceHeaderValue(
+									BString& headerValue) const;
+
+
+	virtual	status_t			GetStandardMetaDataPath(BPath& path) const;
+	virtual	void				GetStandardMetaDataJsonPath(
 									BString& jsonPath) const;
-private:
-			status_t			Download(BPath& tarGzFilePath);
 
-			BPath				fLocalStorageDirectoryPath;
+protected:
+	virtual	BString				UrlPathComponent();
+
+private:
+			void				_NotifyPackagesWithIconsInDepots() const;
+			void				_NotifyPackagesWithIconsInDepot(
+									const DepotInfoRef& depotInfo) const;
+
+private:
 			Model*				fModel;
-			LocalIconStore		fLocalIconStore;
-			int32				fCountIconsSet;
 
 };
 

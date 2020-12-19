@@ -28,7 +28,7 @@
 
 #include "AddOnManager.h"
 #include "DataExchange.h"
-#include "debug.h"
+#include "MediaDebug.h"
 #include "MediaMisc.h"
 #include "MediaRosterEx.h"
 
@@ -783,7 +783,7 @@ media_format::SpecializeTo(const media_format* otherFormat)
 status_t
 media_format::SetMetaData(const void* data, size_t size)
 {
-	if (!data || size < 0 || size > META_DATA_MAX_SIZE)
+	if (!data || size > META_DATA_MAX_SIZE)
 		return B_BAD_VALUE;
 
 	void* new_addr;
@@ -1315,6 +1315,9 @@ shutdown_media_server(bigtime_t timeout,
 	bool (*progress)(int stage, const char* message, void* cookie),
 	void* cookie)
 {
+	BLaunchRoster launchRoster;
+	launchRoster.StopTarget(B_MEDIA_SERVER_SIGNATURE);
+
 	BMessage msg(B_QUIT_REQUESTED);
 	status_t err = B_MEDIA_SYSTEM_FAILURE;
 	bool shutdown = false;

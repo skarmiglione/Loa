@@ -87,7 +87,7 @@ InputDeviceListItem::Start()
 	PRINT(("  Starting: %s\n", fDevice.name));
 	status_t err = fServerDevice->Start(fDevice.name, fDevice.cookie);
 	if (err != B_OK) {
-		PRINTERR(("      error: %s (%lx)\n", strerror(err), err));
+		PRINTERR(("      error: %s (%" B_PRIx32 ")\n", strerror(err), err));
 	}
 	fRunning = err == B_OK;
 }
@@ -330,8 +330,10 @@ InputServer::_SaveKeymap(bool isDefault)
 	// don't bother reporting an error if this fails, since this isn't fatal
 	// the keymap will still be functional, and will just be identified as (Current) in prefs instead of its
 	// actual name
-	if (isDefault)
-		file.WriteAttr("keymap:name", B_STRING_TYPE, 0, kSystemKeymapName, strlen(kSystemKeymapName));
+	if (isDefault) {
+		const BString systemKeymapName(kSystemKeymapName);
+		file.WriteAttrString("keymap:name", &systemKeymapName);
+	}
 
 	return B_OK;
 }
@@ -632,9 +634,23 @@ InputServer::HandleSetMethod(BMessage* message)
 status_t
 InputServer::HandleGetSetMouseType(BMessage* message, BMessage* reply)
 {
+	BString mouseName;
+	MouseSettings* settings = NULL;
+	if (message->FindString("mouse_name", &mouseName) == B_OK) {
+		settings = fMouseSettings.GetMouseSettings(mouseName);
+		if (settings == NULL)
+			return B_NAME_NOT_FOUND;
+	}
+
 	int32 type;
 	if (message->FindInt32("mouse_type", &type) == B_OK) {
-		fMouseSettings.SetMouseType(type);
+		if (settings != NULL)
+			settings->SetMouseType(type);
+		else {
+			// TODO if no mouse_name was specified, apply the setting to
+			// all mouses
+			return B_NOT_SUPPORTED;
+		}
 		be_app_messenger.SendMessage(IS_SAVE_SETTINGS);
 
 		BMessage msg(IS_CONTROL_DEVICES);
@@ -643,7 +659,13 @@ InputServer::HandleGetSetMouseType(BMessage* message, BMessage* reply)
 		return fAddOnManager->PostMessage(&msg);
 	}
 
-	return reply->AddInt32("mouse_type", fMouseSettings.MouseType());
+	if (settings != NULL) {
+		return reply->AddInt32("mouse_type",
+			settings->MouseType());
+	} else {
+		// TODO return type of the "first" mouse?
+		return B_NOT_SUPPORTED;
+	}
 }
 
 
@@ -651,9 +673,23 @@ status_t
 InputServer::HandleGetSetMouseAcceleration(BMessage* message,
 	BMessage* reply)
 {
+	BString mouseName;
+	MouseSettings* settings = NULL;
+	if (message->FindString("mouse_name", &mouseName) == B_OK) {
+		settings = fMouseSettings.GetMouseSettings(mouseName);
+		if (settings == NULL)
+			return B_NAME_NOT_FOUND;
+	}
+
 	int32 factor;
 	if (message->FindInt32("speed", &factor) == B_OK) {
-		fMouseSettings.SetAccelerationFactor(factor);
+		if (settings != NULL)
+			settings->SetAccelerationFactor(factor);
+		else {
+			// TODO if no mouse_name was specified, apply the setting to
+			// all mouses
+			return B_NOT_SUPPORTED;
+		}
 		be_app_messenger.SendMessage(IS_SAVE_SETTINGS);
 
 		BMessage msg(IS_CONTROL_DEVICES);
@@ -662,7 +698,12 @@ InputServer::HandleGetSetMouseAcceleration(BMessage* message,
 		return fAddOnManager->PostMessage(&msg);
 	}
 
-	return reply->AddInt32("speed", fMouseSettings.AccelerationFactor());
+	if (settings != NULL)
+		return reply->AddInt32("speed", settings->AccelerationFactor());
+	else {
+		// TODO return type of the "first" mouse?
+		return B_NOT_SUPPORTED;
+	}
 }
 
 
@@ -812,12 +853,46 @@ InputServer::HandleSetKeyboardLocks(BMessage* message, BMessage* reply)
 }
 
 
+// #pragma mark - Mouse settings
+
+
+/** This method does all possible efforts to return some settings.
+ *
+ * The settings will be created if they do not exist. If a mouse name is
+ * specified, the settings for that mouse are created and used. Otherwise,
+ * default settings are returned.
+ */
+MouseSettings*
+InputServer::_GetSettingsForMouse(BString mouseName)
+{
+	// If no mouse name is specified, use the first one found in settings
+	if (mouseName == "") {
+		std::map<BString, MouseSettings*>::iterator itr
+			= fMouseSettingsObject.begin();
+		if (itr != fMouseSettingsObject.end())
+			return itr->second;
+	}
+
+	// If a mouse name is specified or there are no settings yet, get or create
+	// some
+	return fMouseSettings.AddMouseSettings(mouseName);
+}
+
+
 status_t
 InputServer::HandleGetSetMouseSpeed(BMessage* message, BMessage* reply)
 {
+	BString mouseName;
+	message->FindString("mouse_name", &mouseName);
+
+	MouseSettings* settings = _GetSettingsForMouse(mouseName);
+
+	if (settings == NULL)
+		return B_NO_MEMORY;
+
 	int32 speed;
 	if (message->FindInt32("speed", &speed) == B_OK) {
-		fMouseSettings.SetMouseSpeed(speed);
+		settings->SetMouseSpeed(speed);
 		be_app_messenger.SendMessage(IS_SAVE_SETTINGS);
 
 		BMessage msg(IS_CONTROL_DEVICES);
@@ -826,7 +901,60 @@ InputServer::HandleGetSetMouseSpeed(BMessage* message, BMessage* reply)
 		return fAddOnManager->PostMessage(&msg);
 	}
 
-	return reply->AddInt32("speed", fMouseSettings.MouseSpeed());
+	return reply->AddInt32("speed", settings->MouseSpeed());
+}
+
+
+status_t
+InputServer::HandleGetSetMouseMap(BMessage* message, BMessage* reply)
+{
+	BString mouseName;
+	message->FindString("mouse_name", &mouseName);
+
+	MouseSettings* settings = _GetSettingsForMouse(mouseName);
+	if (settings == NULL)
+		return B_NO_MEMORY;
+
+	mouse_map *map;
+	ssize_t size;
+	if (message->FindData("mousemap", B_RAW_TYPE, (const void**)&map, &size) == B_OK) {
+		settings->SetMapping(*map);
+		be_app_messenger.SendMessage(IS_SAVE_SETTINGS);
+
+		BMessage msg(IS_CONTROL_DEVICES);
+		msg.AddInt32("type", B_POINTING_DEVICE);
+		msg.AddInt32("code", B_MOUSE_MAP_CHANGED);
+		return fAddOnManager->PostMessage(&msg);
+	}
+
+	mouse_map getmap;
+	settings->Mapping(getmap);
+	return reply->AddData("mousemap", B_RAW_TYPE, &getmap, sizeof(mouse_map));
+}
+
+
+status_t
+InputServer::HandleGetSetClickSpeed(BMessage* message, BMessage* reply)
+{
+	BString mouseName;
+	message->FindString("mouse_name", &mouseName);
+
+	MouseSettings* settings = _GetSettingsForMouse(mouseName);
+	if (settings == NULL)
+		return B_NO_MEMORY;
+
+	bigtime_t clickSpeed;
+	if (message->FindInt64("speed", &clickSpeed) == B_OK) {
+		settings->SetClickSpeed(clickSpeed);
+		be_app_messenger.SendMessage(IS_SAVE_SETTINGS);
+
+		BMessage msg(IS_CONTROL_DEVICES);
+		msg.AddInt32("type", B_POINTING_DEVICE);
+		msg.AddInt32("code", B_CLICK_SPEED_CHANGED);
+		return fAddOnManager->PostMessage(&msg);
+	}
+
+	return reply->AddInt64("speed", settings->ClickSpeed());
 }
 
 
@@ -856,25 +984,7 @@ InputServer::HandleSetMousePosition(BMessage* message, BMessage* reply)
 }
 
 
-status_t
-InputServer::HandleGetSetMouseMap(BMessage* message, BMessage* reply)
-{
-	mouse_map *map;
-	ssize_t size;
-	if (message->FindData("mousemap", B_RAW_TYPE, (const void**)&map, &size) == B_OK) {
-		fMouseSettings.SetMapping(*map);
-		be_app_messenger.SendMessage(IS_SAVE_SETTINGS);
-
-		BMessage msg(IS_CONTROL_DEVICES);
-		msg.AddInt32("type", B_POINTING_DEVICE);
-		msg.AddInt32("code", B_MOUSE_MAP_CHANGED);
-		return fAddOnManager->PostMessage(&msg);
-	} else {
-		mouse_map map;
-		fMouseSettings.Mapping(map);
-		return reply->AddData("mousemap", B_RAW_TYPE, &map, sizeof(mouse_map));
-	}
-}
+// #pragma mark - Keyboard settings
 
 
 status_t
@@ -886,24 +996,6 @@ InputServer::HandleGetSetKeyboardID(BMessage* message, BMessage* reply)
 		return B_OK;
 	}
 	return reply->AddInt16("id", fKeyboardID);
-}
-
-
-status_t
-InputServer::HandleGetSetClickSpeed(BMessage* message, BMessage* reply)
-{
-	bigtime_t clickSpeed;
-	if (message->FindInt64("speed", &clickSpeed) == B_OK) {
-		fMouseSettings.SetClickSpeed(clickSpeed);
-		be_app_messenger.SendMessage(IS_SAVE_SETTINGS);
-
-		BMessage msg(IS_CONTROL_DEVICES);
-		msg.AddInt32("type", B_POINTING_DEVICE);
-		msg.AddInt32("code", B_CLICK_SPEED_CHANGED);
-		return fAddOnManager->PostMessage(&msg);
-	}
-
-	return reply->AddInt64("speed", fMouseSettings.ClickSpeed());
 }
 
 
@@ -930,21 +1022,33 @@ InputServer::HandleGetSetKeyMap(BMessage* message, BMessage* reply)
 {
 	CALLED();
 
+	status_t status;
 	if (message->what == IS_GET_KEY_MAP) {
-		status_t status = reply->AddData("keymap", B_ANY_TYPE, &fKeys, sizeof(fKeys));
+		status = reply->AddData("keymap", B_ANY_TYPE, &fKeys, sizeof(fKeys));
 		if (status == B_OK)
 			status = reply->AddData("key_buffer", B_ANY_TYPE, fChars, fCharsSize);
 
 		return status;
 	}
 
-	if (_LoadKeymap() != B_OK)
-		_LoadSystemKeymap();
+	status = _LoadKeymap();
+	if (status != B_OK) {
+		status = _LoadSystemKeymap();
+		if (status != B_OK)
+			return status;
+	}
 
 	BMessage msg(IS_CONTROL_DEVICES);
 	msg.AddInt32("type", B_KEYBOARD_DEVICE);
 	msg.AddInt32("code", B_KEY_MAP_CHANGED);
-	return fAddOnManager->PostMessage(&msg);
+	status = fAddOnManager->PostMessage(&msg);
+
+	if (status == B_OK) {
+		BMessage appMsg(B_KEY_MAP_LOADED);
+		be_roster->Broadcast(&appMsg);
+	}
+
+	return status;
 }
 
 
@@ -1000,14 +1104,15 @@ status_t
 InputServer::EnqueueMethodMessage(BMessage* message)
 {
 	CALLED();
-	PRINT(("%s what:%c%c%c%c\n", __PRETTY_FUNCTION__, (char)(message->what >> 24),
-		(char)(message->what >> 16), (char)(message->what >> 8), (char)message->what));
+	PRINT(("%s what:%c%c%c%c\n", __PRETTY_FUNCTION__,
+		(char)(message->what >> 24), (char)(message->what >> 16),
+		(char)(message->what >> 8), (char)message->what));
 
 #ifdef DEBUG
 	if (message->what == 'IMEV') {
 		int32 code;
 		message->FindInt32("be:opcode", &code);
-		PRINT(("%s be:opcode %li\n", __PRETTY_FUNCTION__, code));
+		PRINT(("%s be:opcode %" B_PRId32 "\n", __PRETTY_FUNCTION__, code));
 	}
 #endif
 
@@ -1142,8 +1247,13 @@ InputServer::UnregisterDevices(BInputServerDevice& serverDevice,
 
 				if (item->ServerDevice() == &serverDevice && item->HasName(device->name)) {
 					item->Stop();
-					if (fInputDeviceList.RemoveItem(j))
+					if (fInputDeviceList.RemoveItem(j)) {
+						BMessage message(IS_NOTIFY_DEVICE);
+						message.AddBool("added", false);
+						message.AddString("name", device->name);
+						fAddOnManager->PostMessage(&message);
 						delete item;
+					}
 					break;
 				}
 			}
@@ -1201,6 +1311,10 @@ debug_printf("InputServer::RegisterDevices() device_ref already exists: %s\n", d
 				*device);
 			if (item != NULL && fInputDeviceList.AddItem(item)) {
 				item->Start();
+				BMessage message(IS_NOTIFY_DEVICE);
+				message.AddBool("added", true);
+				message.AddString("name", device->name);
+				fAddOnManager->PostMessage(&message);
 			} else {
 				delete item;
 				return B_NO_MEMORY;
@@ -1339,7 +1453,7 @@ InputServer::_StartEventLoop()
 	CALLED();
 	fEventLooperPort = create_port(100, "input server events");
 	if (fEventLooperPort < 0) {
-		PRINTERR(("InputServer: create_port error: (0x%lx) %s\n",
+		PRINTERR(("InputServer: create_port error: (0x%" B_PRIx32 ") %s\n",
 			fEventLooperPort, strerror(fEventLooperPort)));
 		return fEventLooperPort;
 	}
@@ -1386,16 +1500,19 @@ InputServer::_EventLoop()
 		status_t err = read_port(fEventLooperPort, &code, buffer, length);
 		if (err != length) {
 			if (err >= 0) {
-				PRINTERR(("InputServer: failed to read full packet (read %lu of %lu)\n", err, length));
+				PRINTERR(("InputServer: failed to read full packet "
+					"(read %" B_PRIu32 " of %lu)\n", err, length));
 			} else {
-				PRINTERR(("InputServer: read_port error: (0x%lx) %s\n", err, strerror(err)));
+				PRINTERR(("InputServer: read_port error: (0x%" B_PRIx32
+					") %s\n", err, strerror(err)));
 			}
 			continue;
 		}
 
 		EventList events;
 		if (fEventQueueLock.Lock()) {
-			// move the items to our own list to block the event queue as short as possible
+			// move the items to our own list to block the event queue as short
+			// as possible
 			events.AddList(&fEventQueue);
 			fEventQueue.MakeEmpty();
 			fEventQueueLock.Unlock();
@@ -1405,7 +1522,8 @@ InputServer::_EventLoop()
 			BMessage* event = new BMessage;
 
 			if ((err = event->Unflatten(buffer)) < 0) {
-				PRINTERR(("[InputServer] Unflatten() error: (0x%lx) %s\n", err, strerror(err)));
+				PRINTERR(("[InputServer] Unflatten() error: (0x%" B_PRIx32
+					") %s\n", err, strerror(err)));
 				delete event;
 				continue;
 			}
@@ -1465,7 +1583,7 @@ InputServer::_UpdateMouseAndKeys(EventList& events)
 				// If there is only one input method, SetNextMethod will return
 				// B_BAD_INDEX and the event will be forwarded to the user.
 
-				PRINT(("SanitizeEvents: %lx, %x\n", fKeyInfo.modifiers,
+				PRINT(("SanitizeEvents: %" B_PRIx32 ", %x\n", fKeyInfo.modifiers,
 					fKeyInfo.key_states[KEY_Spacebar >> 3]));
 
 				uint8 byte;
@@ -1523,8 +1641,8 @@ InputServer::_SanitizeEvents(EventList& events)
 					event->AddInt32("be:delta_x", x);
 					event->AddInt32("be:delta_y", y);
 
-					PRINT(("new position: %f, %f, %ld, %ld\n",
-						where.x, where.y, x, y));
+					PRINT(("new position: %f, %f, %" B_PRId32 ", %" B_PRId32
+						"\n", where.x, where.y, x, y));
 				} else if (event->FindFloat("x", &absX) == B_OK
 					&& event->FindFloat("y", &absY) == B_OK) {
 					// The device gives us absolute screen coords in range 0..1;

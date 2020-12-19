@@ -4,14 +4,14 @@
 <head>
 <!-- 
  *
- * Copyright 2010-2017, Haiku. All rights reserved.
+ * Copyright 2010-2020, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Daniel Marth
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		Karvjorm
+ *		Jorma Karvonen
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -30,29 +30,32 @@
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../../images/flags/fi.png" alt="" /> Suomi</li>
-<li><a href="../../ca/applications/list-cli-apps.html"><img src="../../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../../de/applications/list-cli-apps.html"><img src="../../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../../en/applications/list-cli-apps.html"><img src="../../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../../es/applications/list-cli-apps.html"><img src="../../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../../fr/applications/list-cli-apps.html"><img src="../../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../../it/applications/list-cli-apps.html"><img src="../../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../../hu/applications/list-cli-apps.html"><img src="../../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../../pl/applications/list-cli-apps.html"><img src="../../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../../pt_PT/applications/list-cli-apps.html"><img src="../../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../../pt_BR/applications/list-cli-apps.html"><img src="../../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../../ro/applications/list-cli-apps.html"><img src="../../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../../sk/applications/list-cli-apps.html"><img src="../../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../../sv_SE/applications/list-cli-apps.html"><img src="../../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../../zh_CN/applications/list-cli-apps.html"><img src="../../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../../ru/applications/list-cli-apps.html"><img src="../../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../../uk/applications/list-cli-apps.html"><img src="../../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../../jp/applications/list-cli-apps.html"><img src="../../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Suomi&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../../id/applications/list-cli-apps.html">Bahasa Indonesia</a></li>
+<li><a href="../../ca/applications/list-cli-apps.html">Català</a></li>
+<li><a href="../../de/applications/list-cli-apps.html">Deutsch</a></li>
+<li><a href="../../en/applications/list-cli-apps.html">English</a></li>
+<li><a href="../../es/applications/list-cli-apps.html">Español</a></li>
+<li><a href="../../fr/applications/list-cli-apps.html">Français</a></li>
+<li><a href="../../fur/applications/list-cli-apps.html">Furlan</a></li>
+<li><a href="../../it/applications/list-cli-apps.html">Italiano</a></li>
+<li><a href="../../hu/applications/list-cli-apps.html">Magyar</a></li>
+<li><a href="../../pl/applications/list-cli-apps.html">Polski</a></li>
+<li><a href="../../pt_PT/applications/list-cli-apps.html">Português</a></li>
+<li><a href="../../pt_BR/applications/list-cli-apps.html">Português (Brazil)</a></li>
+<li><a href="../../ro/applications/list-cli-apps.html">Română</a></li>
+<li><a href="../../sk/applications/list-cli-apps.html">Slovenčina</a></li>
+<li><a href="../../sv_SE/applications/list-cli-apps.html">Svenska</a></li>
+<li><a href="../../tr/applications/list-cli-apps.html">Türkçe</a></li>
+<li><a href="../../zh_CN/applications/list-cli-apps.html"> 中文 ［中文］</a></li>
+<li><a href="../../ru/applications/list-cli-apps.html">Русский</a></li>
+<li><a href="../../uk/applications/list-cli-apps.html">Українська</a></li>
+<li><a href="../../jp/applications/list-cli-apps.html">日本語</a></li>
 </ul>
 
 <span>
 <a href="../applications.html#cli-apps" class="uplink">Applications</a>
-::  <a href="cli-apps.html">Haiku-specific commands</a>  »
+::  <a href="cli-apps.html">Haiku-specific commands</a>  »
 </span></div>
 </div>
 
@@ -64,7 +67,7 @@
 <tr><td>Sijainti:</td><td style="width:15px;"></td><td><span class="path">/boot/system/bin/</span><br /><span class="path">~/config/bin/</span><br /><span class="path">~/config/non-packaged/bin/</span></td></tr>
 </table>
 <p><br /></p>
-<p>Kaikki Haikun mukana tulevat komentoriviohjelmat sijaitsevat joko hakemistossa <span class="path">/boot/system/bin</span>. Omat tai muut lisäämäsi komentoriviohjelmat pitäisi sijoittaa hakemistoon <span class="path">~/config/bin</span>, kun asennus tapahtuu .hpkg-pakkauksesta. Muussa tapauksessa laitat ne hakemistoon <span class="path">~/config/non-packaged/bin/</span>. Kaikki nämä sijainnit ovat osa PATH-ympäristömuuttujaa ja löytyvät siksi automaattisesti.<br />
+<p>Kaikki Haikun mukana tulevat komentoriviohjelmat sijaitsevat hakemistossa <span class="path">/boot/system/bin</span>. Omat tai muut lisäämäsi komentoriviohjelmat pitäisi sijoittaa hakemistoon <span class="path">~/config/bin</span>, kun asennus tapahtuu .hpkg-pakkauksesta. Muussa tapauksessa voit laittaa ne hakemistoon <span class="path">~/config/non-packaged/bin/</span>. Kaikki nämä sijainnit ovat osa PATH-ympäristömuuttujaa ja löytyvät siksi automaattisesti.<br />
 Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen kohdalla on vain lyhyt kuvaus siitä, mitä ne tekevät, yksityiskohtaisempia tietoja ohjelman käytöstä saa komentoriviparametrilla <tt>--help</tt>.</p>
 <p><br /></p>
 <p>Indeksi:   <a href="#A">A – E</a>   ::   <a href="#F"> F – J </a>   ::   <a href="#K"> K – O </a>   ::   <a href="#P"> P – S </a>   ::   <a href="#T"> T – Z </a></p>
@@ -84,10 +87,10 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>bash</tt></td><td> </td><td>Bourne-again shell</td></tr>
 <tr><td><tt>bc</tt></td><td> </td><td>Satunnaistarkkuuksinen laskinkieli.</td></tr>
 <tr><td><tt>beep</tt></td><td> </td><td>Soittaa kelloa. </td></tr>
+<tr><td><tt>bfsinfo</tt></td><td> </td><td>Analysoi tiedostojärjestelmää.</td></tr>
 <tr><td><tt>bunzip2</tt></td><td> </td><td>Katso <tt>bzip2</tt>.</td></tr>
 <tr><td><tt>bzip2</tt></td><td> </td><td>Tiedostotiivistäjä.</td></tr>
 <tr><td><tt>c++</tt></td><td> </td><td>C++-kääntäjä.</td></tr>
-<tr><td><tt>cal</tt></td><td> </td><td>Näyttää kalenterin. </td></tr>
 <tr><td><tt>cat</tt></td><td> </td><td>Liittää tiedostoja yhteen ja tulostaa niitä vakiotulosteeseen. </td></tr>
 <tr><td><tt>catattr</tt></td><td> </td><td>Tulostaa tiedoston attribuutin sisällön. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
 <tr><td><tt>cc</tt></td><td> </td><td>C-kääntäjä</td></tr>
@@ -100,32 +103,31 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>chroot</tt></td><td> </td><td>Suorittaa komennon määritellyn root-hakemiston sisällä. </td></tr>
 <tr><td><tt>cksum</tt></td><td> </td><td>Tulostaa CRC-tarkistussumman ja tiedoston tavumäärän. </td></tr>
 <tr><td><tt>clear</tt></td><td> </td><td>Tyhjentää Pääteikkunan. </td></tr>
-<tr><td><tt>clockconfig</tt></td><td> </td><td>Tulostaa kellon asetukset.</td></tr>
+<tr><td><tt>clipboard</tt></td><td> </td><td>Käsittelee järjestelmän leikepöytää.</td></tr>
 <tr><td><tt>cmp</tt></td><td> </td><td>Vertaa tiedostoja tavu tavulta.</td></tr>
-<tr><td><tt>collectcatkeys </tt></td><td> </td><td>[Ohjelmaa käytettiin ennen siirtymistä locale-kit-käyttöön.]</td></tr>
+<tr><td><tt>collectcatkeys </tt></td><td> </td><td>Kerää käännettäviä merkkijonoja catkey-luettelojen luomiseksi.</td></tr>
 <tr><td><tt>comm</tt></td><td> </td><td>Vertaa lajiteltuja tiedostoja rivi riviltä. </td></tr>
-<tr><td><tt>compress</tt></td><td> </td><td>Tietojen tiivistysohjelma</td></tr>
 <tr><td><tt>consoled</tt></td><td> </td><td>Pääteikkunataustaprosessi </td></tr>
 <tr><td><tt>copyattr</tt></td><td> </td><td>Kopioi kaikki attribuutit tai attribuuttien alijoukon yhdestä tai useammasta tiedostosta toiseen tai uuteen tiedostoon. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
 <tr><td><tt>cp</tt></td><td> </td><td>Kopioi tiedostoja ja hakemistoja. </td></tr>
 <tr><td><tt>csplit</tt></td><td> </td><td>Katkoo tiedoston määrätyn mallin erottelemiin palasiin.</td></tr>
-<tr><td><tt>ctags</tt></td><td> </td><td>Tuottaa indeksitiedoston tiedostosta löytyvistä eri kieliobjekteista</td></tr>
 <tr><td><tt>cut</tt></td><td> </td><td>Tulostaa tiedoston jokaisesta rivistä lohkoja.</td></tr>
 <tr><td><tt>date</tt></td><td> </td><td>Näyttää ja asettaa nykyisen ajan ja päivämäärän.</td></tr>
 <tr><td><tt>dc</tt></td><td> </td><td>Työpöytälaskinkieli.</td></tr>
 <tr><td><tt>dd</tt></td><td> </td><td>Kopioi raakatietoja, muuntaa ja muotoilee niitä operandien mukaan. </td></tr>
 <tr><td><tt>desklink</tt></td><td> </td><td>Asentaa kohteita Työpöytäpalkkiin. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
-<tr><td><tt>diskimage</tt></td><td> </td><td>Rekisteröi tiedoston levylaitteena, joka voidaan liittää. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
 <tr><td><tt>df</tt></td><td> </td><td>Ilmoittaa liitettyjen taltioiden vapaan ja käytetyn tilan.</td></tr>
 <tr><td><tt>diff</tt></td><td> </td><td>Vertailee tiedostoja rivi riviltä.</td></tr>
 <tr><td><tt>diff3</tt></td><td> </td><td>Vertailee kolmea tiedostoa rivi riviltä.</td></tr>
 <tr><td><tt>dircolors</tt></td><td> </td><td>Väriasetukset komennolle <tt>ls</tt>. </td></tr>
 <tr><td><tt>dirname</tt></td><td> </td><td>Riisuu tiedostonimen /polku/tiedostonimi -merkkijonosta.</td></tr>
-<tr><td><tt>draggers</tt></td><td> </td><td>Näyttää/asettaa Replikaattien dragger-tilan.</td></tr>
+<tr><td><tt>diskimage</tt></td><td> </td><td>Rekisteröi tiedoston levylaitteena, joka voidaan liittää. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
+<tr><td><tt>dpms</tt></td><td> </td><td>Asettaa näytön virranhallinnan.</td></tr>
+<tr><td><tt>draggers</tt></td><td> </td><td>Näyttää/asettaa Kopioiden raahaajatilan.</td></tr>
 <tr><td><tt>driveinfo</tt></td><td> </td><td>Näyttää laitteistotietoja. </td></tr>
 <tr><td><tt>dstcheck</tt></td><td> </td><td>Näyttää viesti-ikkunan kun vaihdetaan kesäaikaan tai talviaikaan.</td></tr>
 <tr><td><tt>du</tt></td><td> </td><td>Tekee yhteenvedon jokaisen tiedoston levyasemakäytöstä, rekursiivisesti myös alihakemistoissa. </td></tr>
-<tr><td><tt>dumpcatalog</tt></td><td> </td><td>[Ohjelma, jota käytettiin ennen siirtymistä locale-kit-kotoistamiseen.] </td></tr>
+<tr><td><tt>dumpcatalog</tt></td><td> </td><td>[Ohjelmaa käytettiin ennen siirtymistä locale-kit-käyttöön.]</td></tr>
 <tr><td><tt>echo</tt></td><td> </td><td>Näyttää rivin tekstiä.</td></tr>
 <tr><td><tt>egrep</tt></td><td> </td><td>Katso <tt>grep</tt>.</td></tr>
 <tr><td><tt>eject</tt></td><td> </td><td>Poistaa irroitettavan median. </td></tr>
@@ -140,22 +142,18 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>ffm</tt></td><td> </td><td>Asettaa kohdistus seuraa hiirtä -toiminnon. </td></tr>
 <tr><td><tt>fgrep</tt></td><td> </td><td>Katso <tt>grep</tt>.</td></tr>
 <tr><td><tt>filepanel</tt></td><td> </td><td>Näyttää lataa/tallenna tiedosto -paneelin. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
-<tr><td><tt>find</tt></td><td> </td><td>Etsii tiedostoja hakemistohierarkkiassa.</td></tr>
+<tr><td><tt>find</tt></td><td> </td><td>Etsii tiedostoja hakemistohierarkiassa.</td></tr>
 <tr><td><tt>finddir</tt></td><td> </td><td>Löytää järjestelmän määrittelemän erikoishakemiston.</td></tr>
+<tr><td><tt>findpaths</tt></td><td> </td><td>Tulostaa kaikki polut järjestelmämääritetyistä hakemistovakioista.</td></tr>
 <tr><td><tt>fmt</tt></td><td> </td><td>Muotoilee uudelleen tiedoston kappaleet.</td></tr>
 <tr><td><tt>fold</tt></td><td> </td><td>Jakaa tiedoston syöttörivit riviltä toiselle.</td></tr>
 <tr><td><tt>fortune</tt></td><td> </td><td>Tulostaa satunnaisia, toivon mukaan mielenkiintoisia, mietelauseita.</td></tr>
-<tr><td><tt>frcode</tt></td><td> </td><td>Komento updatedb kutsuu tiivistämään tiedostonimen luettelon.</td></tr>
-<tr><td><tt>freetype-config</tt></td><td> </td><td>Näyttää FreeType-käännös- ja -linkitystiedot.</td></tr>
 <tr><td><tt>fstrim</tt></td><td> </td><td>Lähetä TRIM-komento SSD-asemalle.</td></tr>
-<tr><td><tt>ftp</tt></td><td> </td><td>Tiedostonsiirto-ohjelma</td></tr>
 <tr><td><tt>ftpd</tt></td><td> </td><td>FTP-taustaprosessi</td></tr>
 <tr><td><tt>funzip</tt></td><td> </td><td>Poimii arkiston ensimmäisen kohdan vakiotulosteeseen.</td></tr>
 <tr><td><tt>fwcontrol</tt></td><td> </td><td>FireWire-ohjausohjelma</td></tr>
 <tr><td><tt>gawk</tt></td><td> </td><td>Mallinetsintä- ja prosessointikieli. </td></tr>
-<tr><td><tt>gdb</tt></td><td> </td><td>GNU-vikajäljitin</td></tr>
 <tr><td><tt>getarch</tt></td><td> </td><td>Näyttää ympäristön käännetyn version. </td></tr>
-<tr><td><tt>getlimits</tt></td><td> </td><td>Tulostaa alustariippuvaiset rajat komentotulkkiskripteille hyödyllisessä muodossa. </td></tr>
 <tr><td><tt>grep</tt></td><td> </td><td>Mallin etsintä.</td></tr>
 <tr><td><tt>groups</tt></td><td> </td><td>Tulostaa jokaisen käyttäjätunnuksen ryhmäjäsenyyden. </td></tr>
 <tr><td><tt>gunzip</tt></td><td> </td><td>Katso <tt>gzip</tt>.</td></tr>
@@ -163,10 +161,9 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>gzip</tt></td><td> </td><td>Dekoodaa tai tiivistää tiedostoja.</td></tr>
 <tr><td><tt>hd</tt></td><td> </td><td>Heksadesimaalivedos</td></tr>
 <tr><td><tt>head</tt></td><td> </td><td>Tulosta tiedoston ensimmäisen rivin.</td></tr>
-<tr><td><tt>hey</tt></td><td> </td><td>Pieni työkalu graafisella käyttöliittymällä varustetujen sovellusten skriptaukseen.</td></tr>
+<tr><td><tt>hey</tt></td><td> </td><td>Pieni työkalu graafisella käyttöliittymällä varustettujen sovellusten skriptaukseen.</td></tr>
 <tr><td><tt>hostname</tt></td><td> </td><td>Tulostaa ja asettaa järjestelmän verkkonimen. </td></tr>
 <tr><td><tt>id</tt></td><td> </td><td>Tulostaa käyttäjä- ja ryhmätietoja. </td></tr>
-<tr><td><tt>ident</tt></td><td> </td><td>Tunnistaa RCS-avainsanat tiedostoissa. </td></tr>
 <tr><td><tt>ifconfig</tt></td><td> </td><td>Asettaa verkkoliittymän. </td></tr>
 <tr><td><tt>install</tt></td><td> </td><td>Kopioi tiedostoja kohteeseen häiritsemättä käynnissä olevaa järjestelmää.</td></tr>
 <tr><td><tt>install-wifi-firmwares.sh</tt></td><td> </td><td>Asentaa eri langattomien korttien mikro-ohjelmiston. </td></tr>
@@ -176,14 +173,14 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>join</tt></td><td> </td><td>Kirjoittaa jokaiselle syöttörivien parillle identtisillä liitoskentillä rivin vakiotulosteeseen.</td></tr>
 <tr><td colspan="3"><a id="K" name="K"><h2><a href="#"><img src="../../images/up.png" style="border:none;float:right" alt="index" /></a>K</h2></a></td></tr>
 <tr><td><tt>kernel_debugger</tt></td><td> </td><td>Siirtyy ydinvikajäljittimeen.</td></tr>
-<tr><td><tt>keymap</tt></td><td> </td><td>Lataa ja tallentaa näppäimistökuvauksen.</td></tr>
+<tr><td><tt>keymap</tt></td><td> </td><td>Lataa ja tallentaa näppäimistöasetuksen.</td></tr>
 <tr><td><tt>kill</tt></td><td> </td><td>Lähettää signaalin prosessin lopettamiseksi. </td></tr>
 <tr><td><tt>launch_roster</tt></td><td> </td><td>Ohjaa launch_daemon-taustaprosessia, esim.: pysäyttää ja käynnistää palvelut uudelleen. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
 <tr><td><tt>less</tt></td><td> </td><td>Katsoo tiedoston sisällön.</td></tr>
 <tr><td><tt>lessecho</tt></td><td> </td><td>Tulostaa argumentit ja laajentaa metamerkit, kuten * ja ? tiedostonimissä.</td></tr>
 <tr><td><tt>lesskey</tt></td><td> </td><td>Määrittää näppäinsidonnat less-komennolle. </td></tr>
 <tr><td><tt>link</tt></td><td> </td><td>Luo linkin tiedostoon. </td></tr>
-<tr><td><tt>linkcatkeys</tt></td><td> </td><td>[Ohjelma, jota käytettiin ennen siirtymistä locale-kit-kotoistamiseen.] </td></tr>
+<tr><td><tt>linkcatkeys</tt></td><td> </td><td>Luo luetteloita catkeys-tiedostoista. </td></tr>
 <tr><td><tt>listarea</tt></td><td> </td><td>Luettelee aluetiedot kaikille parhaillaan suoritettaville ryhmille. </td></tr>
 <tr><td><tt>listattr</tt></td><td> </td><td>Luettelee tiedoston attribuutit. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
 <tr><td><tt>listdev</tt></td><td> </td><td>Luettelee kaikki laitteet.</td></tr>
@@ -202,11 +199,10 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>lsindex</tt></td><td> </td><td>Näyttää nykyisen taltion/osion indeksoidut attribuutit.  <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
 <tr><td><tt>mail2mbox</tt></td><td> </td><td>Muuntaa BeOS-sähköpostilaatikkotiedostot Unix-sähköpostilaatikkotiedostoiksi. </td></tr>
 <tr><td><tt>make</tt></td><td> </td><td>GNU make -apuohjelma</td></tr>
-<tr><td><tt>makebootable</tt></td><td> </td><td>Tekee määrätyt BFS-osiot/laitteet alkuladattaviksi kirjoittamalla alkulatauskoodin ensimmäiselle kahdelle sektorille. </td></tr>
+<tr><td><tt>makebootable</tt></td><td> </td><td>Tekee määrätyt BFS-osiot/laitteet käynnistettäviksi kirjoittamalla käynnistyskoodin ensimmäiselle kahdelle sektorille. </td></tr>
 <tr><td><tt>mbox2mail</tt></td><td> </td><td>Muuntaa Unix-sähköpostilaatikkotiedostot BeOS-sähköpostilaatikkotiedostoiksi.</td></tr>
 <tr><td><tt>md5sum</tt></td><td> </td><td>Tulostaa ja tarkistaa MD5-tarkistussummia.</td></tr>
 <tr><td><tt>media_client</tt></td><td> </td><td>"media_client play" soittaa tausta-audiotiedostoja.</td></tr>
-<tr><td><tt>merge</tt></td><td> </td><td>Kolmivaiheinen tiedostoyhdistäminen. </td></tr>
 <tr><td><tt>message</tt></td><td> </td><td>Tulostaa litistetyn BMessage-tiedoston. </td></tr>
 <tr><td><tt>mimeset</tt></td><td> </td><td>Asettaa tiedoston MIME-tyypin. </td></tr>
 <tr><td><tt>mkdepend</tt></td><td> </td><td>Makefile-riippuvuusmuodostaja.</td></tr>
@@ -223,7 +219,6 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>mountvolume</tt></td><td> </td><td>Liittää taltion nimen avulla.</td></tr>
 <tr><td><tt>mv</tt></td><td> </td><td>Siirtää tai nimeää tiedoston uudelleen. </td></tr>
 <tr><td><tt>nano</tt></td><td> </td><td>Pääteikkunan oletustekstimuokkain, ’Pico’-sovelluksen klooni. </td></tr>
-<tr><td><tt>netcat</tt></td><td> </td><td>TCP- ja UDP-apuohjelma.</td></tr>
 <tr><td><tt>netstat</tt></td><td> </td><td>Tulostaa verkkoyhteydet, reititystaulukot, verkkoliittymätilastot, peitetyt yhteydet ja monilähetysjäsenyydet. </td></tr>
 <tr><td><tt>nl</tt></td><td> </td><td>Tulostaa jokaisen tiedoston lisätyillä rivinumeroilla. </td></tr>
 <tr><td><tt>nohup</tt></td><td> </td><td>Suorittaa komennon ohittaen sulkemissignaalit. </td></tr>
@@ -239,7 +234,6 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>pathchk</tt></td><td> </td><td>Diagnostoi virheelliset ja siirtokelvottomat tiedostonimet. </td></tr>
 <tr><td><tt>pc</tt></td><td> </td><td>Ohjelmoijan laskin.</td></tr>
 <tr><td><tt>ping</tt></td><td> </td><td>Lähettää pyynnön ICMP-echo-request verkkolaitteelle. </td></tr>
-<tr><td><tt>pkg-config</tt></td><td> </td><td>Analysoi ja asentaa Haiku-pakkauksen.</td></tr>
 <tr><td><tt>pkgman</tt></td><td> </td><td>Hallitsee pakkauksia ja pakkausvarastoja.</td></tr>
 <tr><td><tt>play</tt></td><td> </td><td>Soittaa kappaleita CD-levyltä. </td></tr>
 <tr><td><tt>pr</tt></td><td> </td><td>Muotoilee tiedostoille sivut ja sarakkeet tulostusta  varten. </td></tr>
@@ -258,7 +252,6 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>reindex</tt></td><td> </td><td>Laittaa olemassaolevien tiedostojen attribuutit vasta luotuihin indekseihin. <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
 <tr><td><tt>release</tt></td><td> </td><td>Vapauttaa semaforin. </td></tr>
 <tr><td><tt>renice</tt></td><td> </td><td>Vaihtaa suoritettavan prosessin prioriteetin. </td></tr>
-<tr><td><tt>rlog</tt></td><td> </td><td>Tulostaa lokiviestit ja muita tietoja RCS-tiedostoista.</td></tr>
 <tr><td><tt>rm</tt></td><td> </td><td>Poistaa tiedostoja ja hakemistoja. </td></tr>
 <tr><td><tt>rmattr</tt></td><td> </td><td>Poistaa tiedostosta attribuutin.  <a href="cli-apps.html">(Haiku-kohtainen)</a></td></tr>
 <tr><td><tt>rmdir</tt></td><td> </td><td>Poistaa hakemistoja.</td></tr>
@@ -275,7 +268,7 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>settype</tt></td><td> </td><td>Asettaa tiedoston MIME-tyypin, allekirjoituksen ja ensisijaisen sovelluksen. </td></tr>
 <tr><td><tt>setversion</tt></td><td> </td><td>Näyttää tiedoston version.</td></tr>
 <tr><td><tt>setvolume</tt></td><td> </td><td>Asettaa järjestelmän äänen voimakkuuden. </td></tr>
-<tr><td><tt>setwep</tt></td><td> </td><td>Tarjoaa WEP-salauksen langattomille verkoille. </td></tr>
+<tr><td><tt>ftp</tt></td><td> </td><td>Tiedostonsiirto-ohjelma</td></tr>
 <tr><td><tt>sh</tt></td><td> </td><td>Katso <tt>bash</tt>. </td></tr>
 <tr><td><tt>sha1sum</tt></td><td> </td><td>Tulostaa ja tarkistaa SHA1-tarkistussummia. </td></tr>
 <tr><td><tt>shar</tt></td><td> </td><td>Luo komentotulkkiarkistoja.</td></tr>
@@ -330,7 +323,7 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <tr><td><tt>urlwrapper</tt></td><td> </td><td>Käärii verkko-osoite-MIME-tyypit komentoriville tai muille sovelluksille, jotka eivät käsittele niitä suoraan. </td></tr>
 <tr><td><tt>useradd</tt></td><td> </td><td>Luo uuden käyttäjän. </td></tr>
 <tr><td><tt>uudecode</tt></td><td> </td><td>Dekoodaa uu-koodatun tiedoston.</td></tr>
-<tr><td><tt>uuencode</tt></td><td> </td><td>Uu-koodaaa tiedoston niin, että se voidaan postittaa etäjärjestelmään. </td></tr>
+<tr><td><tt>uuencode</tt></td><td> </td><td>Uu-koodaa tiedoston niin, että se voidaan postittaa etäjärjestelmään. </td></tr>
 <tr><td><tt>vdir</tt></td><td> </td><td>Luettelee tietoja tiedostoista. </td></tr>
 <tr><td><tt>version</tt></td><td> </td><td>Palauttaa tiedoston version. </td></tr>
 <tr><td><tt>vmstat</tt></td><td> </td><td>Tulostaa tietoja virtuaalimuistijärjestelmästä.</td></tr>
@@ -363,7 +356,7 @@ Tässä on luettelo Haikun mukana tulevista komentorivisovelluksista. Jokaisen k
 <div class="nav">
 <div class="inner"><span>
 <a href="../applications.html#cli-apps" class="uplink">Sovellukset</a>
-::  <a href="cli-apps.html">Haiku-specific commands</a>  »
+::  <a href="cli-apps.html">Haiku-specific commands</a>  »
 </span></div>
 </div>
 

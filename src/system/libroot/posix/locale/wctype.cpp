@@ -1,6 +1,6 @@
 /*
 ** Copyright 2010, Oliver Tappe, zooey@hirschkaefer.de. All rights reserved.
-** Distributed under the terms of the Haiku License.
+** Distributed under the terms of the MIT License.
 */
 
 #include <ctype.h>
@@ -123,8 +123,11 @@ iswxdigit(wint_t wc)
 wint_t
 towlower(wint_t wc)
 {
-	if (gLocaleBackend == NULL)
+	if (gLocaleBackend == NULL) {
+		if (wc < 0 || wc > 127)
+			return wc;
 		return tolower(wc);
+	}
 
 	wint_t result = wc;
 	gLocaleBackend->ToWCTrans(wc, _ISlower, result);
@@ -136,8 +139,11 @@ towlower(wint_t wc)
 wint_t
 towupper(wint_t wc)
 {
-	if (gLocaleBackend == NULL)
+	if (gLocaleBackend == NULL) {
+		if (wc < 0 || wc > 127)
+			return wc;
 		return toupper(wc);
+	}
 
 	wint_t result = wc;
 	gLocaleBackend->ToWCTrans(wc, _ISupper, result);

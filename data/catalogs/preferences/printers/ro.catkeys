@@ -1,44 +1,41 @@
-1	romanian	x-vnd.Be-PRNT	686411231
-Printer: %printer_name%\nDriver:  %driver%\n	TestPageView		Imprimantă: %printer_name%\nDriver:  %driver%\n
-Waiting	JobListView		Se așteaptă
-Print test page	PrintersWindow		Tipărește o pagină de test
- pending jobs	PrinterListView		 sarcini în așteptare
-page	JobListView		pagină
-Cancel	AddPrinterDialog		Anulează
-Test page	PrintersWindow		Pagină de test
-Add printer	AddPrinterDialog		Adaugă imprimantă
-Green	TestPageView		Verde
-Printers	PrintersWindow		Imprimante
-Add…	PrintersWindow		Adaugă…
-No pending jobs	PrinterListView		Nicio sarcină în așteptare
-Default Printer	PrinterListView		Imprimantă implicită
-Transport: %transport% %transport_address%	PrinterListView		Transport: %transport% %transport_address%
-pages	JobListView		pagini
-Printers	System name		Imprimante
-Processing	JobListView		Se procesează
-Red	TestPageView		Roșu
-Printer name:	AddPrinterDialog		Nume imprimantă:
-Driver: %driver%	PrinterListView		Driver: %driver%
-Black	TestPageView		Negru
-Restart job	PrintersWindow		Repornește sarcină
-Add	AddPrinterDialog		Adaugă
-Make default	PrintersWindow		Stabilește ca implicit
-Transport: %transport% %transport_address%	TestPageView		Transport: %transport% %transport_address%
-Cancel job	PrintersWindow		Anulează sarcină
-Yellow	TestPageView		Galben
-Blue	TestPageView		Albastru
-Remove	PrintersWindow		Elimină
-<pick one>	AddPrinterDialog		<pick one>
-Print jobs for 	PrintersWindow		Sarcini de tipărire pentru 
-Failed	JobListView		Eșuat
-%.2f KB	JobListView		%.2f KB
-Magenta	TestPageView		Purpuriu
-Completed	JobListView		Completat
-No printer found!	TransportMenu		Nicio imprimantă găsită!
-Print jobs: No printer selected	PrintersWindow		Sarcini de tipărire: Nicio imprimantă selectată
-Cyan	TestPageView		Cyan
-Unknown status	JobListView		Stare necunoscută
-1 pending job	PrinterListView		1 sarcină în așteptare
-Connected to:	AddPrinterDialog		Conectat la:
-Printer type:	AddPrinterDialog		Tip de imprimantă:
+1	romanian	x-vnd.Be-PRNT	1465107170
 Test page	TestPageView		Pagină de test
+Remove	PrintersWindow		Elimină
+Red	TestPageView		Roșu
+Default Printer	PrinterListView		Imprimantă implicită
+<pick one>	AddPrinterDialog		<pick one>
+Connected to:	AddPrinterDialog		Conectat la:
+Make default	PrintersWindow		Stabilește ca implicit
+Cyan	TestPageView		Cyan
+Completed	JobListView		Completat
+Test page	PrintersWindow		Pagină de test
+Transport: %transport% %transport_address%	PrinterListView		Transport: %transport% %transport_address%
+Failed	JobListView		Eșuat
+Blue	TestPageView		Albastru
+Waiting	JobListView		Se așteaptă
+Processing	JobListView		Se procesează
+Cancel	AddPrinterDialog		Anulează
+Unknown status	JobListView		Stare necunoscută
+Print jobs for %printer_name%	PrintersWindow		Sarcini de tipărire pentru %printer_name%
+{0, plural, =-1{??? pages}=1{# page}other{# pages}}	JobListView		{0, plural, =-1{??? pages}=1{# page}other{# pages}}
+Add printer	AddPrinterDialog		Adaugă imprimantă
+Printers	PrintersWindow		Imprimante
+No printer found!	TransportMenu		Nicio imprimantă găsită!
+Add…	PrintersWindow		Adaugă…
+Magenta	TestPageView		Purpuriu
+Transport: %transport% %transport_address%	TestPageView		Transport: %transport% %transport_address%
+Add	AddPrinterDialog		Adaugă
+Print jobs: No printer selected	PrintersWindow		Sarcini de tipărire: Nicio imprimantă selectată
+Printer name:	AddPrinterDialog		Nume imprimantă:
+Yellow	TestPageView		Galben
+Black	TestPageView		Negru
+Printer type:	AddPrinterDialog		Tip de imprimantă:
+Printers	System name		Imprimante
+{0, plural,=0{No pending jobs}=1{1 pending job}other{# pending jobs}}	PrinterListView		{0, plural,=0{No pending jobs}=1{1 pending job}other{# pending jobs}}
+Printer: %printer_name%\nDriver:  %driver%\n	TestPageView		Imprimantă: %printer_name%\nDriver:  %driver%\n
+Green	TestPageView		Verde
+Print test page	PrintersWindow		Tipărește o pagină de test
+Restart job	PrintersWindow		Repornește sarcină
+Driver: %driver%	PrinterListView		Driver: %driver%
+Cancel job	PrintersWindow		Anulează sarcină
+%.2f KB	JobListView		%.2f KB

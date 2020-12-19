@@ -23,6 +23,7 @@ struct virtual_address_restrictions;
 struct VMAddressSpace {
 public:
 			class AreaIterator;
+			class AreaRangeIterator;
 
 public:
 								VMAddressSpace(team_id id, addr_t base,
@@ -53,7 +54,7 @@ public:
 									{ return fRefCount; }
 
 	inline	void				Get()	{ atomic_add(&fRefCount, 1); }
-	inline	void 				Put();
+	inline	void				Put();
 			void				RemoveAndPut();
 
 			void				IncrementFaultCount()
@@ -67,6 +68,8 @@ public:
 									{ fRandomizingEnabled = enabled; }
 
 	inline	AreaIterator		GetAreaIterator();
+	inline	AreaRangeIterator	GetAreaRangeIterator(addr_t address,
+									addr_t size);
 
 			VMAddressSpace*&	HashTableLink()	{ return fHashTableLink; }
 
@@ -76,6 +79,8 @@ public:
 	virtual	VMArea*				NextArea(VMArea* area) const = 0;
 
 	virtual	VMArea*				LookupArea(addr_t address) const = 0;
+	virtual	VMArea*				FindClosestArea(addr_t address, bool less) const
+									= 0;
 	virtual	VMArea*				CreateArea(const char* name, uint32 wiring,
 									uint32 protection,
 									uint32 allocationFlags) = 0;
@@ -200,10 +205,65 @@ private:
 };
 
 
+class VMAddressSpace::AreaRangeIterator : public VMAddressSpace::AreaIterator {
+public:
+	AreaRangeIterator()
+	{
+	}
+
+	AreaRangeIterator(VMAddressSpace* addressSpace, addr_t address, addr_t size)
+		:
+		fAddressSpace(addressSpace),
+		fNext(NULL),
+		fAddress(address),
+		fEndAddress(address + size - 1)
+	{
+		Rewind();
+	}
+
+	bool HasNext() const
+	{
+		return fNext != NULL;
+	}
+
+	VMArea* Next()
+	{
+		VMArea* result = fNext;
+		if (fNext != NULL) {
+			fNext = fAddressSpace->NextArea(fNext);
+			if (fNext != NULL && fNext->Base() > fEndAddress)
+				fNext = NULL;
+		}
+
+		return result;
+	}
+
+	void Rewind()
+	{
+		fNext = fAddressSpace->FindClosestArea(fAddress, true);
+		if (fNext != NULL && !fNext->ContainsAddress(fAddress))
+			Next();
+	}
+
+private:
+	VMAddressSpace*	fAddressSpace;
+	VMArea*			fNext;
+	addr_t			fAddress;
+	addr_t			fEndAddress;
+};
+
+
 inline VMAddressSpace::AreaIterator
 VMAddressSpace::GetAreaIterator()
 {
 	return AreaIterator(this);
+}
+
+
+inline VMAddressSpace::AreaRangeIterator
+VMAddressSpace::GetAreaRangeIterator(addr_t address, addr_t size)
+{
+	return AreaRangeIterator(this, address, size);
 }
 
 

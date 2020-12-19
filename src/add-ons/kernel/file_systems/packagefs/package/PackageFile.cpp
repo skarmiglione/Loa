@@ -19,11 +19,17 @@
 #include <util/AutoLock.h>
 
 #include "DebugSupport.h"
-#include "GlobalFactory.h"
+#include "ClassCache.h"
 #include "Package.h"
 
 
 using namespace BPackageKit::BHPKG;
+
+
+// #pragma mark - class cache
+
+
+CLASS_CACHE(PackageFile);
 
 
 // #pragma mark - DataAccessor
@@ -84,12 +90,6 @@ struct PackageFile::DataAccessor {
 
 	status_t ReadData(off_t offset, void* buffer, size_t* bufferSize)
 	{
-		if (offset < 0 || (uint64)offset > fData->UncompressedSize())
-			return B_BAD_VALUE;
-
-		*bufferSize = std::min((uint64)*bufferSize,
-			fData->UncompressedSize() - offset);
-
 		return file_cache_read(fFileCache, NULL, offset, buffer, bufferSize);
 	}
 
@@ -148,8 +148,8 @@ PackageFile::VFSInit(dev_t deviceID, ino_t nodeID)
 	status_t error = PackageNode::VFSInit(deviceID, nodeID);
 	if (error != B_OK)
 		return error;
-	MethodDeleter<PackageNode> baseClassUninit(this,
-		&PackageNode::NonVirtualVFSUninit);
+	MethodDeleter<PackageNode, void, &PackageNode::NonVirtualVFSUninit>
+		baseClassUninit(this);
 
 	// open the package -- that's already done by PackageNode::VFSInit(), so it
 	// shouldn't fail here. We only need to do it again, since we need the FD.

@@ -203,18 +203,9 @@ InterfaceView::_Update(bool updateWirelessNetworks)
 	bool isWireless = device.IsWireless();
 	bool disabled = (fInterface.Flags() & IFF_UP) == 0;
 
-	if (fInterface.HasLink()) {
-		if (isWireless) {
-			// TODO!
-			BString network = "---";
-			network.Prepend(" (");
-			network.Prepend(B_TRANSLATE("connected"));
-			network.Append(")");
-			fStatusField->SetText(network.String());
-		} else {
-			fStatusField->SetText(B_TRANSLATE("connected"));
-		}
-	} else
+	if (fInterface.HasLink())
+		fStatusField->SetText(B_TRANSLATE("connected"));
+	else
 		fStatusField->SetText(B_TRANSLATE("disconnected"));
 
 	BNetworkAddress hardwareAddress;
@@ -313,7 +304,8 @@ InterfaceView::_Update(bool updateWirelessNetworks)
 	}
 
 	//fRenegotiateButton->SetEnabled(!disabled);
-	fToggleButton->SetLabel(disabled ? "Enable" : "Disable");
+	fToggleButton->SetLabel(disabled
+		? B_TRANSLATE("Enable") : B_TRANSLATE("Disable"));
 
 	return B_OK;
 }

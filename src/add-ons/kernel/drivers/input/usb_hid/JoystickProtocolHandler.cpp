@@ -19,10 +19,13 @@
 #include <string.h>
 #include <usb/USB_hid.h>
 
+#include <kernel.h>
+#include <util/AutoLock.h>
+
 
 JoystickProtocolHandler::JoystickProtocolHandler(HIDReport &report)
 	:
-	ProtocolHandler(report.Device(), "joystick/usb/", 0),
+	ProtocolHandler(report.Device(), "joystick/" DEVICE_PATH_SUFFIX "/", 0),
 	fReport(report),
 	fAxisCount(0),
 	fAxis(NULL),
@@ -107,7 +110,8 @@ JoystickProtocolHandler::JoystickProtocolHandler(HIDReport &report)
 
 	fCurrentValues.initialize(fAxisCount, fHatCount, fMaxButton);
 
-	TRACE("joystick device with %lu buttons, %lu axes and %lu hats\n",
+	TRACE("joystick device with %" B_PRIu32 " buttons, %" B_PRIu32
+		" axes and %" B_PRIu32 " hats\n",
 		fButtonCount, fAxisCount, fHatCount);
 	TRACE("report id: %u\n", report.ID());
 }
@@ -234,14 +238,15 @@ JoystickProtocolHandler::Read(uint32 *cookie, off_t position, void *buffer,
 		return B_BUFFER_OVERFLOW;
 
 	// this is a polling interface, we just return the current value
-	status_t result = mutex_lock(&fUpdateLock);
-	if (result != B_OK) {
+	MutexLocker locker(fUpdateLock);
+	if (!locker.IsLocked()) {
 		*numBytes = 0;
-		return result;
+		return B_ERROR;
 	}
 
-	memcpy(buffer, fCurrentValues.data, fCurrentValues.data_size);
-	mutex_unlock(&fUpdateLock);
+	if (!IS_USER_ADDRESS(buffer) || user_memcpy(buffer, fCurrentValues.data,
+			fCurrentValues.data_size) != B_OK)
+		return B_BAD_ADDRESS;
 
 	*numBytes = fCurrentValues.data_size;
 	return B_OK;
@@ -271,7 +276,11 @@ JoystickProtocolHandler::Control(uint32 *cookie, uint32 op, void *buffer,
 			if (result != B_OK)
 				return result;
 
-			fJoystickModuleInfo = *(joystick_module_info *)buffer;
+			if (!IS_USER_ADDRESS(buffer)
+				|| user_memcpy(&fJoystickModuleInfo, buffer,
+					sizeof(joystick_module_info)) != B_OK) {
+				return B_BAD_ADDRESS;
+			}
 
 			bool supportsVariable = (fJoystickModuleInfo.flags
 				& js_flag_variable_size_reads) != 0;
@@ -298,15 +307,19 @@ JoystickProtocolHandler::Control(uint32 *cookie, uint32 op, void *buffer,
 			fJoystickModuleInfo.num_sticks = 1;
 			fJoystickModuleInfo.config_size = 0;
 			mutex_unlock(&fUpdateLock);
-			break;
+			return B_OK;
 		}
 
 		case B_JOYSTICK_GET_DEVICE_MODULE:
 			if (length < sizeof(joystick_module_info))
 				return B_BAD_VALUE;
 
-			*(joystick_module_info *)buffer = fJoystickModuleInfo;
-			break;
+			if (!IS_USER_ADDRESS(buffer)
+				|| user_memcpy(buffer, &fJoystickModuleInfo,
+					sizeof(joystick_module_info)) != B_OK) {
+				return B_BAD_ADDRESS;
+			}
+			return B_OK;
 	}
 
 	return B_ERROR;

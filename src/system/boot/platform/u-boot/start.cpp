@@ -70,9 +70,6 @@ extern "C" void _start(void);
 extern "C" int start_gen(int argc, const char **argv,
 	struct image_header *uimage=NULL, void *fdt=NULL);
 extern "C" void dump_uimage(struct image_header *image);
-#if defined(__arm__)
-extern "C" status_t arch_mailbox_init();
-#endif
 
 
 // declared in shell.S
@@ -126,13 +123,13 @@ platform_start_kernel(void)
 	mmu_init_for_kernel();
 //	smp_boot_other_cpus();
 
-	dprintf("ncpus %lx\n", gKernelArgs.num_cpus);
-	dprintf("kernel entry at %lx\n", kernelEntry);
+	dprintf("ncpus %" B_PRId32 "\n", gKernelArgs.num_cpus);
+	dprintf("kernel entry at 0x%" B_PRIxADDR "\n", kernelEntry);
 
 	status_t error = arch_start_kernel(&gKernelArgs, kernelEntry,
 		stackTop);
 
-	panic("kernel returned %lx!\n", error);
+	panic("kernel returned 0x%" B_PRIx32 "!\n", error);
 }
 
 
@@ -230,12 +227,10 @@ start_gen(int argc, const char **argv, struct image_header *uimage, void *fdt)
 
 	serial_init(gFDT);
 
-	#if defined(__arm__)
-	arch_mailbox_init();
-	#endif
-
 	// initialize the OpenFirmware wrapper
-	of_init(NULL);
+	// TODO: We need to call this when HAIKU_KERNEL_PLATFORM == openfirmware
+	// boot_platform_init()?
+	//of_init(NULL);
 
 	console_init();
 
@@ -275,8 +270,10 @@ start_gen(int argc, const char **argv, struct image_header *uimage, void *fdt)
 	{ //DEBUG:
 		int i;
 		dprintf("argc = %d\n", argc);
-		for (i = 0; i < argc; i++)
-			dprintf("argv[%d] @%lx = '%s'\n", i, (uint32)argv[i], argv[i]);
+		for (i = 0; i < argc; i++) {
+			dprintf("argv[%d] @%" B_PRIxADDR " = '%s'\n", i,
+				(addr_t)argv[i], argv[i]);
+		}
 		dprintf("os: %d\n", (int)gUBootOS);
 		dprintf("gd @ %p\n", gUBootGlobalData);
 		if (gUBootGlobalData) {
@@ -308,7 +305,7 @@ start_gen(int argc, const char **argv, struct image_header *uimage, void *fdt)
 	size_t fdtSize = gFDT ? fdt_totalsize(gFDT) : 0;
 	dprintf("fdtSize: 0x%" B_PRIxSIZE "\n", fdtSize);
 
-	mmu_init();
+	mmu_init(gFDT);
 
 	// Handle our tarFS post-mmu
 	if (args.platform.boot_tgz_size > 0) {
@@ -340,8 +337,8 @@ start_gen(int argc, const char **argv, struct image_header *uimage, void *fdt)
 		}
 		dprintf("args.arguments_count = %" B_PRId32 "\n", args.arguments_count);
 		for (int i = 0; i < args.arguments_count; i++)
-			dprintf("args.arguments[%d] @%lx = '%s'\n", i,
-				(uint32)args.arguments[i], args.arguments[i]);
+			dprintf("args.arguments[%d] @%" B_PRIxADDR " = '%s'\n", i,
+				(addr_t)args.arguments[i], args.arguments[i]);
 	}
 
 	// wait a bit to give the user the opportunity to press a key

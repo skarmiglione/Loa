@@ -1,7 +1,5 @@
 SubDir HAIKU_TOP src data keymaps ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
-
 NotFile keymap_files ;
 Depends files : keymap_files ;
 
@@ -21,8 +19,8 @@ rule MkKeymapComp
 
 actions MkKeymapComp1
 {
-	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
-	$(2[1]) -o "$(1)" -c "$(2[2-])" ;
+	$(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR) \
+	$(2[1]) -o "$(1)" -c "$(2[2-])"
 }
 
 
@@ -39,7 +37,7 @@ rule GenerateKeymapLocalizationHeader keymaps
 	local keymapNames = $(HAIKU_KEYMAP_FILES:BSM) $(HAIKU_KEYMAP_ALIASES:BSM) ;
 	local header = <keymap-locale>KeymapNames.h ;
 	MakeLocateCommonPlatform $(header) ;
-	Always $(header) ;
+	Depends $(header) : $(HAIKU_KEYMAP_FILES) ;
 	HAIKU_KEYMAP_NAMES on $(header) = $(keymapNames) ;
 	GenerateKeymapLocalizationHeader1 $(header) ;
 	LocalClean clean : $(header) ;

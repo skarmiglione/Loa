@@ -452,8 +452,10 @@ Services::_LaunchService(struct service& service, int socket)
 		}
 		args[service.arguments.size()] = NULL;
 
-		if (execv(service.arguments[0].c_str(), (char* const*)args) < 0)
+		if (execv(service.arguments[0].c_str(), (char* const*)args) < 0) {
+			free(args);
 			exit(1);
+		}
 
 		// we'll never trespass here
 	} else {
@@ -508,13 +510,13 @@ Services::_Listener()
 			if (connection.Type() == SOCK_STREAM) {
 				// accept incoming connection
 				int value = 1;
-				ioctl(i, FIONBIO, &value);
+				ioctl(i, FIONBIO, &value, sizeof(value));
 					// make sure we don't wait for the connection
 
 				socket = accept(connection.socket, NULL, NULL);
 
 				value = 0;
-				ioctl(i, FIONBIO, &value);
+				ioctl(i, FIONBIO, &value, sizeof(value));
 
 				if (socket < 0)
 					continue;

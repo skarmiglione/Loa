@@ -79,12 +79,20 @@ BFileRequest::_ProtocolLoop()
 
 			fListener->HeadersReceived(this, fResult);
 
-			ssize_t chunkSize;
+			ssize_t chunkSize = 0;
 			char chunk[4096];
-			while ((chunkSize = file.Read(chunk, sizeof(chunk))) > 0) {
-				fListener->DataReceived(this, chunk, transferredSize, chunkSize);
-				transferredSize += chunkSize;
+			while (!fQuit) {
+				chunkSize = file.Read(chunk, sizeof(chunk));
+				if (chunkSize > 0) {
+					fListener->DataReceived(this, chunk, transferredSize,
+						chunkSize);
+					transferredSize += chunkSize;
+					fListener->DownloadProgress(this, transferredSize, size);
+				} else
+					break;
 			}
+			if (fQuit)
+				return B_INTERRUPTED;
 			// Return error if we didn't transfer everything
 			if (transferredSize != size) {
 				if (chunkSize < 0)
@@ -92,7 +100,6 @@ BFileRequest::_ProtocolLoop()
 				else
 					return B_IO_ERROR;
 			}
-			fListener->DownloadProgress(this, size, size);
 		}
 
 		return B_OK;
@@ -117,12 +124,13 @@ BFileRequest::_ProtocolLoop()
 
 		// Add a parent directory entry.
 		fListener->DataReceived(this, "+/,\t..\r\n", transferredSize, 8);
+		fListener->DownloadProgress(this, transferredSize, 0);
 		transferredSize += 8;
 	}
 
 	char name[B_FILE_NAME_LENGTH];
 	BEntry entry;
-	while (directory.GetNextEntry(&entry) != B_ENTRY_NOT_FOUND) {
+	while (!fQuit && directory.GetNextEntry(&entry) != B_ENTRY_NOT_FOUND) {
 		// We read directories using the EPLF (Easily Parsed List Format)
 		// This happens to be one of the formats that WebKit can understand,
 		// and it is not too hard to parse or generate.
@@ -154,13 +162,13 @@ BFileRequest::_ProtocolLoop()
 		if (fListener != NULL) {
 			fListener->DataReceived(this, eplf.String(), transferredSize,
 				eplf.Length());
+			fListener->DownloadProgress(this, transferredSize, 0);
 		}
 		transferredSize += eplf.Length();
 	}
 
-	if (fListener != NULL)
-		fListener->DownloadProgress(this, transferredSize, transferredSize);
-	fResult.SetLength(transferredSize);
+	if (!fQuit)
+		fResult.SetLength(transferredSize);
 
-	return B_OK;
+	return fQuit ? B_INTERRUPTED : B_OK;
 }

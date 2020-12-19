@@ -12,7 +12,7 @@
 
 #include "MediaClientNode.h"
 
-#include "debug.h"
+#include "MediaDebug.h"
 
 
 namespace BPrivate { namespace media {
@@ -179,8 +179,7 @@ BMediaClient::Unbind(BMediaInput* input, BMediaOutput* output)
 {
 	CALLED();
 
-	if (input == NULL
-		|| input == NULL)
+	if (input == NULL || output == NULL)
 		return B_ERROR;
 
 	if (input->fOwner != this || output->fOwner != this)

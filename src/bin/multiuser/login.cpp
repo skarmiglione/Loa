@@ -34,7 +34,7 @@ read_string(char* string, size_t bufferSize)
 	// TODO: setup timeout handler
 
 	// read everything until the next carriage return
-	char c;
+	int c;
 	while ((c = fgetc(stdin)) != EOF && c != '\r' && c != '\n') {
 		if (bufferSize > 1) {
 			string[0] = c;
@@ -91,7 +91,7 @@ login(const char* user, struct passwd** _passwd)
 	struct spwd* spwd = getspnam(user);
 
 	bool ok = verify_password(passwd, spwd, password);
-	memset(password, 0, sizeof(password));
+	explicit_bzero(password, sizeof(password));
 
 	if (!ok)
 		return B_PERMISSION_DENIED;

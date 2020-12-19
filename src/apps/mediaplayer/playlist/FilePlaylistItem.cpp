@@ -150,6 +150,8 @@ FilePlaylistItem::GetAttribute(const Attribute& attribute,
 	BString& string) const
 {
 	if (attribute == ATTR_STRING_NAME) {
+		if (fRefs[0].name == NULL)
+			return B_NAME_NOT_FOUND;
 		string = fRefs[0].name;
 		return B_OK;
 	}
@@ -183,7 +185,20 @@ status_t
 FilePlaylistItem::GetAttribute(const Attribute& attribute,
 	int32& value) const
 {
-	return B_NOT_SUPPORTED;
+	switch (attribute) {
+		case ATTR_INT32_TRACK:
+			return _GetAttribute("Audio:Track", B_INT32_TYPE, &value,
+				sizeof(int32));
+		case ATTR_INT32_YEAR:
+			return _GetAttribute("Media:Year", B_INT32_TYPE, &value,
+				sizeof(int32));
+		case ATTR_INT32_RATING:
+			return _GetAttribute("Media:Rating", B_INT32_TYPE, &value,
+				sizeof(int32));
+
+		default:
+			return B_NOT_SUPPORTED;
+	}
 }
 
 

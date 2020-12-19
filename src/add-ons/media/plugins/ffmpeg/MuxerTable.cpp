@@ -429,6 +429,48 @@ const media_file_format gMuxerTable[] = {
 		"mod",
 		{ 0 }
 	},
+	{
+		media_file_format::B_READABLE
+			| media_file_format::B_KNOWS_RAW_AUDIO
+			| media_file_format::B_KNOWS_ENCODED_AUDIO,
+		{ 0 },
+		B_MISC_FORMAT_FAMILY,
+		100,
+		{ 0 },
+		"audio/x-mptm",
+		"OpenMPT Module",
+		"mptm",
+		"mptm",
+		{ 0 }
+	},
+	{
+		media_file_format::B_READABLE
+			| media_file_format::B_KNOWS_RAW_AUDIO
+			| media_file_format::B_KNOWS_ENCODED_AUDIO,
+		{ 0 },
+		B_MISC_FORMAT_FAMILY,
+		100,
+		{ 0 },
+		"audio/x-mo3",
+		"Compressed Tracker audio",
+		"mo3",
+		"mo3",
+		{ 0 }
+	},
+	{
+		media_file_format::B_READABLE
+			| media_file_format::B_KNOWS_RAW_AUDIO
+			| media_file_format::B_KNOWS_ENCODED_AUDIO,
+		{ 0 },
+		B_MISC_FORMAT_FAMILY,
+		100,
+		{ 0 },
+		"audio/x-med",
+		"Amiga MED/OctaMED Tracker Module",
+		"med",
+		"med",
+		{ 0 }
+	},
 };
 
 const size_t gMuxerCount = sizeof(gMuxerTable) / sizeof(media_file_format);

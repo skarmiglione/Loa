@@ -129,10 +129,6 @@ static struct sem_entry	*sFreeSemsHead = NULL;
 static struct sem_entry	*sFreeSemsTail = NULL;
 
 static spinlock sSemsSpinlock = B_SPINLOCK_INITIALIZER;
-#define GRAB_SEM_LIST_LOCK()     acquire_spinlock(&sSemsSpinlock)
-#define RELEASE_SEM_LIST_LOCK()  release_spinlock(&sSemsSpinlock)
-#define GRAB_SEM_LOCK(s)         acquire_spinlock(&(s).lock)
-#define RELEASE_SEM_LOCK(s)      release_spinlock(&(s).lock)
 
 
 static int
@@ -235,20 +231,23 @@ dump_sem_info(int argc, char **argv)
 		return 0;
 	}
 
-	num = strtoul(argv[1], NULL, 0);
+	char* endptr;
+	num = strtoul(argv[1], &endptr, 0);
 
-	if (IS_KERNEL_ADDRESS(num)) {
-		dump_sem((struct sem_entry *)num);
-		return 0;
-	} else if (num >= 0) {
-		uint32 slot = num % sMaxSems;
-		if (sSems[slot].id != (int)num) {
-			kprintf("sem %ld (%#lx) doesn't exist!\n", num, num);
+	if (endptr != argv[1]) {
+		if (IS_KERNEL_ADDRESS(num)) {
+			dump_sem((struct sem_entry *)num);
+			return 0;
+		} else {
+			uint32 slot = num % sMaxSems;
+			if (sSems[slot].id != (int)num) {
+				kprintf("sem %ld (%#lx) doesn't exist!\n", num, num);
+				return 0;
+			}
+
+			dump_sem(&sSems[slot]);
 			return 0;
 		}
-
-		dump_sem(&sSems[slot]);
-		return 0;
 	}
 
 	// walk through the sem list, trying to match name
@@ -322,7 +321,7 @@ fill_sem_info(struct sem_entry* sem, sem_info* info, size_t size)
 	will return that one in \a name.
 */
 static void
-uninit_sem_locked(struct sem_entry& sem, char** _name)
+uninit_sem_locked(struct sem_entry& sem, char** _name, SpinLocker& locker)
 {
 	KTRACE("delete_sem(sem: %ld)", sem.u.used.id);
 
@@ -340,13 +339,12 @@ uninit_sem_locked(struct sem_entry& sem, char** _name)
 	*_name = sem.u.used.name;
 	sem.u.used.name = NULL;
 
-	RELEASE_SEM_LOCK(sem);
+	locker.Unlock();
 
 	// append slot to the free list
-	GRAB_SEM_LIST_LOCK();
+	SpinLocker _(&sSemsSpinlock);
 	free_sem_slot(id % sMaxSems, id + sMaxSems);
 	atomic_add(&sUsedSems, -1);
-	RELEASE_SEM_LIST_LOCK();
 }
 
 
@@ -360,23 +358,17 @@ delete_sem_internal(sem_id id, bool checkPermission)
 
 	int32 slot = id % sMaxSems;
 
-	cpu_status state = disable_interrupts();
-	GRAB_SEM_LIST_LOCK();
-	GRAB_SEM_LOCK(sSems[slot]);
+	InterruptsLocker interruptsLocker;
+	SpinLocker listLocker(sSemsSpinlock);
+	SpinLocker semLocker(sSems[slot].lock);
 
 	if (sSems[slot].id != id) {
-		RELEASE_SEM_LOCK(sSems[slot]);
-		RELEASE_SEM_LIST_LOCK();
-		restore_interrupts(state);
 		TRACE(("delete_sem: invalid sem_id %ld\n", id));
 		return B_BAD_SEM_ID;
 	}
 
 	if (checkPermission
 		&& sSems[slot].u.used.owner == team_get_kernel_team_id()) {
-		RELEASE_SEM_LOCK(sSems[slot]);
-		RELEASE_SEM_LIST_LOCK();
-		restore_interrupts(state);
 		dprintf("thread %" B_PRId32 " tried to delete kernel semaphore "
 			"%" B_PRId32 ".\n", thread_get_current_thread_id(), id);
 		return B_NOT_ALLOWED;
@@ -388,16 +380,16 @@ delete_sem_internal(sem_id id, bool checkPermission)
 	} else
 		panic("sem %" B_PRId32 " has no owner", id);
 
-	RELEASE_SEM_LIST_LOCK();
+	listLocker.Unlock();
 
 	char* name;
-	uninit_sem_locked(sSems[slot], &name);
+	uninit_sem_locked(sSems[slot], &name, semLocker);
 
 	SpinLocker schedulerLocker(thread_get_current_thread()->scheduler_lock);
 	scheduler_reschedule_if_necessary_locked();
 	schedulerLocker.Unlock();
 
-	restore_interrupts(state);
+	interruptsLocker.Unlock();
 
 	free(name);
 	return B_OK;
@@ -477,7 +469,6 @@ sem_id
 create_sem_etc(int32 count, const char* name, team_id owner)
 {
 	struct sem_entry* sem = NULL;
-	cpu_status state;
 	sem_id id = B_NO_MORE_SEMS;
 	char* tempName;
 	size_t nameLength;
@@ -503,8 +494,7 @@ create_sem_etc(int32 count, const char* name, team_id owner)
 
 	strlcpy(tempName, name, nameLength);
 
-	state = disable_interrupts();
-	GRAB_SEM_LIST_LOCK();
+	InterruptsSpinLocker _(&sSemsSpinlock);
 
 	// get the first slot from the free list
 	sem = sFreeSemsHead;
@@ -515,7 +505,7 @@ create_sem_etc(int32 count, const char* name, team_id owner)
 			sFreeSemsTail = NULL;
 
 		// init the slot
-		GRAB_SEM_LOCK(*sem);
+		SpinLocker semLocker(sem->lock);
 		sem->id = sem->u.unused.next_id;
 		sem->u.used.count = count;
 		sem->u.used.net_count = count;
@@ -527,7 +517,7 @@ create_sem_etc(int32 count, const char* name, team_id owner)
 
 		list_add_item(&team->sem_list, &sem->u.used.team_link);
 
-		RELEASE_SEM_LOCK(*sem);
+		semLocker.Unlock();
 
 		atomic_add(&sUsedSems, 1);
 
@@ -539,9 +529,6 @@ create_sem_etc(int32 count, const char* name, team_id owner)
 			name);
 	}
 
-	RELEASE_SEM_LIST_LOCK();
-	restore_interrupts(state);
-
 	if (sem == NULL)
 		free(tempName);
 
@@ -552,25 +539,20 @@ create_sem_etc(int32 count, const char* name, team_id owner)
 status_t
 select_sem(int32 id, struct select_info* info, bool kernel)
 {
-	cpu_status state;
-	int32 slot;
-	status_t error = B_OK;
-
 	if (id < 0)
 		return B_BAD_SEM_ID;
 
-	slot = id % sMaxSems;
+	int32 slot = id % sMaxSems;
 
-	state = disable_interrupts();
-	GRAB_SEM_LOCK(sSems[slot]);
+	InterruptsSpinLocker _(&sSems[slot].lock);
 
 	if (sSems[slot].id != id) {
 		// bad sem ID
-		error = B_BAD_SEM_ID;
+		return B_BAD_SEM_ID;
 	} else if (!kernel
 		&& sSems[slot].u.used.owner == team_get_kernel_team_id()) {
 		// kernel semaphore, but call from userland
-		error = B_NOT_ALLOWED;
+		return B_NOT_ALLOWED;
 	} else {
 		info->selected_events &= B_EVENT_ACQUIRE_SEMAPHORE | B_EVENT_INVALID;
 
@@ -583,29 +565,22 @@ select_sem(int32 id, struct select_info* info, bool kernel)
 		}
 	}
 
-	RELEASE_SEM_LOCK(sSems[slot]);
-	restore_interrupts(state);
-
-	return error;
+	return B_OK;
 }
 
 
 status_t
 deselect_sem(int32 id, struct select_info* info, bool kernel)
 {
-	cpu_status state;
-	int32 slot;
-
 	if (id < 0)
 		return B_BAD_SEM_ID;
 
 	if (info->selected_events == 0)
 		return B_OK;
 
-	slot = id % sMaxSems;
+	int32 slot = id % sMaxSems;
 
-	state = disable_interrupts();
-	GRAB_SEM_LOCK(sSems[slot]);
+	InterruptsSpinLocker _(&sSems[slot].lock);
 
 	if (sSems[slot].id == id) {
 		select_info** infoLocation = &sSems[slot].u.used.select_infos;
@@ -615,9 +590,6 @@ deselect_sem(int32 id, struct select_info* info, bool kernel)
 		if (*infoLocation == info)
 			*infoLocation = info->next;
 	}
-
-	RELEASE_SEM_LOCK(sSems[slot]);
-	restore_interrupts(state);
 
 	return B_OK;
 }
@@ -680,16 +652,16 @@ sem_delete_owned_sems(Team* team)
 
 		{
 			// get the next semaphore from the team's sem list
-			InterruptsLocker locker;
+			InterruptsLocker _;
 			SpinLocker semListLocker(sSemsSpinlock);
 			sem_entry* sem = (sem_entry*)list_remove_head_item(&team->sem_list);
 			if (sem == NULL)
 				break;
 
 			// delete the semaphore
-			GRAB_SEM_LOCK(*sem);
+			SpinLocker semLocker(sem->lock);
 			semListLocker.Unlock();
-			uninit_sem_locked(*sem, &name);
+			uninit_sem_locked(*sem, &name, semLocker);
 		}
 
 		free(name);
@@ -756,18 +728,17 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 	uint32 flags, bigtime_t timeout)
 {
 	int slot = id % sMaxSems;
-	int state;
-	status_t status = B_OK;
 
 	if (gKernelStartup)
 		return B_OK;
 	if (sSemsActive == false)
 		return B_NO_MORE_SEMS;
-
+#if KDEBUG
 	if (!are_interrupts_enabled()) {
 		panic("switch_sem_etc: called with interrupts disabled for sem "
 			"%" B_PRId32 "\n", id);
 	}
+#endif
 
 	if (id < 0)
 		return B_BAD_SEM_ID;
@@ -776,13 +747,12 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		return B_BAD_VALUE;
 	}
 
-	state = disable_interrupts();
-	GRAB_SEM_LOCK(sSems[slot]);
+	InterruptsLocker _;
+	SpinLocker semLocker(sSems[slot].lock);
 
 	if (sSems[slot].id != id) {
 		TRACE(("switch_sem_etc: bad sem %ld\n", id));
-		status = B_BAD_SEM_ID;
-		goto err;
+		return B_BAD_SEM_ID;
 	}
 
 	// TODO: the B_CHECK_PERMISSION flag should be made private, as it
@@ -791,19 +761,19 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		&& sSems[slot].u.used.owner == team_get_kernel_team_id()) {
 		dprintf("thread %" B_PRId32 " tried to acquire kernel semaphore "
 			"%" B_PRId32 ".\n", thread_get_current_thread_id(), id);
-		status = B_NOT_ALLOWED;
-		goto err;
+#if 0
+		_user_debugger("Thread tried to acquire kernel semaphore.");
+#endif
+		return B_NOT_ALLOWED;
 	}
 
 	if (sSems[slot].u.used.count - count < 0) {
 		if ((flags & B_RELATIVE_TIMEOUT) != 0 && timeout <= 0) {
 			// immediate timeout
-			status = B_WOULD_BLOCK;
-			goto err;
+			return B_WOULD_BLOCK;
 		} else if ((flags & B_ABSOLUTE_TIMEOUT) != 0 && timeout < 0) {
 			// absolute negative timeout
-			status = B_TIMED_OUT;
-			goto err;
+			return B_TIMED_OUT;
 		}
 	}
 
@@ -824,9 +794,12 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		if (thread_is_interrupted(thread, flags)) {
 			schedulerLocker.Unlock();
 			sSems[slot].u.used.count += count;
-			status = B_INTERRUPTED;
-				// the other semaphore will be released later
-			goto err;
+			if (semToBeReleased >= B_OK) {
+				// we need to still release the semaphore to always
+				// leave in a consistent state
+				release_sem_etc(semToBeReleased, 1, B_DO_NOT_RESCHEDULE);
+			}
+			return B_INTERRUPTED;
 		}
 
 		schedulerLocker.Unlock();
@@ -842,7 +815,7 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		thread_prepare_to_block(thread, flags, THREAD_BLOCK_TYPE_SEMAPHORE,
 			(void*)(addr_t)id);
 
-		RELEASE_SEM_LOCK(sSems[slot]);
+		semLocker.Unlock();
 
 		// release the other semaphore, if any
 		if (semToBeReleased >= 0) {
@@ -853,7 +826,7 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 		status_t acquireStatus = timeout == B_INFINITE_TIMEOUT
 			? thread_block() : thread_block_with_timeout(flags, timeout);
 
-		GRAB_SEM_LOCK(sSems[slot]);
+		semLocker.Lock();
 
 		// If we're still queued, this means the acquiration failed, and we
 		// need to remove our entry and (potentially) wake up other threads.
@@ -867,8 +840,7 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 #endif
 		}
 
-		RELEASE_SEM_LOCK(sSems[slot]);
-		restore_interrupts(state);
+		semLocker.Unlock();
 
 		TRACE(("switch_sem_etc(sem %ld): exit block name %s, "
 			"thread %ld (%s)\n", id, sSems[slot].u.used.name, thread->id,
@@ -883,25 +855,9 @@ switch_sem_etc(sem_id semToBeReleased, sem_id id, int32 count,
 #endif
 	}
 
-err:
-	RELEASE_SEM_LOCK(sSems[slot]);
-	restore_interrupts(state);
-
-	if (status == B_INTERRUPTED && semToBeReleased >= B_OK) {
-		// depending on when we were interrupted, we need to still
-		// release the semaphore to always leave in a consistent
-		// state
-		release_sem_etc(semToBeReleased, 1, B_DO_NOT_RESCHEDULE);
-	}
-
-#if 0
-	if (status == B_NOT_ALLOWED)
-	_user_debugger("Thread tried to acquire kernel semaphore.");
-#endif
-
 	KTRACE("switch_sem_etc() done: 0x%lx", status);
 
-	return status;
+	return B_OK;
 }
 
 
@@ -925,6 +881,12 @@ release_sem_etc(sem_id id, int32 count, uint32 flags)
 		return B_BAD_SEM_ID;
 	if (count <= 0 && (flags & B_RELEASE_ALL) == 0)
 		return B_BAD_VALUE;
+#if KDEBUG
+	if ((flags & B_DO_NOT_RESCHEDULE) == 0 && !are_interrupts_enabled()) {
+		panic("release_sem_etc(): called with interrupts disabled and "
+			"rescheduling allowed for sem_id %" B_PRId32, id);
+	}
+#endif
 
 	InterruptsLocker _;
 	SpinLocker semLocker(sSems[slot].lock);
@@ -1021,9 +983,6 @@ release_sem_etc(sem_id id, int32 count, uint32 flags)
 status_t
 get_sem_count(sem_id id, int32 *_count)
 {
-	int slot;
-	int state;
-
 	if (sSemsActive == false)
 		return B_NO_MORE_SEMS;
 	if (id < 0)
@@ -1031,22 +990,16 @@ get_sem_count(sem_id id, int32 *_count)
 	if (_count == NULL)
 		return B_BAD_VALUE;
 
-	slot = id % sMaxSems;
+	int slot = id % sMaxSems;
 
-	state = disable_interrupts();
-	GRAB_SEM_LOCK(sSems[slot]);
+	InterruptsSpinLocker _(sSems[slot].lock);
 
 	if (sSems[slot].id != id) {
-		RELEASE_SEM_LOCK(sSems[slot]);
-		restore_interrupts(state);
 		TRACE(("sem_get_count: invalid sem_id %ld\n", id));
 		return B_BAD_SEM_ID;
 	}
 
 	*_count = sSems[slot].u.used.count;
-
-	RELEASE_SEM_LOCK(sSems[slot]);
-	restore_interrupts(state);
 
 	return B_OK;
 }
@@ -1056,10 +1009,6 @@ get_sem_count(sem_id id, int32 *_count)
 status_t
 _get_sem_info(sem_id id, struct sem_info *info, size_t size)
 {
-	status_t status = B_OK;
-	int state;
-	int slot;
-
 	if (!sSemsActive)
 		return B_NO_MORE_SEMS;
 	if (id < 0)
@@ -1067,21 +1016,17 @@ _get_sem_info(sem_id id, struct sem_info *info, size_t size)
 	if (info == NULL || size != sizeof(sem_info))
 		return B_BAD_VALUE;
 
-	slot = id % sMaxSems;
+	int slot = id % sMaxSems;
 
-	state = disable_interrupts();
-	GRAB_SEM_LOCK(sSems[slot]);
+	InterruptsSpinLocker _(sSems[slot].lock);
 
 	if (sSems[slot].id != id) {
-		status = B_BAD_SEM_ID;
 		TRACE(("get_sem_info: invalid sem_id %ld\n", id));
+		return B_BAD_SEM_ID;
 	} else
 		fill_sem_info(&sSems[slot], info, size);
 
-	RELEASE_SEM_LOCK(sSems[slot]);
-	restore_interrupts(state);
-
-	return status;
+	return B_OK;
 }
 
 
@@ -1120,7 +1065,7 @@ _get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
 		if (sem == NULL)
 			return B_BAD_VALUE;
 
-		GRAB_SEM_LOCK(*sem);
+		SpinLocker _(sem->lock);
 
 		if (sem->id != -1 && sem->u.used.owner == team->id) {
 			// found one!
@@ -1129,8 +1074,6 @@ _get_next_sem_info(team_id teamID, int32 *_cookie, struct sem_info *info,
 			found = true;
 		} else
 			newIndex++;
-
-		RELEASE_SEM_LOCK(*sem);
 	}
 
 	if (!found)

@@ -23,41 +23,44 @@
 <body>
 
 <div id="banner">
-<div><span>User guide</span></div>
+<div><span>Használati útmutató</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/hu.png" alt="" /> Magyar</li>
-<li><a href="../ca/gui.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/gui.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/gui.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/gui.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../fr/gui.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../it/gui.html"><img src="../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../pl/gui.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/gui.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/gui.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/gui.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/gui.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/gui.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/gui.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/gui.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/gui.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/gui.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/gui.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Magyar&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/gui.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/gui.html">Català</a></li>
+<li><a href="../de/gui.html">Deutsch</a></li>
+<li><a href="../en/gui.html">English</a></li>
+<li><a href="../es/gui.html">Español</a></li>
+<li><a href="../fr/gui.html">Français</a></li>
+<li><a href="../fur/gui.html">Furlan</a></li>
+<li><a href="../it/gui.html">Italiano</a></li>
+<li><a href="../pl/gui.html">Polski</a></li>
+<li><a href="../pt_PT/gui.html">Português</a></li>
+<li><a href="../pt_BR/gui.html">Português (Brazil)</a></li>
+<li><a href="../ro/gui.html">Română</a></li>
+<li><a href="../sk/gui.html">Slovenčina</a></li>
+<li><a href="../fi/gui.html">Suomi</a></li>
+<li><a href="../sv_SE/gui.html">Svenska</a></li>
+<li><a href="../tr/gui.html">Türkçe</a></li>
+<li><a href="../zh_CN/gui.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/gui.html">Русский</a></li>
+<li><a href="../uk/gui.html">Українська</a></li>
+<li><a href="../jp/gui.html">日本語</a></li>
 </ul>
 <span>
- «  <a href="filesystem-layout.html">Filesystem layout</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
-::  <a href="workspaces.html">Workspaces</a>  »
+ «  <a href="filesystem-layout.html">Fájlrendszer felépítése</a> 
+::  <a href="contents.html" class="uplink">Tartalom</a> 
+::  <a href="workspaces.html">Munkaasztalok (Workspaces)</a>  »
 </span></div>
 </div>
 
 <div id="content">
 <div>
-<div class="box-info">The translation of this page isn't yet complete. Until it is, unfinished parts use the English original.</div>
+<div class="box-info">Az oldal fordítása még folyamatban van. Amíg tart a fordítás, addig a lefordítatlan részek angolul jelennek meg.</div>
 
 <table class="index" id="index" summary="index">
 <tr class="heading"><td>Index</td></tr>
@@ -70,7 +73,7 @@
 
 <h1>A Haiku felhasználói felülete</h1>
 
-<p>A Haiku grafikus felhasználói felülete a rendszer részét képezi. Ellentétben a Unix-szerű operációs rendszerekkel, nincs különálló ablakkezelő, és éppen ezért a csak parancssoros indítás sem lehetséges. A Haiku elsősorban az asztali felhasználóra összpontosít.</p>
+<p>Haiku's graphical user interface is an integral part of the system. Unlike other Unix-like operating systems, there is no separate window manager and booting just into a command-line shell is not possible. Haiku's focus being on the desktop user, this is just not considered necessary.</p>
 <p>Minden bizonnyal már rendelkezel más grafikus környezetbeli ismerekkel, ezért most nem térünk ki a "szabványokra", mint például a menük, helyi menük, az egérrel való munka, stb. Most pedig nézzük át a Haiku felületének sajátosságait.</p>
 <img src="images/gui-images/gui.png" alt="gui.png" />
 <p>Csupán néhány dolog jellemző a Haiku felületére, ami magyarázatra szorul.</p>
@@ -81,7 +84,7 @@
 <li>Az ablak elrejthető (az Asztalsávra kicsinyíthető), ha duplán kattintunk a fülön (vagy a <span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">M</span> kombinációval). A már elrejtett ablakok hozzáférhetőek az <a href="deskbar.html">Asztalsáv</a>on illetve a <a href="twitcher.html">Programváltó</a>ban.</li>
 <li>Az ablak háttérbe küldhető, ha a fülön (vagy az ablak keretén) a jobb gombbal kattintunk.</li></ul></li>
 <li><p>Bezárás gomb.</p></li>
-<li><p>Az ablak maximalizálására szolgáló gomb (<span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">Z</span> kombináció). A legtöbb programban az ablak teljes képernyőre történő átméretezésére szolgál. Azonban nem csak erre használható. A Nyomkövető például az ablakot a tartalom megjelenítésére optimalizált méretűre méretezi át.</p></li>
+<li><p>The "zoom" button (or <span class="key">CTRL</span> <span class="key">ALT</span> <span class="key">Z</span>). In most applications, this will expand a window to maximum size without obscuring the Deskbar (hold <span class="key">SHIFT</span> to cover the Deskbar as well). It doesn't have to, however. Tracker windows, for example, will resize to best fit the contents.</p></li>
 <li><p>Az ablak kerete. A bal oldali keret az ablak mozgatására, a jobb oldali pedig az ablak átméretezésére szolgál.</p></li>
 <li><p>Méretező sarok.</p></li>
 </ol>
@@ -159,9 +162,9 @@ A jobb gombbal kattintva a replikáns jelén kapunk egy helyi menüt, amiben az 
 
 <div class="nav">
 <div class="inner"><span>
- «  <a href="filesystem-layout.html">Filesystem layout</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
-::  <a href="workspaces.html">Workspaces</a>  »
+ «  <a href="filesystem-layout.html">Fájlrendszer felépítése</a> 
+::  <a href="contents.html" class="uplink">Tartalom</a> 
+::  <a href="workspaces.html">Munkaasztalok (Workspaces)</a>  »
 </span></div>
 </div>
 

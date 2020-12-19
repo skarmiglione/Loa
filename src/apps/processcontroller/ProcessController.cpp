@@ -1,22 +1,8 @@
 /*
-	ProcessController © 2000, Georges-Edouard Berenger, All Rights Reserved.
-	Copyright (C) 2004 beunited.org
-	Copyright (c) 2006-2015, Haiku, Inc. All rights reserved.
-
-	This library is free software; you can redistribute it and/or
-	modify it under the terms of the GNU Lesser General Public
-	License as published by the Free Software Foundation; either
-	version 2.1 of the License, or (at your option) any later version.
-
-	This library is distributed in the hope that it will be useful,
-	but WITHOUT ANY WARRANTY; without even the implied warranty of
-	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-	Lesser General Public License for more details.
-
-	You should have received a copy of the GNU Lesser General Public
-	License along with this library; if not, write to the Free Software
-	Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-*/
+ * Copyright 2000, Georges-Edouard Berenger. All rights reserved.
+ * Copyright 2006-2018, Haiku, Inc. All rights reserved.
+ * Distributed under the terms of the MIT License.
+ */
 
 
 #include "ProcessController.h"
@@ -117,6 +103,7 @@ typedef struct {
 } Tdebug_thead_param;
 
 // Bar layout depending on number of CPUs
+// This is used only in case the replicant width is 16
 
 typedef struct {
 	float	cpu_width;
@@ -141,13 +128,14 @@ layoutT layout[] = {
 };
 
 
-extern "C" _EXPORT BView *instantiate_deskbar_item(void);
+extern "C" _EXPORT BView* instantiate_deskbar_item(float maxWidth,
+	float maxHeight);
 
-extern "C" _EXPORT BView *
-instantiate_deskbar_item(void)
+extern "C" _EXPORT BView*
+instantiate_deskbar_item(float maxWidth, float maxHeight)
 {
 	gInDeskbar = true;
-	return new ProcessController();
+	return new ProcessController(maxHeight - 1, maxHeight - 1);
 }
 
 
@@ -196,8 +184,10 @@ ProcessController::ProcessController(BMessage *data)
 }
 
 
-ProcessController::ProcessController()
-	: BView(BRect (0, 0, 15, 15), kDeskbarItemName, B_FOLLOW_NONE, B_WILL_DRAW),
+ProcessController::ProcessController(float width, float height)
+	:
+	BView(BRect (0, 0, width, height), kDeskbarItemName, B_FOLLOW_NONE,
+		B_WILL_DRAW),
 	fProcessControllerIcon(kSignature),
 	fProcessorIcon(k_cpu_mini),
 	fTrackerIcon(kTrackerSig),
@@ -452,7 +442,8 @@ ProcessController::MessageReceived(BMessage *message)
 				}
 				if (last) {
 					alert = new BAlert(B_TRANSLATE("Info"),
-						B_TRANSLATE("This is the last active processor...\n"
+						B_TRANSLATE("This is the last active processor"
+						B_UTF8_ELLIPSIS "\n"
 						"You can't turn it off!"),
 						B_TRANSLATE("That's no Fun!"), NULL, NULL,
 						B_WIDTH_AS_USUAL, B_WARNING_ALERT);
@@ -466,9 +457,13 @@ ProcessController::MessageReceived(BMessage *message)
 
 		case 'Schd':
 		{
-			int32 mode;
-			if (message->FindInt32 ("mode", &mode) == B_OK)
-				set_scheduler_mode(mode);
+			BMenuItem* source;
+			if (message->FindPointer("source", (void**)&source) != B_OK)
+				break;
+			if (!source->IsMarked())
+				set_scheduler_mode(SCHEDULER_MODE_POWER_SAVING);
+			else
+				set_scheduler_mode(SCHEDULER_MODE_LOW_LATENCY);
 			break;
 		}
 
@@ -602,28 +597,41 @@ ProcessController::DoDraw(bool force)
 	float h = floorf(bounds.Height ()) - 2;
 	float top = 1, left = 1;
 	float bottom = top + h;
-	float barWidth = layout[gCPUcount].cpu_width;
+	float barWidth;
+	float barGap;
+	float memWidth;
+	if (gCPUcount <= 12 && bounds.Width() == 15) {
+		// Use fixed sizes for small icon sizes
+		barWidth = layout[gCPUcount].cpu_width;
+		barGap = layout[gCPUcount].cpu_inter;
+		memWidth = layout[gCPUcount].mem_width;
+	} else {
+		memWidth = floorf((bounds.Height() + 1) / 8);
+		barGap = ((bounds.Width() + 1) / gCPUcount) > 3 ? 1 : 0;
+		barWidth = floorf((bounds.Width() - 1 - memWidth - barGap * gCPUcount)
+			/ gCPUcount);
+	}
 	// interspace
-	float right = left + gCPUcount * (barWidth + layout[gCPUcount].cpu_inter)
-		- layout[gCPUcount].cpu_inter; // right of CPU frame...
+	float right = left + gCPUcount * (barWidth + barGap) - barGap;
+	float leftMem = bounds.Width() - memWidth;
+		// right of CPU frame...
 	if (force && Parent()) {
 		SetHighColor(Parent()->ViewColor());
-		FillRect(BRect(right + 1, top - 1, right + 2, bottom + 1));
+		FillRect(BRect(right + 1, top - 1, leftMem, bottom + 1));
 	}
 
 	if (force) {
 		SetHighColor(frame_color);
 		StrokeRect(BRect(left - 1, top - 1, right, bottom + 1));
-		if (gCPUcount > 1 && layout[gCPUcount].cpu_inter == 1) {
+		if (gCPUcount > 1 && barGap == 1) {
 			for (unsigned int x = 1; x < gCPUcount; x++)
 				StrokeLine(BPoint(left + x * barWidth + x - 1, top),
 					BPoint(left + x * barWidth + x - 1, bottom));
 		}
 	}
-	float leftMem = bounds.Width() - layout[gCPUcount].mem_width;
+
 	if (force)
-		StrokeRect(BRect(leftMem - 1, top - 1,
-			leftMem + layout[gCPUcount].mem_width, bottom + 1));
+		StrokeRect(BRect(leftMem - 1, top - 1, leftMem + memWidth, bottom + 1));
 
 	for (unsigned int x = 0; x < gCPUcount; x++) {
 		right = left + barWidth - 1;
@@ -654,7 +662,7 @@ ProcessController::DoDraw(bool force)
 			SetHighColor(active_color);
 			FillRect(BRect(left, limit + 1, right, active_bottom));
 		}
-		left += layout[gCPUcount].cpu_width + layout[gCPUcount].cpu_inter;
+		left += barWidth + barGap;
 		fLastBarHeight[x] = barHeight;
 	}
 
@@ -824,19 +832,13 @@ thread_popup(void *arg)
 	}
 
 	// Scheduler modes
-	static const char* schedulerModes[] = { B_TRANSLATE_MARK("Low latency"),
-		B_TRANSLATE_MARK("Power saving") };
-	unsigned int modesCount = sizeof(schedulerModes) / sizeof(const char*);
 	int32 currentMode = get_scheduler_mode();
-	for (unsigned int i = 0; i < modesCount; i++) {
-		BMessage* m = new BMessage('Schd');
-		m->AddInt32("mode", i);
-		item = new BMenuItem(B_TRANSLATE(schedulerModes[i]), m);
-		if ((uint32)currentMode == i)
-			item->SetMarked(true);
-		item->SetTarget(gPCView);
-		addtopbottom(item);
-	}
+	BMessage* msg = new BMessage('Schd');
+	item = new BMenuItem(B_TRANSLATE("Power saving"), msg);
+	if ((uint32)currentMode == SCHEDULER_MODE_POWER_SAVING)
+		item->SetMarked(true);
+	item->SetTarget(gPCView);
+	addtopbottom(item);
 	addtopbottom(new BSeparatorItem());
 
 	if (!be_roster->IsRunning(kTrackerSig)) {

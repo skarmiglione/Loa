@@ -83,7 +83,6 @@ is_mappable_to_modifier(uint32 keyCode)
 KeyboardLayoutView::KeyboardLayoutView(const char* name)
 	:
 	BView(name, B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE | B_FRAME_EVENTS),
-	fOffscreenBitmap(NULL),
 	fKeymap(NULL),
 	fEditable(true),
 	fModifiers(0),
@@ -102,7 +101,6 @@ KeyboardLayoutView::KeyboardLayoutView(const char* name)
 
 KeyboardLayoutView::~KeyboardLayoutView()
 {
-	delete fOffscreenBitmap;
 }
 
 
@@ -110,7 +108,6 @@ void
 KeyboardLayoutView::SetKeyboardLayout(KeyboardLayout* layout)
 {
 	fLayout = layout;
-	_InitOffscreen();
 	_LayoutKeyboard();
 	Invalidate();
 }
@@ -159,7 +156,6 @@ KeyboardLayoutView::AttachedToWindow()
 void
 KeyboardLayoutView::FrameResized(float width, float height)
 {
-	_InitOffscreen();
 	_LayoutKeyboard();
 }
 
@@ -502,32 +498,24 @@ void
 KeyboardLayoutView::Draw(BRect updateRect)
 {
 	if (fOldSize != BSize(Bounds().Width(), Bounds().Height())) {
-		_InitOffscreen();
 		_LayoutKeyboard();
 	}
-
-	BView* view;
-	if (fOffscreenBitmap != NULL) {
-		view = fOffscreenView;
-		view->LockLooper();
-	} else
-		view = this;
 
 	// Draw background
 
 	if (Parent())
-		view->SetLowColor(Parent()->ViewColor());
+		SetLowColor(Parent()->ViewColor());
 	else
-		view->SetLowColor(ui_color(B_PANEL_BACKGROUND_COLOR));
+		SetLowColor(ui_color(B_PANEL_BACKGROUND_COLOR));
 
-	view->FillRect(updateRect, B_SOLID_LOW);
+	FillRect(updateRect, B_SOLID_LOW);
 
 	// Draw keys
 
 	for (int32 i = 0; i < fLayout->CountKeys(); i++) {
 		Key* key = fLayout->KeyAt(i);
 
-		_DrawKey(view, updateRect, key, _FrameFor(key),
+		_DrawKey(this, updateRect, key, _FrameFor(key),
 			_IsKeyPressed(key->code));
 	}
 
@@ -536,15 +524,8 @@ KeyboardLayoutView::Draw(BRect updateRect)
 	for (int32 i = 0; i < fLayout->CountIndicators(); i++) {
 		Indicator* indicator = fLayout->IndicatorAt(i);
 
-		_DrawIndicator(view, updateRect, indicator, _FrameFor(indicator->frame),
+		_DrawIndicator(this, updateRect, indicator, _FrameFor(indicator->frame),
 			(fModifiers & indicator->modifier) != 0);
-	}
-
-	if (fOffscreenBitmap != NULL) {
-		view->Sync();
-		view->UnlockLooper();
-
-		DrawBitmapAsync(fOffscreenBitmap, BPoint(0, 0));
 	}
 }
 
@@ -694,49 +675,15 @@ KeyboardLayoutView::MessageReceived(BMessage* message)
 
 
 void
-KeyboardLayoutView::_InitOffscreen()
-{
-	delete fOffscreenBitmap;
-	fOffscreenView = NULL;
-
-	fOffscreenBitmap = new(std::nothrow) BBitmap(Bounds(),
-		B_BITMAP_ACCEPTS_VIEWS, B_RGB32);
-	if (fOffscreenBitmap != NULL && fOffscreenBitmap->IsValid()) {
-		fOffscreenBitmap->Lock();
-		fOffscreenView = new(std::nothrow) BView(Bounds(), "offscreen view",
-			0, 0);
-		if (fOffscreenView != NULL) {
-			if (Parent() != NULL) {
-				fOffscreenView->SetViewColor(Parent()->ViewColor());
-			} else {
-				fOffscreenView->SetViewColor(
-					ui_color(B_PANEL_BACKGROUND_COLOR));
-			}
-
-			fOffscreenView->SetLowColor(fOffscreenView->ViewColor());
-			fOffscreenBitmap->AddChild(fOffscreenView);
-		}
-		fOffscreenBitmap->Unlock();
-	}
-
-	if (fOffscreenView == NULL) {
-		// something went wrong
-		delete fOffscreenBitmap;
-		fOffscreenBitmap = NULL;
-	}
-}
-
-
-void
 KeyboardLayoutView::_LayoutKeyboard()
 {
 	float factorX = Bounds().Width() / fLayout->Bounds().Width();
 	float factorY = Bounds().Height() / fLayout->Bounds().Height();
 
 	fFactor = min_c(factorX, factorY);
-	fOffset = BPoint((Bounds().Width() - fLayout->Bounds().Width()
-			* fFactor) / 2,
-		(Bounds().Height() - fLayout->Bounds().Height() * fFactor) / 2);
+	fOffset = BPoint(floorf((Bounds().Width() - fLayout->Bounds().Width()
+			* fFactor) / 2),
+		floorf((Bounds().Height() - fLayout->Bounds().Height() * fFactor) / 2));
 
 	if (fLayout->DefaultKeySize().width < 11)
 		fGap = 1;
@@ -752,6 +699,9 @@ void
 KeyboardLayoutView::_DrawKeyButton(BView* view, BRect& rect, BRect updateRect,
 	rgb_color base, rgb_color background, bool pressed)
 {
+	uint32 flags = pressed ? BControlLook::B_ACTIVATED : 0;
+	flags |= BControlLook::B_FLAT;
+
 	be_control_look->DrawButtonFrame(view, rect, updateRect, 4.0f, base,
 		background, pressed ? BControlLook::B_ACTIVATED : 0);
 	be_control_look->DrawButtonBackground(view, rect, updateRect, 4.0f,
@@ -784,6 +734,9 @@ KeyboardLayoutView::_DrawKey(BView* view, BRect updateRect, const Key* key,
 
 	_SetFontSize(view, keyKind);
 
+	uint32 flags = pressed ? BControlLook::B_ACTIVATED : 0;
+	flags |= BControlLook::B_FLAT;
+
 	if (secondDeadKey)
 		base = kSecondDeadKeyColor;
 	else if (deadKey > 0 && isDeadKeyEnabled)
@@ -796,7 +749,8 @@ KeyboardLayoutView::_DrawKey(BView* view, BRect updateRect, const Key* key,
 
 		_GetAbbreviatedKeyLabelIfNeeded(view, rect, key, text, sizeof(text));
 		be_control_look->DrawLabel(view, text, rect, updateRect,
-			base, 0, BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE), &keyLabelColor);
+			base, flags, BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE),
+			&keyLabelColor);
 	} else if (key->shape == kEnterKeyShape) {
 		BRect topLeft = rect;
 		BRect topRight = rect;
@@ -822,35 +776,29 @@ KeyboardLayoutView::_DrawKey(BView* view, BRect updateRect, const Key* key,
 
 		// draw top left corner
 		be_control_look->DrawButtonFrame(view, topLeft, updateRect,
-			4.0f, 0.0f, 4.0f, 0.0f, base, background,
-			pressed ? BControlLook::B_ACTIVATED : 0,
+			4.0f, 0.0f, 4.0f, 0.0f, base, background, flags,
 			BControlLook::B_LEFT_BORDER | BControlLook::B_TOP_BORDER
 				| BControlLook::B_BOTTOM_BORDER);
 		be_control_look->DrawButtonBackground(view, topLeft, updateRect,
-			4.0f, 0.0f, 4.0f, 0.0f, base,
-			pressed ? BControlLook::B_ACTIVATED : 0,
+			4.0f, 0.0f, 4.0f, 0.0f, base, flags,
 			BControlLook::B_LEFT_BORDER | BControlLook::B_TOP_BORDER
 				| BControlLook::B_BOTTOM_BORDER);
 
 		// draw top right corner
 		be_control_look->DrawButtonFrame(view, topRight, updateRect,
-			0.0f, 4.0f, 0.0f, 0.0f, base, background,
-			pressed ? BControlLook::B_ACTIVATED : 0,
+			0.0f, 4.0f, 0.0f, 0.0f, base, background, flags,
 			BControlLook::B_TOP_BORDER | BControlLook::B_RIGHT_BORDER);
 		be_control_look->DrawButtonBackground(view, topRight, updateRect,
-			0.0f, 4.0f, 0.0f, 0.0f, base,
-			pressed ? BControlLook::B_ACTIVATED : 0,
+			0.0f, 4.0f, 0.0f, 0.0f, base, flags,
 			BControlLook::B_TOP_BORDER | BControlLook::B_RIGHT_BORDER);
 
 		// draw bottom right corner
 		be_control_look->DrawButtonFrame(view, bottomRight, updateRect,
-			0.0f, 0.0f, 4.0f, 4.0f, base, background,
-			pressed ? BControlLook::B_ACTIVATED : 0,
+			0.0f, 0.0f, 4.0f, 4.0f, base, background, flags,
 			BControlLook::B_LEFT_BORDER | BControlLook::B_RIGHT_BORDER
 				| BControlLook::B_BOTTOM_BORDER);
 		be_control_look->DrawButtonBackground(view, bottomRight, updateRect,
-			0.0f, 0.0f, 4.0f, 4.0f, base,
-			pressed ? BControlLook::B_ACTIVATED : 0,
+			0.0f, 0.0f, 4.0f, 4.0f, base, flags,
 			BControlLook::B_LEFT_BORDER | BControlLook::B_RIGHT_BORDER
 				| BControlLook::B_BOTTOM_BORDER);
 
@@ -861,22 +809,18 @@ KeyboardLayoutView::_DrawKey(BView* view, BRect updateRect, const Key* key,
 		region.Exclude(bottomLeft);
 		view->ConstrainClippingRegion(&region);
 
-		// Fill in the rect with the background color
-		SetHighColor(background);
-		FillRect(rect);
-
 		// draw the button background
 		BRect bgRect = rect.InsetByCopy(2, 2);
 		be_control_look->DrawButtonBackground(view, bgRect, updateRect,
-			4.0f, 4.0f, 0.0f, 4.0f, base,
-			pressed ? BControlLook::B_ACTIVATED : 0);
+			4.0f, 4.0f, 0.0f, 4.0f, base, flags);
 
 		rect.left = bottomLeft.right;
 		_GetAbbreviatedKeyLabelIfNeeded(view, rect, key, text, sizeof(text));
 
 		// draw the button label
 		be_control_look->DrawLabel(view, text, rect, updateRect,
-			base, 0, BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE), &keyLabelColor);
+			base, flags, BAlignment(B_ALIGN_CENTER, B_ALIGN_MIDDLE),
+			&keyLabelColor);
 
 		// reset the clipping region
 		view->ConstrainClippingRegion(NULL);
@@ -934,26 +878,41 @@ const char*
 KeyboardLayoutView::_SpecialKeyLabel(const key_map& map, uint32 code,
 	bool abbreviated)
 {
-	if (code == map.caps_key)
-		return abbreviated ? "CAPS" : "CAPS LOCK";
+	if (code == map.caps_key) {
+		return abbreviated
+			? B_TRANSLATE_COMMENT("CAPS", "Very short for 'caps lock'")
+			: B_TRANSLATE("CAPS LOCK");
+	}
 	if (code == map.scroll_key)
-		return "SCROLL";
-	if (code == map.num_key)
-		return abbreviated ? "NUM" : "NUM LOCK";
+		return B_TRANSLATE("SCROLL");
+	if (code == map.num_key) {
+		return abbreviated
+			? B_TRANSLATE_COMMENT("NUM", "Very short for 'num lock'")
+			: B_TRANSLATE("NUM LOCK");
+	}
 	if (code == map.left_shift_key || code == map.right_shift_key)
-		return "SHIFT";
-	if (code == map.left_command_key || code == map.right_command_key)
-		return abbreviated ? "CMD" : "COMMAND";
-	if (code == map.left_control_key || code == map.right_control_key)
-		return abbreviated ? "CTRL" : "CONTROL";
-	if (code == map.left_option_key || code == map.right_option_key)
-		return abbreviated ? "OPT" : "OPTION";
+		return B_TRANSLATE("SHIFT");
+	if (code == map.left_command_key || code == map.right_command_key) {
+		return abbreviated
+			? B_TRANSLATE_COMMENT("CMD", "Very short for 'command'")
+			: B_TRANSLATE("COMMAND");
+	}
+	if (code == map.left_control_key || code == map.right_control_key) {
+		return abbreviated
+			? B_TRANSLATE_COMMENT("CTRL", "Very short for 'control'")
+			: B_TRANSLATE("CONTROL");
+	}
+	if (code == map.left_option_key || code == map.right_option_key) {
+		return abbreviated
+			? B_TRANSLATE_COMMENT("OPT", "Very short for 'option'")
+			: B_TRANSLATE("OPTION");
+	}
 	if (code == map.menu_key)
-		return "MENU";
+		return B_TRANSLATE("MENU");
 	if (code == B_PRINT_KEY)
-		return "PRINT";
+		return B_TRANSLATE("PRINT");
 	if (code == B_PAUSE_KEY)
-		return "PAUSE";
+		return B_TRANSLATE("PAUSE");
 
 	return NULL;
 }
@@ -968,7 +927,7 @@ KeyboardLayoutView::_SpecialMappedKeySymbol(const char* bytes, size_t numBytes)
 	if (bytes[0] == B_TAB)
 		return "\xe2\x86\xb9";
 	if (bytes[0] == B_ENTER)
-		return "\xe2\x86\xb5";
+		return "\xe2\x8f\x8e";
 	if (bytes[0] == B_BACKSPACE)
 		return "\xe2\x8c\xab";
 
@@ -991,22 +950,28 @@ KeyboardLayoutView::_SpecialMappedKeyLabel(const char* bytes, size_t numBytes,
 {
 	if (numBytes != 1)
 		return NULL;
-
 	if (bytes[0] == B_ESCAPE)
-		return "ESC";
-
+		return B_TRANSLATE("ESC");
 	if (bytes[0] == B_INSERT)
-		return "INS";
+		return B_TRANSLATE("INS");
 	if (bytes[0] == B_DELETE)
-		return "DEL";
+		return B_TRANSLATE("DEL");
 	if (bytes[0] == B_HOME)
-		return "HOME";
+		return B_TRANSLATE("HOME");
 	if (bytes[0] == B_END)
-		return "END";
-	if (bytes[0] == B_PAGE_UP)
-		return abbreviated ? "PG \xe2\x86\x91" : "PAGE \xe2\x86\x91";
-	if (bytes[0] == B_PAGE_DOWN)
-		return abbreviated ? "PG \xe2\x86\x93" : "PAGE \xe2\x86\x93";
+		return B_TRANSLATE("END");
+	if (bytes[0] == B_PAGE_UP) {
+		return abbreviated
+			? B_TRANSLATE_COMMENT("PG \xe2\x86\x91",
+				"Very short for 'page up'")
+			: B_TRANSLATE("PAGE \xe2\x86\x91");
+	}
+	if (bytes[0] == B_PAGE_DOWN) {
+		return abbreviated
+			? B_TRANSLATE_COMMENT("PG \xe2\x86\x93",
+				"Very short for 'page down'")
+			: B_TRANSLATE("PAGE \xe2\x86\x93");
+	}
 
 	return NULL;
 }

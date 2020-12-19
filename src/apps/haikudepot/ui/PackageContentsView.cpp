@@ -1,5 +1,6 @@
 /*
  * Copyright 2015, TigerKid001.
+ * Copyright 2020, Andrew Lindesay <apl@lindesay.co.nz>
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
@@ -19,6 +20,8 @@
 #include <ScrollView.h>
 #include <StringFormat.h>
 #include <StringItem.h>
+
+#include "Logger.h"
 
 #include <package/PackageDefs.h>
 #include <package/hpkg/NoErrorOutput.h>
@@ -121,16 +124,11 @@ public:
 
 	virtual status_t HandleEntry(BPackageEntry* entry)
 	{
-//		printf("HandleEntry(%s/%s)\n",
-//			entry->Parent() != NULL ? entry->Parent()->Name() : "NULL",
-//			entry->Name());
-
 		if (fListView->LockLooperWithTimeout(1000000) != B_OK)
 			return B_ERROR;
 
 		// Check if we are still supposed to popuplate the list
 		if (fPackageInfoRef.Get() != fPackageInfoToPopulate) {
-//			printf("stopping package content population\n");
 			fListView->UnlockLooper();
 			return B_ERROR;
 		}
@@ -147,17 +145,14 @@ public:
 		PackageEntryItem* item = new PackageEntryItem(entry, path);
 
 		if (entry->Parent() == NULL) {
-//			printf("  adding root entry\n");
 			fListView->AddItem(item);
 			fLastParentEntry = NULL;
 			fLastParentItem = NULL;
 		} else if (entry->Parent() == fLastEntry) {
-//			printf("  adding to last entry %s\n", fLastEntry->Name());
 			fListView->AddUnder(item, fLastItem);
 			fLastParentEntry = fLastEntry;
 			fLastParentItem = fLastItem;
 		} else if (entry->Parent() == fLastParentEntry) {
-//			printf("  adding to last parent %s\n", fLastParentEntry->Name());
 			fListView->AddUnder(item, fLastParentItem);
 		} else {
 			// Not the last parent entry, need to search for the parent
@@ -172,7 +167,6 @@ public:
 				if (listItem->EntryPath() == path) {
 					fLastParentEntry = entry->Parent();
 					fLastParentItem = listItem;
-//					printf("  found parent %s\n", listItem->Text());
 					fListView->AddUnder(item, listItem);
 					foundParent = true;
 					break;
@@ -181,8 +175,6 @@ public:
 			if (!foundParent) {
 				// NOTE: Should not happen. Just add this entry at the
 				// root level.
-//				printf("Did not find parent entry for %s (%s)!\n",
-//					entry->Name(), entry->Parent()->Name());
 				fListView->AddItem(item);
 				fLastParentEntry = NULL;
 				fLastParentItem = NULL;
@@ -293,9 +285,6 @@ PackageContentsView::SetPackage(const PackageInfoRef& package)
 		return;
 	}
 
-//	printf("PackageContentsView::SetPackage(%s)\n",
-//		package.Get() != NULL ? package->Name().String() : "NULL");
-
 	Clear();
 
 	{
@@ -303,7 +292,14 @@ PackageContentsView::SetPackage(const PackageInfoRef& package)
 		fPackage = package;
 		fLastPackageState = package.Get() != NULL ? package->State() : NONE;
 	}
-	release_sem_etc(fContentPopulatorSem, 1, 0);
+
+	// if the package is not installed and is not a local file on disk then
+	// there is no point in attempting to populate data for it.
+
+	if (package.Get() != NULL
+			&& (package->State() == ACTIVATED || package->IsLocalFile())) {
+		release_sem_etc(fContentPopulatorSem, 1, 0);
+	}
 }
 
 
@@ -349,7 +345,7 @@ PackageContentsView::_ContentPopulatorThread(void* arg)
 		}
 
 		if (package.Get() != NULL) {
-			if (!view->_PopuplatePackageContens(*package.Get())) {
+			if (!view->_PopulatePackageContents(*package.Get())) {
 				if (view->LockLooperWithTimeout(1000000) == B_OK) {
 					view->fContentListView->AddItem(
 						new BStringItem(B_TRANSLATE("<Package contents not "
@@ -365,7 +361,7 @@ PackageContentsView::_ContentPopulatorThread(void* arg)
 
 
 bool
-PackageContentsView::_PopuplatePackageContens(const PackageInfo& package)
+PackageContentsView::_PopulatePackageContents(const PackageInfo& package)
 {
 	BPath packagePath;
 
@@ -386,7 +382,7 @@ PackageContentsView::_PopuplatePackageContens(const PackageInfo& package)
 				return false;
 			}
 		} else {
-			printf("PackageContentsView::_PopuplatePackageContens(): "
+			HDINFO("PackageContentsView::_PopulatePackageContents(): "
 				"unknown install location");
 			return false;
 		}
@@ -400,8 +396,8 @@ PackageContentsView::_PopuplatePackageContens(const PackageInfo& package)
 
 	status_t status = reader.Init(packagePath.Path());
 	if (status != B_OK) {
-		printf("PackageContentsView::_PopuplatePackageContens(): "
-			"failed to init BPackageReader(%s): %s\n",
+		HDINFO("PackageContentsView::_PopulatePackageContents(): "
+			"failed to init BPackageReader(%s): %s",
 			packagePath.Path(), strerror(status));
 		return false;
 	}
@@ -411,8 +407,8 @@ PackageContentsView::_PopuplatePackageContens(const PackageInfo& package)
 		fPackageLock, fPackage);
 	status = reader.ParseContent(&contentHandler);
 	if (status != B_OK) {
-		printf("PackageContentsView::_PopuplatePackageContens(): "
-			"failed parse package contents: %s\n", strerror(status));
+		HDINFO("PackageContentsView::_PopulatePackageContents(): "
+			"failed parse package contents: %s", strerror(status));
 		// NOTE: Do not return false, since it taken to mean this
 		// is a remote package, but is it not, we simply want to stop
 		// populating the contents early.

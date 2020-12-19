@@ -329,7 +329,12 @@ struct SecurityContext::UserPath {
 
 	uint32 GetHashCode() const
 	{
+#ifdef B_HAIKU_64_BIT
+		uint64 v = (uint64)user;
+		return (path.GetHashCode() * 31) + ((uint32)(v >> 32) ^ (uint32)v);
+#else
 		return path.GetHashCode() * 31 + (uint32)user;
+#endif
 	}
 
 	UserPath& operator=(const UserPath& other)
@@ -520,7 +525,7 @@ SecurityContext::Archive(BMessage* archive, bool deep) const
 	if (!tmpUserArchives)
 		return B_NO_MEMORY;
 	ArrayDeleter<BMessage> deleter(tmpUserArchives);
-	HashMap<HashKey32<User*>, BMessage*> userArchives;
+	HashMap<HashKeyPointer<User*>, BMessage*> userArchives;
 	int32 i = 0;
 	for (UserMap::Iterator it = fUsers->GetIterator(); it.HasNext();) {
 		User* user = it.Next().value;
@@ -673,7 +678,7 @@ SecurityContext::RemoveUser(User* user)
 		 it.HasNext();) {
 		PermissionMap::Entry entry = it.Next();
 		if (entry.key.user == user)
-			it.Remove();
+			fPermissions->Remove(it);
 	}
 
 	// surrender our user reference

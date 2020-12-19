@@ -1,8 +1,31 @@
 # Haiku Jamrules
 
-# Make sure we have an absolute HAIKU_TOP
-if $(HAIKU_TOP) = "." {
-	HAIKU_TOP = $(PWD) ;
+# Make sure we are on a sane version of Jam.
+if ! [ Match "(.*)-haiku-(.*)" : $(JAMVERSION) ] {
+	Exit "You can only build Haiku with Haiku's Jam, not Perforce Jam or"
+		"some other variant (you are using $(JAMVERSION))." ;
+}
+
+# Make sure we are on a recent Jambase.
+if $(JAMBASEDATE) < 2018 {
+	Exit "Your Jambase is too old ($(JAMBASEDATE)); please update it (likely"
+		"by updating Jam itself.)" ;
+}
+
+# Make sure HAIKU_TOP is a relative path (and prefer it to be the current or
+# parent directory.)
+#
+# This is done so that invocations to the compiler and other tools, which
+# under some circumstances inject the source's path into the generated file,
+# are passed relative paths, making builds more reproducible.
+if $(HAIKU_TOP) != "." && $(HAIKU_TOP) != ".."
+		&& ! [ Match "\\.\\./(.*)" : $(HAIKU_TOP) ] {
+	Exit "The present path to the project root is '$(HAIKU_TOP)', but you"
+		"must be in the project root or a \"generated\" directory in order to"
+		"build Haiku."
+
+		"(If you are, and are still seeing this message, run "
+		"\"../configure --update\" to solve the issue.)" ;
 }
 
 # Main directories used by the build.
@@ -19,6 +42,10 @@ HAIKU_DOWNLOAD_DIR					?= [ FDirName $(HAIKU_OUTPUT_DIR)
 											download ] ;
 HAIKU_OPTIONAL_BUILD_PACKAGES_DIR	?= [ FDirName $(HAIKU_OUTPUT_DIR)
 											build_packages ] ;
+
+# Absolutely rooted versions of some of the main directories
+HAIKU_ABSOLUTE_TOP					?= [ FDirName $(PWD) $(HAIKU_TOP) ] ;
+HAIKU_ABSOLUTE_OUTPUT_DIR			?= [ FDirName $(PWD) $(HAIKU_OUTPUT_DIR) ] ;
 
 # Cache files for header scanning and jamfile caching
 HCACHEFILE = header_cache ;

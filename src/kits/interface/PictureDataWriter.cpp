@@ -1,10 +1,11 @@
 /*
- * Copyright 2006-2015 Haiku, Inc. All rights reserved.
+ * Copyright 2006-2018 Haiku, Inc. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Stefano Ceccherini, stefano.ceccherini@gmail.com
  *		Julian Harnath, <julian.harnath@rwth-achen.de>
+ *		Stephan Aßmus <superstippi@gmx.de>
  */
 
 #include <PictureDataWriter.h>
@@ -13,6 +14,7 @@
 #include <string.h>
 
 #include <DataIO.h>
+#include <Gradient.h>
 #include <Point.h>
 #include <Rect.h>
 #include <Region.h>
@@ -145,6 +147,21 @@ PictureDataWriter::WriteSetLineMode(const cap_mode& cap, const join_mode& join,
 		Write<int16>((int16)cap);
 		Write<int16>((int16)join);
 		Write<float>(miterLimit);
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+PictureDataWriter::WriteSetFillRule(int32 fillRule)
+{
+	try {
+		BeginOp(B_PIC_SET_FILL_RULE);
+		Write<int32>(fillRule);
 		EndOp();
 	} catch (status_t& status) {
 		return status;
@@ -479,6 +496,27 @@ PictureDataWriter::WriteDrawString(const BPoint& where, const char* string,
 
 
 status_t
+PictureDataWriter::WriteDrawString(const char* string,
+	int32 length, const BPoint* locations, int32 locationCount)
+{
+	try {
+		BeginOp(B_PIC_DRAW_STRING_LOCATIONS);
+		Write<int32>(locationCount);
+		for (int32 i = 0; i < locationCount; i++) {
+			Write<BPoint>(locations[i]);
+		}
+		WriteData(string, length);
+		Write<uint8>(0);
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
 PictureDataWriter::WriteDrawShape(const int32& opCount, const void* opList,
 	const int32& ptCount, const void* ptList, const bool& fill)
 {
@@ -488,6 +526,137 @@ PictureDataWriter::WriteDrawShape(const int32& opCount, const void* opList,
 		Write<int32>(ptCount);
 		WriteData(opList, opCount * sizeof(uint32));
 		WriteData(ptList, ptCount * sizeof(BPoint));
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+PictureDataWriter::WriteDrawRectGradient(const BRect& rect, const BGradient& gradient, const bool& fill)
+{
+	try {
+		BeginOp(fill ? B_PIC_FILL_RECT_GRADIENT : B_PIC_STROKE_RECT_GRADIENT);
+		Write<BRect>(rect);
+		gradient.Flatten(fData);
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+PictureDataWriter::WriteDrawRoundRectGradient(const BRect& rect, const BPoint& radius, const BGradient& gradient,
+	const bool& fill)
+{
+	try {
+		BeginOp(fill ? B_PIC_FILL_ROUND_RECT_GRADIENT : B_PIC_STROKE_ROUND_RECT_GRADIENT);
+		Write<BRect>(rect);
+		Write<BPoint>(radius);
+		gradient.Flatten(fData);
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+PictureDataWriter::WriteDrawBezierGradient(const BPoint points[4], const BGradient& gradient, const bool& fill)
+{
+	try {
+		BeginOp(fill ? B_PIC_FILL_BEZIER_GRADIENT : B_PIC_STROKE_BEZIER_GRADIENT);
+		for (int32 i = 0; i < 4; i++)
+			Write<BPoint>(points[i]);
+
+		gradient.Flatten(fData);
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+PictureDataWriter::WriteDrawArcGradient(const BPoint& center, const BPoint& radius,
+	const float& startTheta, const float& arcTheta, const BGradient& gradient, const bool& fill)
+{
+	try {
+		BeginOp(fill ? B_PIC_FILL_ARC_GRADIENT : B_PIC_STROKE_ARC_GRADIENT);
+		Write<BPoint>(center);
+		Write<BPoint>(radius);
+		Write<float>(startTheta);
+		Write<float>(arcTheta);
+		gradient.Flatten(fData);
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+PictureDataWriter::WriteDrawEllipseGradient(const BRect& rect, const BGradient& gradient, const bool& fill)
+{
+	try {
+		BeginOp(fill ? B_PIC_FILL_ELLIPSE_GRADIENT : B_PIC_STROKE_ELLIPSE_GRADIENT);
+		Write<BRect>(rect);
+		gradient.Flatten(fData);
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+PictureDataWriter::WriteDrawPolygonGradient(const int32& numPoints, BPoint* points,
+	const bool& isClosed, const BGradient& gradient, const bool& fill)
+{
+	try {
+		BeginOp(fill ? B_PIC_FILL_POLYGON_GRADIENT : B_PIC_STROKE_POLYGON_GRADIENT);
+		Write<int32>(numPoints);
+		for (int32 i = 0; i < numPoints; i++)
+			Write<BPoint>(points[i]);
+
+		if (!fill)
+			Write<uint8>((uint8)isClosed);
+
+		gradient.Flatten(fData);
+		EndOp();
+	} catch (status_t& status) {
+		return status;
+	}
+
+	return B_OK;
+}
+
+
+status_t
+PictureDataWriter::WriteDrawShapeGradient(const int32& opCount, const void* opList,
+	const int32& ptCount, const void* ptList, const BGradient& gradient, const bool& fill)
+{
+	try {
+		BeginOp(fill ? B_PIC_FILL_SHAPE_GRADIENT : B_PIC_STROKE_SHAPE_GRADIENT);
+		Write<int32>(opCount);
+		Write<int32>(ptCount);
+		WriteData(opList, opCount * sizeof(uint32));
+		WriteData(ptList, ptCount * sizeof(BPoint));
+		gradient.Flatten(fData);
 		EndOp();
 	} catch (status_t& status) {
 		return status;

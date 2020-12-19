@@ -1,5 +1,6 @@
 /*
  * Copyright 2013, Stephan Aßmus <superstippi@gmx.de>.
+ * Copyright 2020, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 #ifndef BITMAP_VIEW_H
@@ -17,7 +18,6 @@ public:
 
 	virtual						~BitmapView();
 
-	virtual	void				AllAttached();
 	virtual	void				Draw(BRect updateRect);
 
 	virtual	BSize				MinSize();
@@ -25,18 +25,13 @@ public:
 	virtual	BSize				MaxSize();
 
 			void				SetBitmap(SharedBitmap* bitmap,
-									SharedBitmap::Size bitmapSize
-										= SharedBitmap::SIZE_ANY);
+									BitmapSize bitmapSize = BITMAP_SIZE_ANY);
 			void				UnsetBitmap();
 			void				SetScaleBitmap(bool scaleBitmap);
 
-protected:
-	virtual void				DrawBackground(BRect& bounds,
-									BRect updateRect);
-
 private:
 			BitmapRef			fReference;
-			SharedBitmap::Size	fBitmapSize;
+			BitmapSize			fBitmapSize;
 			const BBitmap*		fBitmap;
 			bool				fScaleBitmap;
 };

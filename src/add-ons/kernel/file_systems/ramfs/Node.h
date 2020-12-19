@@ -1,5 +1,7 @@
-// Node.h
-
+/*
+ * Copyright 2007, Ingo Weinhold, ingo_weinhold@gmx.de.
+ * All rights reserved. Distributed under the terms of the MIT license.
+ */
 #ifndef NODE_H
 #define NODE_H
 
@@ -35,6 +37,8 @@ public:
 	virtual ~Node();
 
 	virtual status_t InitCheck() const;
+
+	Node*& HashLink()	{ return fHashLink; }
 
 	inline void SetVolume(Volume *volume)	{ fVolume = volume; }
 	inline Volume *GetVolume() const		{ return fVolume; }
@@ -107,6 +111,7 @@ public:
 	virtual void GetAllocationInfo(AllocationInfo &info);
 
 private:
+	Node					*fHashLink;
 	Volume					*fVolume;
 	ino_t					fID;
 	int32					fRefCount;

@@ -1,13 +1,10 @@
 SubDir HAIKU_TOP src tests system kernel device_manager playground ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
-
 UseHeaders $(HAIKU_PRIVATE_KERNEL_HEADERS) : true ;
 UsePrivateHeaders shared ;
 
 SimpleTest device_manager :
 	device_manager.cpp
-	KPath.cpp
 
 	bus.cpp
 	driver.cpp

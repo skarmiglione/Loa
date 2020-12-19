@@ -1,22 +1,23 @@
-1	italian	x-vnd.Haiku-NetworkStatus	1729819859
-NetworkStatus options:\n\t--deskbar\tautomatically add replicant to Deskbar\n\t--help\t\tprint this info and exit\n	NetworkStatus		Opzioni NetworkStatus:\n\t--deskbar\taggiunge automaticamente un replicante sulla Deskbar\n\t--help\t\tstampa queste informazioni ed esce\n
-You can run NetworkStatus in a window or install it in the Deskbar.	NetworkStatus		Potete avviare NetworkStatus in una finestra o installarlo sulla Deskbar
-<no wireless networks found>	NetworkStatusView		<nessuna rete wireless trovata>
-Run in window	NetworkStatus		Avvia in finestra
-No link	NetworkStatusView		Nessun collegamento
-Install in Deskbar	NetworkStatus		Installa sulla Deskbar
-Launching the network preflet failed.\n\nError: 	NetworkStatusView		L'avvio della preflet di rete è fallita.\n\nErrore: 
+1	italian	x-vnd.Haiku-NetworkStatus	186344131
 Netmask	NetworkStatusView		Maschera di rete
-Broadcast	NetworkStatusView		Broadcast
-Unknown	NetworkStatusView		Sconosciuto
-Network Status	NetworkStatusView		Stato della Rete
-Ready	NetworkStatusView		Pronto
-No stateful configuration	NetworkStatusView		Configurazione senza stato
-%ifaceName information:\n	NetworkStatusView		%ifaceName informazioni:\n
-Configuring	NetworkStatusView		Configurazione in corso
-Address	NetworkStatusView		Indirizzo
-OK	NetworkStatusView		OK
-NetworkStatus	System name		NetworkStatus
-Open network preferences…	NetworkStatusView		Apri le preferenze di rete…
-Could not join wireless network:\n	NetworkStatusView		Impossibile accedere alla rete wireless:\n
 Quit	NetworkStatusView		Esci
+Unknown	NetworkStatusView		Sconosciuto
+Launching the network preflet failed.\n\nError: 	NetworkStatusView		L'avvio della preflet di rete è fallita.\n\nErrore: 
+Install in Deskbar	NetworkStatus		Installa sulla Deskbar
+NetworkStatus options:\n\t--deskbar\tautomatically add replicant to Deskbar\n\t--help\t\tprint this info and exit	NetworkStatus		Opzioni di NetworkStatus:\n\t--deskbar\taggiunge automaticamente un replicante alla Deskbar\n\t--help\t\tstampa questo messaggio ed esce
+Open network preferences…	NetworkStatusView		Apri le preferenze di rete…
+NetworkStatus	System name		Stato Rete
+OK	NetworkStatusView		OK
+No link	NetworkStatusView		Nessun collegamento
+Could not join wireless network:\n	NetworkStatusView		Impossibile accedere alla rete wireless:\n
+Ready	NetworkStatusView		Pronto
+Network Status	NetworkStatusView		Stato rete
+Address	NetworkStatusView		Indirizzo
+Deskbar is not running, giving up.	NetworkStatus		Deskbar non in esecuzione, operazione non completata.
+No stateful configuration	NetworkStatusView		Configurazione senza stato
+You can run NetworkStatus in a window or install it in the Deskbar.	NetworkStatus		Puoi avviare Stato Rete in una finestra o installarlo sulla Deskbar
+Broadcast	NetworkStatusView		Broadcast
+%ifaceName information:\n	NetworkStatusView		%ifaceName informazioni:\n
+Run in window	NetworkStatus		Avvia in finestra
+<no wireless networks found>	NetworkStatusView		<nessuna rete wireless trovata>
+Configuring	NetworkStatusView		Configurazione in corso

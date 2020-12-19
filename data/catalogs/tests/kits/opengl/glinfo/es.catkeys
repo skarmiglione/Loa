@@ -1,9 +1,24 @@
-1	spanish; castilian	x-vnd.Haiku-GLInfo	3678488342
-Capability	Capabilities		Capacidad
-Information	InfoView		Información
+1	spanish; castilian	x-vnd.Haiku-GLInfo	2211760527
+Maximum clipping planes	Capabilities		Máximo de planos de corte
+Maximum evaluators equation order	Capabilities		Máximo de orden de ecuación de evaluadores
+Texture stack size	Capabilities		Tamaño de la pila de texturas
 GL Info	System name		Información GL
-Capabilities	Capabilities		Capacidades
-Maximum convolution	Capabilities		Convolución máxima
-Available extensions	Extensions		Extensiones disponibles
-Value	Capabilities		Valor
+Information	InfoView		Información
+Attributes stack size	Capabilities		Tamaño de la pila de atributos
+Maximum lights	Capabilities		Máximo de luces
 Extensions	Extensions		Extensiones
+Available extensions	Extensions		Extensiones disponibles
+Maximum recommended vertex elements	Capabilities		Máximo recomendado de elementos de vértice
+Value	Capabilities		Valor
+Name stack size	Capabilities		Tamaño de la pila de nombres
+Capabilities	Capabilities		Capacidades
+Maximum texture units	Capabilities		Máximo de unidades de textura
+Capability	Capabilities		Capacidad
+Maximum 2D texture size	Capabilities		Tamaño máximo de textura en 2D
+Auxiliary buffer(s)	Capabilities		Búferes auxiliares
+Maximum convolution	Capabilities		Convolución máxima
+Maximum 3D texture size	Capabilities		Tamaño máximo de textura en 3D
+Maximum recommended index elements	Capabilities		Máximo recomendado de elementos de índice
+List stack size	Capabilities		Tamaño de la pila de lista
+Model stack size	Capabilities		Tamaño de la pila de modelos
+Projection stack size	Capabilities		Tamaño de la pila de proyecciones

@@ -15,6 +15,7 @@
 
 #include <net80211/ieee80211_var.h>
 #include <net80211/ieee80211_amrr.h>
+#include <net80211/ieee80211_ratectl.h>
 
 #include <dev/iwm/if_iwmreg.h>
 #include <dev/iwm/if_iwmvar.h>
@@ -25,14 +26,17 @@ NO_HAIKU_FBSD_MII_DRIVER();
 NO_HAIKU_REENABLE_INTERRUPTS();
 HAIKU_DRIVER_REQUIREMENTS(FBSD_TASKQUEUES | FBSD_WLAN);
 HAIKU_FIRMWARE_VERSION(1);
-HAIKU_FIRMWARE_NAME_MAP(6) = {
+HAIKU_FIRMWARE_NAME_MAP({
 	{"iwm3160fw", "iwm-3160-17.ucode"},
+	{"iwm3168fw", "iwm-3168-22.ucode"},
 	{"iwm7260fw", "iwm-7260-17.ucode"},
 	{"iwm7265fw", "iwm-7265-17.ucode"},
 	{"iwm7265Dfw", "iwm-7265D-22.ucode"},
 	{"iwm8000Cfw", "iwm-8000C-22.ucode"},
 	{"iwm8265fw", "iwm-8265-22.ucode"},
-};
+	{"iwm9000fw", "iwm-9000-34.ucode"},
+	{"iwm9260fw", "iwm-9260-34.ucode"},
+});
 
 
 int

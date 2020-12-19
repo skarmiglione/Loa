@@ -1,6 +1,6 @@
 /*
 ** Copyright 2011, Oliver Tappe, zooey@hirschkaefer.de. All rights reserved.
-** Distributed under the terms of the Haiku License.
+** Distributed under the terms of the MIT License.
 */
 
 #include <errno.h>
@@ -85,5 +85,4 @@ __mbrtowc(wchar_t* pwc, const char* s, size_t n, mbstate_t* ps)
 }
 
 
-extern "C"
 B_DEFINE_WEAK_ALIAS(__mbrtowc, mbrtowc);

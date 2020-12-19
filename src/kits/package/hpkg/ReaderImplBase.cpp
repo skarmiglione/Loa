@@ -35,8 +35,6 @@ namespace BHPKG {
 namespace BPrivate {
 
 
-static const size_t kScratchBufferSize = 64 * 1024;
-
 static const uint16 kAttributeTypes[B_HPKG_ATTRIBUTE_ID_ENUM_COUNT] = {
 	#define B_DEFINE_HPKG_ATTRIBUTE(id, type, name, constant)	\
 		B_HPKG_ATTRIBUTE_TYPE_##type,
@@ -141,6 +139,8 @@ ReaderImplBase::PackageInfoAttributeHandlerBase::NotifyDone(
 {
 	status_t error = context->packageContentHandler->HandlePackageAttribute(
 		fPackageInfoValue);
+	if (context->ignoreUnknownAttributes && error == B_NOT_SUPPORTED)
+		error = B_OK; // Safe to skip a future/unknown attribute.
 	fPackageInfoValue.Clear();
 	return error;
 }
@@ -668,6 +668,11 @@ ReaderImplBase::PackageAttributeHandler::HandleAttribute(
 				value.string);
 			break;
 
+		case B_HPKG_ATTRIBUTE_ID_PACKAGE_PRE_UNINSTALL_SCRIPT:
+			fPackageInfoValue.SetTo(B_PACKAGE_INFO_PRE_UNINSTALL_SCRIPTS,
+				value.string);
+			break;
+
 		default:
 			if (context->ignoreUnknownAttributes)
 				break;
@@ -683,6 +688,8 @@ ReaderImplBase::PackageAttributeHandler::HandleAttribute(
 	if (_handler == NULL) {
 		status_t error = context->packageContentHandler
 			->HandlePackageAttribute(fPackageInfoValue);
+		if (context->ignoreUnknownAttributes && error == B_NOT_SUPPORTED)
+			error = B_OK; // Safe to skip a future/unknown attribute.
 		fPackageInfoValue.Clear();
 		if (error != B_OK)
 			return error;

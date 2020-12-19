@@ -132,7 +132,7 @@ struct Port : public KernelReferenceable {
 	select_info*		select_infos;
 	MessageList			messages;
 
-	Port(team_id owner, int32 queueLength, char* name)
+	Port(team_id owner, int32 queueLength, const char* name)
 		:
 		owner(owner),
 		name_hash(0),
@@ -145,7 +145,7 @@ struct Port : public KernelReferenceable {
 	{
 		// id is initialized when the caller adds the port to the hash table
 
-		mutex_init(&lock, name);
+		mutex_init_etc(&lock, name, MUTEX_FLAG_CLONE_NAME);
 		read_condition.Init(this, "port read");
 		write_condition.Init(this, "port write");
 	}
@@ -155,8 +155,7 @@ struct Port : public KernelReferenceable {
 		while (port_message* message = messages.RemoveHead())
 			put_port_message(message);
 
-		free((char*)lock.name);
-		lock.name = NULL;
+		mutex_destroy(&lock);
 	}
 };
 
@@ -634,9 +633,10 @@ get_locked_port(port_id id) GCC_2_NRV(portRef)
 		portRef.SetTo(sPorts.Lookup(id));
 	}
 
-	if (portRef != NULL && portRef->state == Port::kActive)
-		mutex_lock(&portRef->lock);
-	else
+	if (portRef != NULL && portRef->state == Port::kActive) {
+		if (mutex_lock(&portRef->lock) != B_OK)
+			portRef.Unset();
+	} else
 		portRef.Unset();
 
 	return portRef;
@@ -988,24 +988,20 @@ create_port(int32 queueLength, const char* name)
 	if (team == NULL)
 		return B_BAD_TEAM_ID;
 
-	// check & dup name
-	char* nameBuffer = strdup(name != NULL ? name : "unnamed port");
-	if (nameBuffer == NULL)
-		return B_NO_MEMORY;
-
 	// create a port
-	Port* port = new(std::nothrow) Port(team_get_current_team_id(), queueLength,
-		nameBuffer);
-	if (port == NULL) {
-		free(nameBuffer);
-		return B_NO_MEMORY;
+	BReference<Port> port;
+	{
+		Port* newPort = new(std::nothrow) Port(team_get_current_team_id(),
+			queueLength, name != NULL ? name : "unnamed port");
+		if (newPort == NULL)
+			return B_NO_MEMORY;
+		port.SetTo(newPort, true);
 	}
 
 	// check the ports limit
 	const int32 previouslyUsed = atomic_add(&sUsedPorts, 1);
 	if (previouslyUsed + 1 >= sMaxPorts) {
 		atomic_add(&sUsedPorts, -1);
-		delete port;
 		return B_NO_MORE_PORTS;
 	}
 

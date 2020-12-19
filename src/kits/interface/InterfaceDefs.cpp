@@ -162,6 +162,8 @@ static const char* kColorNames[kColorWhichCount] = {
 	NULL
 };
 
+static image_id sControlLookAddon = -1;
+
 
 namespace BPrivate {
 
@@ -503,6 +505,40 @@ set_mouse_type(int32 type)
 
 
 status_t
+get_mouse_type_by_name(BString mouse_name, int32 *type)
+{
+	BMessage command(IS_GET_MOUSE_TYPE);
+	BMessage reply;
+	command.AddString("mouse_name", mouse_name.String());
+
+
+	status_t err = _control_input_server_(&command, &reply);
+	if (err != B_OK)
+		return err;
+
+	return reply.FindInt32("mouse_type", type);
+}
+
+
+status_t
+set_mouse_type_by_name(BString mouse_name, int32 type)
+{
+	BMessage command(IS_SET_MOUSE_TYPE);
+	BMessage reply;
+
+	status_t err_mouse_name = command.AddString("mouse_name",
+		mouse_name.String());
+	if (err_mouse_name != B_OK)
+		return err_mouse_name;
+
+	status_t err = command.AddInt32("mouse_type", type);
+	if (err != B_OK)
+		return err;
+	return _control_input_server_(&command, &reply);
+}
+
+
+status_t
 get_mouse_map(mouse_map *map)
 {
 	BMessage command(IS_GET_MOUSE_MAP);
@@ -586,6 +622,38 @@ set_mouse_speed(int32 speed)
 	BMessage command(IS_SET_MOUSE_SPEED);
 	BMessage reply;
 	command.AddInt32("speed", speed);
+	return _control_input_server_(&command, &reply);
+}
+
+
+status_t
+get_mouse_speed_by_name(BString mouse_name, int32 *speed)
+{
+	BMessage command(IS_GET_MOUSE_SPEED);
+	BMessage reply;
+	command.AddString("mouse_name", mouse_name.String());
+
+	status_t err = _control_input_server_(&command, &reply);
+	if (err != B_OK)
+		return err;
+
+	err = reply.FindInt32("speed", speed);
+	if (err != B_OK)
+		return err;
+
+	return B_OK;
+}
+
+
+status_t
+set_mouse_speed_by_name(BString mouse_name, int32 speed)
+{
+	BMessage command(IS_SET_MOUSE_SPEED);
+	BMessage reply;
+	command.AddString("mouse_name", mouse_name.String());
+
+	command.AddInt32("speed", speed);
+
 	return _control_input_server_(&command, &reply);
 }
 
@@ -1047,12 +1115,14 @@ get_mouse_bitmap(BBitmap** bitmap, BPoint* hotspot)
 	uint32 size = 0;
 	uint32 cursorWidth = 0;
 	uint32 cursorHeight = 0;
+	color_space colorspace = B_RGBA32;
 
 	// if link.Read() returns an error, the same error will be returned on
 	// subsequent calls, so we'll check only the return value of the last call
 	link.Read<uint32>(&size);
 	link.Read<uint32>(&cursorWidth);
 	link.Read<uint32>(&cursorHeight);
+	link.Read<color_space>(&colorspace);
 	if (hotspot == NULL) {
 		BPoint dummy;
 		link.Read<BPoint>(&dummy);
@@ -1072,7 +1142,7 @@ get_mouse_bitmap(BBitmap** bitmap, BPoint* hotspot)
 	}
 
 	BBitmap* cursorBitmap = new (std::nothrow) BBitmap(BRect(0, 0,
-		cursorWidth - 1, cursorHeight - 1), B_RGBA32);
+		cursorWidth - 1, cursorHeight - 1), colorspace);
 
 	if (cursorBitmap == NULL) {
 		free(data);
@@ -1080,7 +1150,7 @@ get_mouse_bitmap(BBitmap** bitmap, BPoint* hotspot)
 	}
 	status = cursorBitmap->InitCheck();
 	if (status == B_OK)
-		cursorBitmap->SetBits(data, size, 0, B_RGBA32);
+		cursorBitmap->SetBits(data, size, 0, colorspace);
 
 	free(data);
 
@@ -1107,7 +1177,7 @@ bool
 accept_first_click()
 {
 	// Gets the accept first click status
-	bool acceptFirstClick = false;
+	bool acceptFirstClick = true;
 
 	BPrivate::AppServerLink link;
 	link.StartMessage(AS_GET_ACCEPT_FIRST_CLICK);
@@ -1286,8 +1356,24 @@ _init_interface_kit_()
 	if (be_clipboard == NULL)
 		be_clipboard = new BClipboard(NULL);
 
-	// TODO: Could support different themes here in the future.
-	be_control_look = new HaikuControlLook();
+	BString path;
+	if (get_control_look(path) && path.Length() > 0) {
+		BControlLook* (*instantiate)(image_id);
+
+		sControlLookAddon = load_add_on(path.String());
+		if (sControlLookAddon >= 0
+			&& get_image_symbol(sControlLookAddon,
+				"instantiate_control_look",
+				B_SYMBOL_TYPE_TEXT, (void **)&instantiate) == B_OK) {
+			be_control_look = instantiate(sControlLookAddon);
+			if (be_control_look == NULL) {
+				unload_add_on(sControlLookAddon);
+				sControlLookAddon = -1;
+			}
+		}
+	}
+	if (be_control_look == NULL)
+		be_control_look = new HaikuControlLook();
 
 	_init_global_fonts_();
 
@@ -1325,6 +1411,13 @@ _fini_interface_kit_()
 	delete be_control_look;
 	be_control_look = NULL;
 
+	// Note: if we ever want to support live switching, we cannot just unload
+	// the old one since some thread might still be in a method of the object.
+	// maybe locking/unlocking all loopers around would ensure proper exit.
+	if (sControlLookAddon >= 0)
+		unload_add_on(sControlLookAddon);
+	sControlLookAddon = -1;
+
 	// TODO: Anything else?
 
 	return B_OK;
@@ -1336,7 +1429,7 @@ namespace BPrivate {
 
 
 /*!	\brief queries the server for the current decorator
-	\param ref entry_ref into which to store current decorator's location
+	\param path BString into which to store current decorator's location
 	\return boolean true/false
 */
 bool
@@ -1349,12 +1442,12 @@ get_decorator(BString& path)
 	if (link.FlushWithReply(code) != B_OK || code != B_OK)
 		return false;
 
- 	return link.ReadString(path) == B_OK;
+	return link.ReadString(path) == B_OK;
 }
 
 
 /*!	\brief Private function which sets the window decorator for the system.
-	\param entry_ref to the decorator to set
+	\param path BString with the path to the decorator to set
 
 	Will return detailed error status via status_t
 */
@@ -1391,6 +1484,46 @@ preview_decorator(const BString& path, BWindow* window)
 	msg.AddString("preview", path.String());
 
 	return window->SetDecoratorSettings(msg);
+}
+
+
+/*!	\brief queries the server for the current ControlLook path
+	\param path BString into which to store current ControlLook's add-on path
+	\return boolean true/false
+*/
+bool
+get_control_look(BString& path)
+{
+	BPrivate::AppServerLink link;
+	link.StartMessage(AS_GET_CONTROL_LOOK);
+
+	int32 code;
+	if (link.FlushWithReply(code) != B_OK || code != B_OK)
+		return false;
+
+	return link.ReadString(path) == B_OK;
+}
+
+
+/*!	\brief Private function which sets the ControlLook for the system.
+	\param BString with the ControlLook add-on path to set
+
+	Will return detailed error status via status_t
+*/
+status_t
+set_control_look(const BString& path)
+{
+	BPrivate::AppServerLink link;
+
+	link.StartMessage(AS_SET_CONTROL_LOOK);
+
+	link.AttachString(path.String());
+
+	status_t error = B_OK;
+	if (link.FlushWithReply(error) != B_OK)
+		return B_ERROR;
+
+	return error;
 }
 
 

@@ -121,7 +121,8 @@ Inode::Create(Transaction& transaction, ino_t id, Inode* parent, int32 mode,
 	TRACE("Inode::Create() id % " B_PRIu64 " mode %" B_PRId32 " flags %"
 		B_PRIu64"\n", id, flags, mode);
 
-	Volume* volume = parent->GetVolume();
+	Volume* volume = parent != NULL ?
+		parent->GetVolume() : transaction.GetJournal()->GetVolume();
 	uint64 nbytes = size;	// allocated size
 	if (size > volume->MaxInlineSize())
 		nbytes = (size / volume->SectorSize() + 1) * volume->SectorSize();
@@ -135,7 +136,8 @@ Inode::Create(Transaction& transaction, ino_t id, Inode* parent, int32 mode,
 	inode.blockgroup = 0;	// normal inode only
 	inode.num_links = B_HOST_TO_LENDIAN_INT32(1);
 	inode.uid = B_HOST_TO_LENDIAN_INT32(geteuid());
-	inode.gid = B_HOST_TO_LENDIAN_INT32(parent ? parent->GroupID() : getegid());
+	inode.gid = B_HOST_TO_LENDIAN_INT32(parent != NULL ?
+		parent->GroupID() : getegid());
 	inode.mode = B_HOST_TO_LENDIAN_INT32(mode);;
 	inode.rdev = 0;	// normal file only
 	inode.flags = B_HOST_TO_LENDIAN_INT64(flags);
@@ -240,27 +242,31 @@ Inode::ReadAt(off_t pos, uint8* buffer, size_t* _length)
 			"\n", status);
 		return status;
 	}
+	MemoryDeleter deleter(extent_data);
+
 
 	uint8 compression = extent_data->Compression();
 	if (FileCache() != NULL
 		&& extent_data->Type() == BTRFS_EXTENT_DATA_REGULAR) {
 		TRACE("inode %" B_PRIdINO ": ReadAt cache (pos %" B_PRIdOFF ", length %lu)\n",
 			ID(), pos, length);
-		free(extent_data);
 		if (compression == BTRFS_EXTENT_COMPRESS_NONE)
 			return file_cache_read(FileCache(), NULL, pos, buffer, _length);
 		else if (compression == BTRFS_EXTENT_COMPRESS_ZLIB)
 			panic("zlib isn't unsupported for regular extent\n");
 		else
 			panic("unknown extent compression; %d\n", compression);
+		return B_BAD_DATA;
 	}
 
 	TRACE("Inode::ReadAt(%" B_PRIdINO ") key.Offset() %" B_PRId64 "\n", ID(),
 		search_key.Offset());
 
 	off_t diff = pos - search_key.Offset();
-	if (extent_data->Type() != BTRFS_EXTENT_DATA_INLINE)
+	if (extent_data->Type() != BTRFS_EXTENT_DATA_INLINE) {
 		panic("unknown extent type; %d\n", extent_data->Type());
+		return B_BAD_DATA;
+	}
 
 	*_length = min_c(extent_data->Size() - diff, *_length);
 	if (compression == BTRFS_EXTENT_COMPRESS_NONE)
@@ -294,13 +300,11 @@ Inode::ReadAt(off_t pos, uint8* buffer, size_t* _length)
 
 		do {
 			ssize_t bytesRead = min_c(sizeof(in), inline_size - offset);
-			memcpy(in, extent_data->inline_data + offset, bytesRead);
-			if (bytesRead != (ssize_t)sizeof(in)) {
-				if (bytesRead <= 0) {
-					status = Z_STREAM_ERROR;
-					break;
-				}
+			if (bytesRead <= 0) {
+				status = Z_STREAM_ERROR;
+				break;
 			}
+			memcpy(in, extent_data->inline_data + offset, bytesRead);
 
 			zStream.avail_in = bytesRead;
 			zStream.next_in = (Bytef*)in;
@@ -313,7 +317,6 @@ Inode::ReadAt(off_t pos, uint8* buffer, size_t* _length)
 
 				status = inflateInit2(&zStream, 15);
 				if (status != Z_OK) {
-					free(extent_data);
 					return B_ERROR;
 				}
 			}
@@ -335,15 +338,15 @@ Inode::ReadAt(off_t pos, uint8* buffer, size_t* _length)
 
 		if (status != Z_STREAM_END) {
 			TRACE("Inode::ReadAt() inflating failed: %d!\n", status);
-			free(extent_data);
 			return B_BAD_DATA;
 		}
 
 		*_length = zStream.total_out;
 
-	} else
+	} else {
 		panic("unknown extent compression; %d\n", compression);
-	free(extent_data);
+		return B_BAD_DATA;
+	}
 	return B_OK;
 
 }

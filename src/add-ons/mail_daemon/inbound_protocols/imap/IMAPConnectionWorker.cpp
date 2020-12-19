@@ -377,8 +377,6 @@ public:
 			if (status != B_OK)
 				return status;
 
-			std::vector<uint32> uidsToFetch;
-
 			// Determine how much we need to download
 			// TODO: also retrieve the header size, and only take the body
 			// size into account if it's below the limit -- that does not
@@ -515,7 +513,7 @@ struct CommandDeleter : BPrivate::AutoDeleter<WorkerCommand, CommandDelete>
 
 	~CommandDeleter()
 	{
-		if (dynamic_cast<SyncCommand*>(fObject) != NULL)
+		if (dynamic_cast<SyncCommand*>(Get()) != NULL)
 			WorkerPrivate(fWorker).SyncCommandDone();
 	}
 
@@ -620,6 +618,9 @@ void
 IMAPConnectionWorker::Quit()
 {
 	printf("IMAP: worker %p: enqueue quit\n", this);
+	BAutolock qlocker(fQueueLocker);
+	while (!fPendingCommands.IsEmpty())
+		delete(fPendingCommands.RemoveItemAt(0));
 	_EnqueueCommand(new QuitCommand());
 }
 
@@ -715,13 +716,15 @@ IMAPConnectionWorker::MessageExpungeReceived(uint32 index)
 status_t
 IMAPConnectionWorker::_Worker()
 {
+	status_t status = B_OK;
+
 	while (!fStopped) {
-		BAutolock locker(fLocker);
+		BAutolock qlocker(fQueueLocker);
 
 		if (fPendingCommands.IsEmpty()) {
 			if (!fIdle)
 				_Disconnect();
-			locker.Unlock();
+			qlocker.Unlock();
 
 			// TODO: in idle mode, we'd need to parse any incoming message here
 			_WaitForCommands();
@@ -732,25 +735,30 @@ IMAPConnectionWorker::_Worker()
 		if (command == NULL)
 			continue;
 
+		qlocker.Unlock();
+		BAutolock locker(fLocker);
 		CommandDeleter deleter(*this, command);
 
-		status_t status = _Connect();
-		if (status != B_OK)
-			return status;
+		if (dynamic_cast<QuitCommand*>(command) == NULL) { // do not connect on QuitCommand
+			status = _Connect();
+			if (status != B_OK)
+				break;
+		}
 
 		status = command->Process(*this);
 		if (status != B_OK)
-			return status;
+			break;
 
 		if (!command->IsDone()) {
 			deleter.Detach();
 			command->SetContinuation();
+			locker.Unlock();
 			_EnqueueCommand(command);
 		}
 	}
 
 	fOwner.WorkerQuit(this);
-	return B_OK;
+	return status;
 }
 
 
@@ -760,7 +768,7 @@ IMAPConnectionWorker::_Worker()
 status_t
 IMAPConnectionWorker::_EnqueueCommand(WorkerCommand* command)
 {
-	BAutolock locker(fLocker);
+	BAutolock qlocker(fQueueLocker);
 
 	if (!fPendingCommands.AddItem(command)) {
 		delete command;
@@ -771,7 +779,7 @@ IMAPConnectionWorker::_EnqueueCommand(WorkerCommand* command)
 		&& !command->IsContinuation())
 		fSyncPending++;
 
-	locker.Unlock();
+	qlocker.Unlock();
 	release_sem(fPendingCommandsSemaphore);
 	return B_OK;
 }
@@ -834,22 +842,33 @@ IMAPConnectionWorker::_SyncCommandDone()
 }
 
 
+bool
+IMAPConnectionWorker::_IsQuitPending()
+{
+	BAutolock locker(fQueueLocker);
+	WorkerCommand* nextCommand = fPendingCommands.ItemAt(0);
+	return dynamic_cast<QuitCommand*>(nextCommand) != NULL;
+}
+
+
 status_t
 IMAPConnectionWorker::_Connect()
 {
 	if (fProtocol.IsConnected())
 		return B_OK;
 
-	status_t status;
-	int tries = 6;
+	status_t status = B_INTERRUPTED;
+	int tries = 10;
 	while (tries-- > 0) {
+		if (_IsQuitPending())
+			break;
 		status = fProtocol.Connect(fSettings.ServerAddress(),
 			fSettings.Username(), fSettings.Password(), fSettings.UseSSL());
 		if (status == B_OK)
 			break;
 
-		// Wait for 10 seconds, and try again
-		snooze(10000000);
+		// Wait for 1 second, and try again
+		snooze(1000000);
 	}
 	// TODO: if other workers are connected, but it fails for us, we need to
 	// remove this worker, and reduce the number of concurrent connections
@@ -867,6 +886,7 @@ void
 IMAPConnectionWorker::_Disconnect()
 {
 	fProtocol.Disconnect();
+	fSelectedBox = NULL;
 }
 
 

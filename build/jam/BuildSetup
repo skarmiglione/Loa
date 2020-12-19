@@ -12,7 +12,7 @@
 
 # The Haiku (base) version. For development builds the revision will be
 # attached.
-HAIKU_VERSION = r1~beta1 ;
+HAIKU_VERSION = r1~beta2 ;
 
 
 #pragma mark - container settings
@@ -56,6 +56,15 @@ HAIKU_INSTALL_TARGETS_VAR on $(HAIKU_CD_BOOT_IMAGE_CONTAINER_NAME)
 HAIKU_CONTAINER_SYSTEM_DIR_TOKENS on $(HAIKU_CD_BOOT_IMAGE_CONTAINER_NAME)
 	= system ;
 
+# boot MMC image
+HAIKU_MMC_BOOT_IMAGE_CONTAINER_NAME = haiku-boot-mmc-container ;
+HAIKU_CONTAINER_GRIST on $(HAIKU_MMC_BOOT_IMAGE_CONTAINER_NAME) = MMCImage ;
+# HAIKU_INCLUDE_IN_CONTAINER_VAR -- update only mode not supported
+HAIKU_INSTALL_TARGETS_VAR on $(HAIKU_MMC_BOOT_IMAGE_CONTAINER_NAME)
+	= HAIKU_MMC_BOOT_IMAGE_INSTALL_TARGETS ;
+HAIKU_CONTAINER_SYSTEM_DIR_TOKENS on $(HAIKU_MMC_BOOT_IMAGE_CONTAINER_NAME)
+	= system ;
+
 # Haiku image/install defaults
 HAIKU_DEFAULT_IMAGE_NAME = haiku.image ;
 HAIKU_DEFAULT_IMAGE_DIR = $(HAIKU_OUTPUT_DIR) ;
@@ -75,7 +84,7 @@ HAIKU_DEFAULT_ANYBOOT_DIR = $(HAIKU_OUTPUT_DIR) ;
 HAIKU_DEFAULT_ANYBOOT_LABEL ?= Haiku ;
 
 # Haiku MMC defaults
-HAIKU_DEFAULT_MMC_IMAGE_NAME = haiku-mmc.image ;
+HAIKU_DEFAULT_MMC_NAME = haiku-mmc.image ;
 HAIKU_DEFAULT_MMC_DIR = $(HAIKU_OUTPUT_DIR) ;
 HAIKU_DEFAULT_MMC_LABEL ?= Haiku ;
 
@@ -85,12 +94,6 @@ ProcessCommandLineArguments ;
 
 # supported debug levels
 HAIKU_DEBUG_LEVELS = 0 1 2 3 4 5 ;
-
-# BeOS, BONE, Dan0 compatible platforms
-HAIKU_BEOS_COMPATIBLE_PLATFORMS = haiku r5 bone dano haiku_host ;
-HAIKU_BONE_COMPATIBLE_PLATFORMS = haiku bone dano haiku_host ;
-HAIKU_DANO_COMPATIBLE_PLATFORMS = haiku dano haiku_host ;
-HAIKU_HAIKU_COMPATIBLE_PLATFORMS = haiku haiku_host ;
 
 # configuration header directories
 HAIKU_CONFIG_HEADERS = [ FDirName $(HAIKU_TOP) build user_config_headers ]
@@ -108,11 +111,6 @@ HAIKU_COMMON_ARCH_OBJECT_DIR = [ FDirName $(HAIKU_OBJECT_BASE_DIR) common ] ;
 local architecture ;
 for architecture in $(HAIKU_PACKAGING_ARCHS) {
 	ArchitectureSetup $(architecture) ;
-}
-
-# TODO: Might not be needed anymore.
-if $(HAIKU_HOST_BUILD_ONLY) = 1 {
-	HAIKU_GCC_VERSION = 0 0 0 ;
 }
 
 if $(HAIKU_PACKAGING_ARCH) {
@@ -163,31 +161,17 @@ HAIKU_BUILD_DESCRIPTION ?= "Unknown Build" ;
 #pragma mark - host platform settings
 
 
-# determine the endianness of the host
-switch $(HOST_GCC_MACHINE) {
-	case amd64-*	: HAIKU_HOST_IS_BIG_ENDIAN = 0 ;
-	case i?86-*		: HAIKU_HOST_IS_BIG_ENDIAN = 0 ;
-	case powerpc-*	: HAIKU_HOST_IS_BIG_ENDIAN = 1 ;
-	case x86_64-*	: HAIKU_HOST_IS_BIG_ENDIAN = 0 ;
-
-	# the following are rather unlikely as hosts ...
-	case arm-*		: HAIKU_HOST_IS_BIG_ENDIAN = 0 ;
-	case armv7l-*	: HAIKU_HOST_IS_BIG_ENDIAN = 0 ;
-	case armv7hl-*	: HAIKU_HOST_IS_BIG_ENDIAN = 0 ;
-	case armv7b-*	: HAIKU_HOST_IS_BIG_ENDIAN = 1 ;
-	case arm64-*	: HAIKU_HOST_IS_BIG_ENDIAN = 0 ;
-	case m68k-*		: HAIKU_HOST_IS_BIG_ENDIAN = 1 ;
-	case *			: Exit "Unsupported gcc host machine:" $(HOST_GCC_MACHINE) ;
-}
-
 # analyze the host gcc machine spec to find out about 64-bitness
 HOST_PLATFORM_IS_64_BIT = ;
 switch $(HOST_GCC_MACHINE) {
-	case amd64-* :				HOST_PLATFORM_IS_64_BIT = 1 ;
 	case i686-apple-darwin10 :	HOST_PLATFORM_IS_64_BIT = 1 ;
 	case i686-apple-darwin11 :	HOST_PLATFORM_IS_64_BIT = 1 ;
 	case x86_64-* :				HOST_PLATFORM_IS_64_BIT = 1 ;
+	case amd64-* :				HOST_PLATFORM_IS_64_BIT = 1 ;
+
+	case arm64-* :				HOST_PLATFORM_IS_64_BIT = 1 ;
 	case aarch64-* :			HOST_PLATFORM_IS_64_BIT = 1 ;
+	case riscv64-* :			HOST_PLATFORM_IS_64_BIT = 1 ;
 }
 
 # If HAIKU_HOST_USE_32BIT is set, add the required gcc base flag (the LD flag
@@ -210,6 +194,7 @@ if $(HAIKU_HOST_USE_32BIT) = 1 {
 
 # save jam's variables for the build platform
 HOST_AR				?= $(AR) ;
+HOST_ARFLAGS		?= $(ARFLAGS) ;
 HOST_CC				?= $(CC) ;
 HOST_C++			?= $(HOST_CC) ;
 HOST_LINK			?= $(HOST_CC) ;
@@ -226,27 +211,21 @@ HOST_HDRS			?= $(HDRS) ;
 # split up HOST_AR into the command name and flags
 HOST_AR				= [ Match "([^ ]*) *(.*)" : $(HOST_AR[1]) ]
 					  $(HOST_AR[2-]) ;
-HOST_ARFLAGS		= $(HOST_AR[2-]) ;
+HOST_ARFLAGS		= $(HOST_AR[2-]) $(HOST_ARFLAGS) ;
 HOST_AR				= $(HOST_AR[1]) ;
 HOST_UNARFLAGS		?= x ;
 
 # check the host platform compatibility
 SetPlatformCompatibilityFlagVariables HOST_PLATFORM : HOST : host
-	: linux openbsd freebsd darwin sunos cygwin ;
+	: linux openbsd freebsd darwin msys ;
 HOST_PLATFORM_(host)_COMPATIBLE = 1 ;
 
 if $(HOST_PLATFORM) = linux || $(HOST_PLATFORM) = freebsd
-	|| $(HOST_PLATFORM) = darwin || $(HOST_PLATFORM) = cygwin
-	|| $(HOST_PLATFORM) = sunos || $(HOST_PLATFORM) = openbsd {
+	|| $(HOST_PLATFORM) = darwin || $(HOST_PLATFORM) = openbsd {
 	# don't use lex: otherwise rc will not work correctly
 	if $(LEX) = lex {
 		LEX = flex ;
 	}
-}
-
-if $(HOST_PLATFORM) = cygwin {
-	HOST_LINKFLAGS += -Xlinker --allow-multiple-definition -Xlinker
-		--enable-auto-import ;
 }
 
 HOST_CPU ?= $(OSPLAT:L) ;
@@ -260,12 +239,9 @@ HOST_ARCH ?= $(HOST_CPU) ;
 HOST_ARCHS = $(HOST_ARCH) ;
 HOST_KERNEL_ARCH = host ;
 
-# analyze GCC version
-HOST_GCC_VERSION = [ FAnalyzeGCCVersion HOST_GCC_RAW_VERSION ] ;
-
 # set packaging architecture
 HOST_PACKAGING_ARCH		?= $(HOST_CPU) ;
-if $(HOST_PACKAGING_ARCH) = x86 && $(HOST_GCC_VERSION[1]) = 2 {
+if $(HOST_PACKAGING_ARCH) = x86 && $(HOST_CC_IS_LEGACY_GCC) = 1 {
 	HOST_PACKAGING_ARCH = x86_gcc2 ;
 }
 HOST_PACKAGING_ARCHS = $(HOST_PACKAGING_ARCH) ;
@@ -294,12 +270,10 @@ HOST_ASFLAGS = ;
 HOST_CCFLAGS += -Wno-multichar ;
 HOST_C++FLAGS += -Wno-multichar ;
 
-if $(HOST_PLATFORM) != cygwin {
-	HOST_PIC_CCFLAGS += -fPIC ;
-	HOST_PIC_C++FLAGS += -fPIC ;
-}
+HOST_PIC_CCFLAGS += -fPIC ;
+HOST_PIC_C++FLAGS += -fPIC ;
 
-if $(HOST_GCC_VERSION[1]) >= 3 {
+if $(HOST_CC_IS_LEGACY_GCC) != 1 {
 	HOST_GCC_BASE_FLAGS += -fno-strict-aliasing -fno-delete-null-pointer-checks ;
 }
 
@@ -329,6 +303,9 @@ if $(HOST_ARCH) = m68k {
 if $(HOST_PLATFORM) != darwin {
 	# fix for new changes to DSO linking policies
 	HOST_LINKFLAGS += -Xlinker --no-as-needed ;
+	if $(HOST_CC_IS_LEGACY_GCC) != 1 {
+		HOST_LINKFLAGS += -Wl,--copy-dt-needed-entries ;
+	}
 }
 
 
@@ -381,8 +358,8 @@ HOST_PRIVATE_KERNEL_HEADERS = ;
 # private shared kernel/libroot headers
 HOST_PRIVATE_SYSTEM_HEADERS = ;
 
-# under BeOS use copyattr instead of cp
-if $(HOST_PLATFORM_BEOS_COMPATIBLE) {
+# under Haiku use copyattr instead of cp
+if $(HOST_PLATFORM_HAIKU_COMPATIBLE) {
 	CP = copyattr --data ;
 }
 
@@ -390,7 +367,7 @@ HOST_DEFINES += ARCH_$(HOST_CPU) ;
 HOST_DEFINES += _NO_INLINE_ASM __NO_INLINE__ ;
 
 # for builds of tools in the current environment
-HOST_BUILD_COMPATIBILITY_LIB_DIR = [ FDirName $(HOST_OBJECT_BASE_DIR) lib ] ;
+HOST_BUILD_COMPATIBILITY_LIB_DIR = [ FDirName $(PWD) $(HOST_OBJECT_BASE_DIR) lib ] ;
 
 # For the generic attributes emulation: Target rm_attrs -- rm replacement that
 # also removes the attributes.
@@ -400,9 +377,9 @@ HOST_LIBROOT = libroot_build_function_remapper.a libroot_build.so ;
 HOST_STATIC_LIBROOT = libroot_build_function_remapper.a libroot_build.a ;
 HOST_LIBBE = libbe_build.so ;
 
-if $(HOST_PLATFORM_BEOS_COMPATIBLE) {
+if $(HOST_PLATFORM_HAIKU_COMPATIBLE) {
 	# the C++ standard and support libraries
-	if $(HOST_GCC_VERSION[1]) < 3 {
+	if $(HOST_CC_IS_LEGACY_GCC) = 1 {
 		HOST_LIBSTDC++ = stdc++.r4 ;
 		HOST_LIBSUPC++ = ;
 	} else {
@@ -411,8 +388,9 @@ if $(HOST_PLATFORM_BEOS_COMPATIBLE) {
 	}
 
 	HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR
-		= "export LIBRARY_PATH=$LIBRARY_PATH:$(HOST_BUILD_COMPATIBILITY_LIB_DIR)" ;
+		= "LIBRARY_PATH=\"$LIBRARY_PATH:$(HOST_BUILD_COMPATIBILITY_LIB_DIR)\"" ;
 	HOST_PTHREAD_LINKFLAGS = ;
+	HOST_LINKFLAGS += -lbsd ;
 	HOST_LIBRARY_NAME_MAP_input_server = /system/servers/input_server ;
 	HOST_DEFINES += __STDC_FORMAT_MACROS __STDC_LIMIT_MACROS ;
 
@@ -421,30 +399,23 @@ if $(HOST_PLATFORM_BEOS_COMPATIBLE) {
 	HOST_CCFLAGS += $(compatibilityHeader) ;
 	HOST_C++FLAGS += $(compatibilityHeader) ;
 } else {
-	HOST_LINKFLAGS += -lm ;
+	HOST_LINKFLAGS += -lm -ldl ;
 	HOST_LIBSTDC++ = stdc++ ;
-	if $(HOST_PLATFORM) = cygwin {
+	if $(HOST_PLATFORM) = msys {
 		HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR
-			= "export PATH=$PATH:$(HOST_BUILD_COMPATIBILITY_LIB_DIR)" ;
+			= "PATH=$PATH:$(HOST_BUILD_COMPATIBILITY_LIB_DIR)" ;
 	} else if $(HOST_PLATFORM) = darwin {
 		HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR
-			= "export DYLD_LIBRARY_PATH=$DYLD_LIBRARY_PATH:$(HOST_BUILD_COMPATIBILITY_LIB_DIR)" ;
+			= "DYLD_LIBRARY_PATH=\"$DYLD_LIBRARY_PATH:$(HOST_BUILD_COMPATIBILITY_LIB_DIR)\"" ;
 	} else {
 		HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR
-			= "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$(HOST_BUILD_COMPATIBILITY_LIB_DIR)" ;
+			= "LD_LIBRARY_PATH=\"$LD_LIBRARY_PATH:$(HOST_BUILD_COMPATIBILITY_LIB_DIR)\"" ;
 	}
 
-	if $(HOST_PLATFORM) = cygwin {
-		# not needed
-		HOST_PTHREAD_LINKFLAGS = ;
-	} else if $(HOST_PLATFORM) = freebsd {
-		HOST_PTHREAD_LINKFLAGS = -pthread ;
-	} else {
-		HOST_PTHREAD_LINKFLAGS = -pthread ;
-	}
+	HOST_PTHREAD_LINKFLAGS = -pthread ;
 
 	# the C++ support library
-	if $(HOST_GCC_VERSION[1]) < 3 {
+	if $(HOST_CC_IS_LEGACY_GCC) = 1 {
 		HOST_LIBSUPC++ = ;
 	} else {
 		HOST_LIBSUPC++ = supc++ ;
@@ -464,18 +435,6 @@ if $(HOST_PLATFORM_BEOS_COMPATIBLE) {
 		}
 	}
 
-	# The BeOS compilers define __INTEL__ respectively __POWERPC__. On the
-	# build platform we need to make sure, this is also defined.
-	if $(HOST_CPU) = x86 {
-		HOST_DEFINES += __INTEL__ ;
-	} else if $(HOST_CPU) = x86_64 {
-		HOST_DEFINES += __x86_64__ ;
-	} else if $(HOST_CPU) = ppc {
-		HOST_DEFINES += __POWERPC__ ;
-	} else if $(HOST_CPU) = m68k {
-		HOST_DEFINES += __M68K__ ;
-	}
-
 	# Supposing this is a glibc platform, let's try to get features like large
 	# file support, ISO C 99 definitions, etc. On some platforms we need to
 	# request 64 bit off_t support explicitely.
@@ -492,7 +451,7 @@ if $(HAIKU_HOST_USE_XATTR) = 1 {
 	# which invokes a build tool. If the build tool hasn't been built yet,
 	# the normal "rm" is used and the attributes are leaked (likely there
 	# aren't any yet).
-	RM = $(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR) ";"
+	RM = $(HOST_ADD_BUILD_COMPATIBILITY_LIB_DIR)
 		[ FDirName $(HAIKU_TOP) build scripts rm_attrs ]
 		[ FDirName $(HAIKU_OBJECT_DIR) $(HOST_PLATFORM) $(HOST_ARCH) release
 			tools rm_attrs ] -f ;
@@ -510,12 +469,8 @@ if $(HOST_PLATFORM_HAIKU_COMPATIBLE) {
 	HOST_NETWORK_LIBS = network ;
 	HOST_NETAPI_LIB = bnetapi ;
 	HOST_SELECT_UNAME_ETC_LIB = ;	# libroot
-} else if $(HOST_PLATFORM) = "sunos" {
-	HOST_NETWORK_LIBS = xnet ;
-	HOST_NETAPI_LIB = ;
-	HOST_SELECT_UNAME_ETC_LIB = ;
 } else {
-	# Linux,...
+	# Linux, ...
 	HOST_NETWORK_LIBS = ;
 	HOST_NETAPI_LIB = ;
 	HOST_SELECT_UNAME_ETC_LIB = ;
@@ -578,6 +533,10 @@ HOST_BE_API_CCFLAGS = -include [ FDirName $(HAIKU_TOP) headers build
 	BeOSBuildCompatibility.h ] ;
 HOST_BE_API_C++FLAGS = $(HOST_BE_API_CCFLAGS) ;
 
+if ! $(HOST_PYTHON) {
+	Echo "HOST_PYTHON variable not defined --> will default to 'python'" ;
+	HOST_PYTHON ?= "python" ;
+}
 
 #pragma mark - target platform settings
 
@@ -624,9 +583,11 @@ local buildVars =
 	;
 
 local archDependentBuildVars =
-	ARCH CPU GCC_VERSION
+	ARCH CPU
 
 	AR CC C++ ELFEDIT LD OBJCOPY RANLIB STRIP
+
+	CC_IS_LEGACY_GCC CC_IS_CLANG
 
 	ARFLAGS ASFLAGS UNARFLAGS CPPFLAGS CCFLAGS C++FLAGS HDRS LDFLAGS
 	LINK LINKFLAGS
@@ -656,7 +617,7 @@ for var in $(archDependentBuildVars)_$(TARGET_PACKAGING_ARCHS) {
 TARGET_BOOT_LIBGCC		= $(HAIKU_BOOT_LIBGCC_$(TARGET_PACKAGING_ARCH)) ;
 TARGET_BOOT_LIBSUPC++	= $(HAIKU_BOOT_LIBSUPC++_$(TARGET_PACKAGING_ARCH)) ;
 
-TARGET_BOOT_PLATFORM	?= $(HAIKU_BOOT_PLATFORM) ;
+TARGET_KERNEL_PLATFORM	?= $(HAIKU_KERNEL_PLATFORM) ;
 
 local architecture ;
 for architecture in $(TARGET_PACKAGING_ARCHS) {
@@ -677,8 +638,7 @@ switch $(HOST_PLATFORM) {
 	case linux		: HOST_DEFINES	+= HAIKU_HOST_PLATFORM_LINUX ;
 	case freebsd	: HOST_DEFINES	+= HAIKU_HOST_PLATFORM_FREEBSD ;
 	case darwin		: HOST_DEFINES	+= HAIKU_HOST_PLATFORM_DARWIN ;
-	case cygwin		: HOST_DEFINES	+= HAIKU_HOST_PLATFORM_CYGWIN ;
-	case sunos		: HOST_DEFINES	+= HAIKU_HOST_PLATFORM_SUNOS ;
+	case msys		: HOST_DEFINES	+= HAIKU_HOST_PLATFORM_MSYS ;
 }
 
 # define host platform 64 bit macro

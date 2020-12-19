@@ -4,13 +4,13 @@
 <head>
 <!-- 
  *
- * Copyright 2008, Haiku. All rights reserved.
+ * Copyright 2008-2019, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		Karvjorm
+ *		Jorma Karvonen
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -29,27 +29,30 @@
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../../images/flags/fi.png" alt="" /> Suomi</li>
-<li><a href="../../ca/preferences/virtualmemory.html"><img src="../../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../../de/preferences/virtualmemory.html"><img src="../../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../../en/preferences/virtualmemory.html"><img src="../../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../../es/preferences/virtualmemory.html"><img src="../../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../../fr/preferences/virtualmemory.html"><img src="../../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../../it/preferences/virtualmemory.html"><img src="../../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../../hu/preferences/virtualmemory.html"><img src="../../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../../pl/preferences/virtualmemory.html"><img src="../../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../../pt_PT/preferences/virtualmemory.html"><img src="../../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../../pt_BR/preferences/virtualmemory.html"><img src="../../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../../ro/preferences/virtualmemory.html"><img src="../../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../../sk/preferences/virtualmemory.html"><img src="../../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../../sv_SE/preferences/virtualmemory.html"><img src="../../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../../zh_CN/preferences/virtualmemory.html"><img src="../../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../../ru/preferences/virtualmemory.html"><img src="../../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../../uk/preferences/virtualmemory.html"><img src="../../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../../jp/preferences/virtualmemory.html"><img src="../../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Suomi&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../../id/preferences/virtualmemory.html">Bahasa Indonesia</a></li>
+<li><a href="../../ca/preferences/virtualmemory.html">Català</a></li>
+<li><a href="../../de/preferences/virtualmemory.html">Deutsch</a></li>
+<li><a href="../../en/preferences/virtualmemory.html">English</a></li>
+<li><a href="../../es/preferences/virtualmemory.html">Español</a></li>
+<li><a href="../../fr/preferences/virtualmemory.html">Français</a></li>
+<li><a href="../../fur/preferences/virtualmemory.html">Furlan</a></li>
+<li><a href="../../it/preferences/virtualmemory.html">Italiano</a></li>
+<li><a href="../../hu/preferences/virtualmemory.html">Magyar</a></li>
+<li><a href="../../pl/preferences/virtualmemory.html">Polski</a></li>
+<li><a href="../../pt_PT/preferences/virtualmemory.html">Português</a></li>
+<li><a href="../../pt_BR/preferences/virtualmemory.html">Português (Brazil)</a></li>
+<li><a href="../../ro/preferences/virtualmemory.html">Română</a></li>
+<li><a href="../../sk/preferences/virtualmemory.html">Slovenčina</a></li>
+<li><a href="../../sv_SE/preferences/virtualmemory.html">Svenska</a></li>
+<li><a href="../../tr/preferences/virtualmemory.html">Türkçe</a></li>
+<li><a href="../../zh_CN/preferences/virtualmemory.html"> 中文 ［中文］</a></li>
+<li><a href="../../ru/preferences/virtualmemory.html">Русский</a></li>
+<li><a href="../../uk/preferences/virtualmemory.html">Українська</a></li>
+<li><a href="../../jp/preferences/virtualmemory.html">日本語</a></li>
 </ul>
 <span>
- «  <a href="touchpad.html">Levyhiiri</a> 
+ «  <a href="tracker.html">Seuraaja</a> 
 ::  <a href="../preferences.html" class="uplink">Asetukset</a>
 </span></div>
 </div>
@@ -66,9 +69,8 @@
 </table>
 <p>Virtuaalimuisti sallii käyttää levyn näennäismuistia, jos RAM-muistia voidaan käyttää herkemmin muihin asioihin. Jopa silloin kun RAM-muistia on runsaasti, virtuaalimuistin tarjoaminen ei ole koskaan huono ajatus.</p>
 <img src="../images/prefs-images/virtualmemory.png" alt="virtualmemory.png" />
-<p>Tarvittaessa voit asettaa koon jopa suuremmaksi kun fyysinen muistisi. Nykyisillä valtavilla kiintolevyillä liitetyn fyysisen muistin koko ei ole pulma. Siti voit nopeasti säätää kokoa, jos vapaa tila joskus loppuu. Siinä tapauksessa kannattaa katsoa <a href="../applications/diskusage.html">Levyasemakäyttö</a>-sovelluksella, että mikä syö levytilaasi.</p>
-<p>Normaalisti näennäistiedosto kirjoitetaan alkulatausosiollesi. Jos usein törmäät levyn roskaantumiseen siksi, että virtuaalimuistijärjestelmä lisää ja poistaa muistia, voit kokeilla näennäismuistille erillistä kiintolevyä. Saman kiintolevyn toinen osio järjestelmällesi tai tiedoillesi ei yksinkertaisesti auta.<br />
-RAM-muistin kasvattaminen olisi tietysti tehokkain tapa...</p>
+<p>Normaalisti näennäistiedosto kirjoitetaan alkulatausosiollesi. Jos muisti loppuu tässä, voit ottaa pois käytöstä <span class="menu">Automaattinen näennäismuistihallinta</span> ja valita toisen liitetyn osion Käytä taltiota-ponnahdusvalikosta. Näennäistiedoston koko asetetaan alapuolella liukukytkimellä.<br />
+Jos usein törmäät levyn roskaantumiseen siksi, että virtuaalimuistijärjestelmä lisää ja poistaa muistia, voit kokeilla näennäismuistille erillistä kiintolevyä, jolloin näennäistiedosto välttää siirtoruuhkan. Saman kiintolevyn toinen osio järjestelmällesi tai tiedoillesi ei yksinkertaisesti auta. RAM-muistin kasvattaminen olisi tietysti tehokkain tapa...l</p>
 <table summary="layout" border="0" cellpadding="2" cellspacing="0">
 <tr><td><span class="button">Oletukset</span></td><td> </td><td>nollaa kaikki oletusarvoihin.</td></tr>
 <tr><td><span class="button">Palauta</span></td><td> </td><td>palauttaa takaisin asetukset, jotka olivat voimassa kun Virtuaalimuistiasetukset-sovellus käynnistettiin.</td></tr>
@@ -80,7 +82,7 @@ RAM-muistin kasvattaminen olisi tietysti tehokkain tapa...</p>
 <!--
 <div class="nav">
 <div class="inner"><span>
- «  <a href="touchpad.html">Levyhiiri</a> 
+ «  <a href="tracker.html">Seuraaja</a> 
 ::  <a href="../preferences.html" class="uplink">Asetukset</a>
 </span></div>
 </div>

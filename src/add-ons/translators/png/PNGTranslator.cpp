@@ -133,7 +133,7 @@ BTranslator *
 make_nth_translator(int32 n, image_id you, uint32 flags, ...)
 {
 	if (!n)
-		return new PNGTranslator();
+		return new(std::nothrow) PNGTranslator();
 	else
 		return NULL;
 }
@@ -193,7 +193,7 @@ pngcb_flush_data(png_structp ppng)
 // Returns:
 // ---------------------------------------------------------------
 PNGTranslator::PNGTranslator()
-	: BaseTranslator(B_TRANSLATE("PNG images"), 
+	: BaseTranslator(B_TRANSLATE("PNG images"),
 		B_TRANSLATE("PNG image translator"),
 		PNG_TRANSLATOR_VERSION,
 		sInputFormats, kNumInputFormats,
@@ -299,8 +299,9 @@ void throw_error(png_structp ppng, png_const_charp error_msg)
 
 void alert_warning(png_structp ppng, png_const_charp error_msg)
 {
-	// Ignore
-	// TODO show a BAlert?
+	// These are only warnings and the image can still be decoded. We have no
+	// way to convey this to the calling app using the current translator API,
+	// so the warnings are just ignored.
 }
 
 status_t
@@ -433,7 +434,7 @@ PNGTranslator::translate_from_png_to_bits(BPositionIO *inSource,
 
 			if (interlace_type == PNG_INTERLACE_NONE) {
 				// allocate buffer for storing PNG row
-				prow = new uint8[rowbytes];
+				prow = new(std::nothrow) uint8[rowbytes];
 				if (!prow) {
 					result = B_NO_MEMORY;
 					break;
@@ -452,14 +453,14 @@ PNGTranslator::translate_from_png_to_bits(BPositionIO *inSource,
 
 			} else {
 				// interlaced PNG image
-				prows = new uint8 *[height];
+				prows = new(std::nothrow) uint8 *[height];
 				if (!prows) {
 					result = B_NO_MEMORY;
 					break;
 				}
 				// allocate enough memory to store the whole image
 				for (nalloc = 0; nalloc < height; nalloc++) {
-					prows[nalloc] = new uint8[rowbytes];
+					prows[nalloc] = new(std::nothrow) uint8[rowbytes];
 					if (!prows[nalloc])
 						break;
 				}
@@ -853,26 +854,27 @@ PNGTranslator::translate_from_bits_to_png(BPositionIO *inSource,
 				pngcb_write_data, pngcb_flush_data);
 
 			// Allocate memory needed to buffer image data
-			pbitsrow = new uint8[bitsHeader.rowBytes];
+			pbitsrow = new(std::nothrow) uint8[bitsHeader.rowBytes];
 			if (!pbitsrow) {
 				result = B_NO_MEMORY;
 				break;
 			}
 			if (interlace_type == PNG_INTERLACE_NONE) {
-				prow = new uint8[width * pngBytesPerPixel];
+				prow = new(std::nothrow) uint8[width * pngBytesPerPixel];
 				if (!prow) {
 					result = B_NO_MEMORY;
 					break;
 				}
 			} else {
-				prows = new uint8 *[height];
+				prows = new(std::nothrow) uint8 *[height];
 				if (!prows) {
 					result = B_NO_MEMORY;
 					break;
 				}
 				// allocate enough memory to store the whole image
 				for (nalloc = 0; nalloc < height; nalloc++) {
-					prows[nalloc] = new uint8[width * pngBytesPerPixel];
+					prows[nalloc] =
+						new(std::nothrow) uint8[width * pngBytesPerPixel];
 					if (!prows[nalloc])
 						break;
 				}
@@ -1001,8 +1003,8 @@ PNGTranslator::DerivedTranslate(BPositionIO *inSource,
 BView *
 PNGTranslator::NewConfigView(TranslatorSettings *settings)
 {
-	return new PNGView(BRect(0, 0, PNG_VIEW_WIDTH, PNG_VIEW_HEIGHT),
-		B_TRANSLATE("PNGTranslator Settings"), B_FOLLOW_ALL, 
+	return new(std::nothrow) PNGView(BRect(0, 0, PNG_VIEW_WIDTH, PNG_VIEW_HEIGHT),
+		B_TRANSLATE("PNGTranslator Settings"), B_FOLLOW_ALL,
 		B_WILL_DRAW, settings);
 }
 

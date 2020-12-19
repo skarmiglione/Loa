@@ -1,34 +1,36 @@
-1	greek, modern (1453-)	x-vnd.Haiku-LaunchBox	3016105370
-New	LaunchBox		Νέο
-Set description…	LaunchBox		Όριστε περιγραφή
-Vertical layout	LaunchBox		Κάθετη διάταξη
+1	greek, modern (1453-)	x-vnd.Haiku-LaunchBox	1530497419
+Set description…	LaunchBox		Ορισμός περιγραφή…
+Really close this pad?\n(The pad will not be remembered.)	LaunchBox		Είστε σίγουρος ότι θέλετε να κλείσετε αυτό το σημειωματάριο;\n(Το σημειωματάριο δε θα αποθηκευτεί)
 OK	LaunchBox		ΟΚ
-Pad 1	LaunchBox		Pad 1
-last chance	LaunchBox		Τελευταία ευκαιρία
-Quit	LaunchBox		Έξοδος
-Clear button	LaunchBox		Πλήκτρο καθαρισμού
-LaunchBox	System name		LaunchBox
 Ignore double-click	LaunchBox		Αγνοήστε διπλό κλίκ
-Auto-raise	LaunchBox		Αυτόματη ανύψωση
 Show on all workspaces	LaunchBox		Εμφάνιση όλων των χώρων εργασίας
-Show window border	LaunchBox		Εμφάνιση συνόρων παραθύρου
-Pad	LaunchBox		Pad
-Icon size	LaunchBox		Μέγεθος εικονιδίου
-Bummer	LaunchBox		Κρίμα
-Cancel	LaunchBox		Άκυρο
-Remove button	LaunchBox		Αφαιρέστε το κουμπί
-Horizontal layout	LaunchBox		Οριζόντια διάταξη
-\n\nFailed to launch application with signature '%2'.\n\nError:	LaunchBox		\n\nΑδυναμία εκτέλεσης της εφαρμογής με υπογραφή '%2'.\n\nΣφάλμα:
-Failed to launch '%1'.\n\nError:	LaunchBox		Αδυναμία εκτέλεσης του '%1'.\n\nΣφάλμα:
-Name Panel	LaunchBox		Όνομα πάνελ
-Add button here	LaunchBox		Προσθέστε κουμπί εδώ
-Description for '%3'	LaunchBox		Description for '%3'
-Settings	LaunchBox		Ρυθμίσεις
-Failed to launch 'something', error in Pad data.	LaunchBox		Αδυναμία εκκίνησης του 'κάποιου', σφάλμα στα δεδομένα της σημείωσης.
-Pad %1	LaunchBox		Pad %1
-Close	LaunchBox		Κλείσιμο
-Failed to send 'open folder' command to Tracker.\n\nError: 	LaunchBox		Αποτυχία εντολής `ανοιχτός φάκελος` στο Tracker.\n\nΛαθος 
-You can drag an icon here.	LaunchBox		Μπορείτε να μετακινήσετε το εικονίδιο εδώ.
+Name Panel	LaunchBox		Όνομα Πάνελ
+Autostart	LaunchBox		Αυτόματη έναρξη
 Clone	LaunchBox		Κλείσιμο
-launch popup	LaunchBox		Ξεκίνησει αναδυόμενου
-Really close this pad?\n(The pad will not be remembered.)	LaunchBox		Σίγουρα θέλετε να κλείσετε ταυτό το σημείωμα;\n(το σημείωμα δε θα απομνημονευτεί)
+Description for '%3'	LaunchBox		Description for '%3'
+Show window border	LaunchBox		Εμφάνιση συνόρων παραθύρου
+\n\nFailed to launch application with signature '%2'.\n\nError:	LaunchBox		\n\nΗ εκτέλεση της εφαρμογής με υπογραφή '%2' απέτυχε.\n\nΣφάλμα:
+Failed to launch 'something', error in Pad data.	LaunchBox		Η εκκίνηση του 'κάποιου' απέτυχε, σφάλμα στα δεδομένα της σημείωσης.
+LaunchBox	System name		LaunchBox
+Auto-raise	LaunchBox		Αυτόματη ανύψωση
+Icon size	LaunchBox		Μέγεθος εικονιδίου
+Open containing folder	LaunchBox		Άνοιγμα εμπεριεχόμενου φακέλου
+Add button here	LaunchBox		Προσθέστε κουμπί εδώ
+Cancel	LaunchBox		Άκυρο
+launch popup	LaunchBox		άνοιγμα αναδυόμενου παραθύρου
+Clear button	LaunchBox		Πλήκτρο καθαρισμού
+Bummer	LaunchBox		Κρίμα
+last chance	LaunchBox		Τελευταία ευκαιρία
+You can drag an icon here.	LaunchBox		Μπορείτε να μετακινήσετε το εικονίδιο εδώ.
+Pad 1	LaunchBox		Pad 1
+Failed to launch '%1'.\n\nError:	LaunchBox		Η εκτέλεση του '%1' απέτυχε.\n\nΣφάλμα:
+Settings	LaunchBox		Ρυθμίσεις
+Vertical layout	LaunchBox		Κάθετη διάταξη
+Pad	LaunchBox		Pad
+Close	LaunchBox		Κλείσιμο
+Remove button	LaunchBox		Αφαίρεση κουμπιού
+Quit	LaunchBox		Έξοδος
+Horizontal layout	LaunchBox		Οριζόντια διάταξη
+New	LaunchBox		Νέο
+Failed to send 'open folder' command to Tracker.\n\nError: 	LaunchBox		Η εντολή `άνοιγμα φακέλου` στον Ιχνηλάτη απέτυχε.\n\nΣφάλμα: 
+Pad %1	LaunchBox		Pad %1

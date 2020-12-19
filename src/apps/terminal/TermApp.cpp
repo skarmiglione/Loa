@@ -1,13 +1,15 @@
 /*
- * Copyright 2001-2013, Haiku, Inc. All rights reserved.
+ * Copyright 2001-2019, Haiku.
  * Copyright (c) 2003-2004 Kian Duffy <myob@users.sourceforge.net>
- * Copyright (C) 1998,99 Kazuho Okui and Takashi Murai.
+ * Parts Copyright (C) 1998,99 Kazuho Okui and Takashi Murai.
  *
  * Distributed unter the terms of the MIT license.
  *
  * Authors:
- *		Kian Duffy, myob@users.sourceforge.net
- *		Siarzhuk Zharski, zharik@gmx.li
+ *		Jeremiah Bailey, <jjbailey@gmail.com>
+ *		Kian Duffy, <myob@users.sourceforge.net>
+ *		Simon South, simon@simonsouth.net
+ *		Siarzhuk Zharski, <zharik@gmx.li>
  */
 
 
@@ -123,14 +125,13 @@ TermApp::ReadyToRun()
 	status_t status = _MakeTermWindow();
 
 	// failed spawn, print stdout and open alert panel
-	// TODO: This alert does never show up.
 	if (status < B_OK) {
 		BAlert* alert = new BAlert("alert",
 			B_TRANSLATE("Terminal couldn't start the shell. Sorry."),
 			B_TRANSLATE("OK"), NULL, NULL, B_WIDTH_FROM_LABEL,
 			B_INFO_ALERT);
 		alert->SetFlags(alert->Flags() | B_CLOSE_ON_ESCAPE);
-		alert->Go(NULL);
+		alert->Go();
 		PostMessage(B_QUIT_REQUESTED);
 		return;
 	}
@@ -178,6 +179,10 @@ void
 TermApp::MessageReceived(BMessage* message)
 {
 	switch (message->what) {
+		case B_KEY_MAP_LOADED:
+			fTermWindow->PostMessage(message);
+			break;
+
 		case MSG_ACTIVATE_TERM:
 			fTermWindow->Activate();
 			break;
@@ -203,6 +208,11 @@ TermApp::ArgvReceived(int32 argc, char **argv)
 
 	if (fArgs->Title() != NULL)
 		fWindowTitle = fArgs->Title();
+
+	if (fArgs->WorkingDir() != NULL) {
+		fWorkingDirectory = fArgs->WorkingDir();
+		chdir(fWorkingDirectory);
+	}
 
 	fStartFullscreen = fArgs->FullScreen();
 }
@@ -299,7 +309,7 @@ TermApp::_ChildCleanupThreadEntry(void* data)
 	return ((TermApp*)data)->_ChildCleanupThread();
 }
 
-	
+
 status_t
 TermApp::_ChildCleanupThread()
 {
@@ -307,7 +317,7 @@ TermApp::_ChildCleanupThread()
 	sigemptyset(&waitForSignals);
 	sigaddset(&waitForSignals, SIGCHLD);
 	sigaddset(&waitForSignals, SIGUSR1);
-	
+
 	for (;;) {
 		int signal;
 		int error = sigwait(&waitForSignals, &signal);
@@ -327,19 +337,20 @@ void
 TermApp::_Usage(char *name)
 {
 	fprintf(stderr, B_TRANSLATE("Haiku Terminal\n"
-		"Copyright 2001-2009 Haiku, Inc.\n"
+		"Copyright 2001-2019 Haiku, Inc.\n"
 		"Copyright(C) 1999 Kazuho Okui and Takashi Murai.\n"
 		"\n"
 		"Usage: %s [OPTION] [SHELL]\n"), name);
 
-	fprintf(stderr,
-		B_TRANSLATE("  -h,     --help               print this help\n"
-		//"  -p,     --preference         load preference file\n"
-		"  -t,     --title              set window title\n"
-		"  -f,     --fullscreen         start fullscreen\n")
-		//"  -geom,  --geometry           set window geometry\n"
-		//"                               An example of geometry is \"80x25+100+100\"\n"
-		);
+	fputs(B_TRANSLATE(
+			"  -h,     --help               print this help\n"
+			//"  -p,     --preference         load preference file\n"
+			"  -t,     --title              set window title\n"
+			"  -f,     --fullscreen         start fullscreen\n"
+			"  -w,     --working-directory  set initial working directory")
+			//"  -geom,  --geometry           set window geometry\n"
+			//"                               An example of geometry is \"80x25+100+100\"\n"
+		, stderr);
 }
 
 

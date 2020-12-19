@@ -366,34 +366,36 @@ BTextWidget::StartEdit(BRect bounds, BPoseView* view, BPose* pose)
 		return;
 	}
 
+	// TODO fix text rect being off by a pixel on some files
+
 	// get bounds with full text length
 	BRect rect(bounds);
 	BRect textRect(bounds);
-	rect.OffsetBy(-2, -1);
-	rect.right += 1;
 
-	BFont font;
-	view->GetFont(&font);
+	// label offset
+	float hOffset = 0;
+	float vOffset = view->ViewMode() == kListMode ? -1 : -2;
+	rect.OffsetBy(hOffset, vOffset);
+
 	BTextView* textView = new BTextView(rect, "WidgetTextView", textRect,
-		&font, 0, B_FOLLOW_ALL, B_WILL_DRAW);
+		be_plain_font, 0, B_FOLLOW_ALL, B_WILL_DRAW);
 
 	textView->SetWordWrap(false);
+	textView->SetInsets(2, 2, 2, 2);
 	DisallowMetaKeys(textView);
 	fText->SetUpEditing(textView);
 
 	textView->AddFilter(new BMessageFilter(B_KEY_DOWN, TextViewFilter));
 
-	rect.right = rect.left + textView->LineWidth() + 3;
-	// center new width, if necessary
-	if (view->ViewMode() == kIconMode
-		|| (view->ViewMode() == kListMode && fAlignment == B_ALIGN_CENTER)) {
-		rect.OffsetBy(bounds.Width() / 2 - rect.Width() / 2, 0);
-	}
+	rect.right = rect.left + textView->LineWidth();
+	rect.bottom = rect.top + textView->LineHeight() - 1;
 
-	rect.bottom = rect.top + textView->LineHeight() + 1;
-	textRect = rect.OffsetToCopy(2, 1);
-	textRect.right -= 3;
-	textRect.bottom--;
+	// enlarge rect by inset amount
+	rect.InsetBy(-2, -2);
+
+	// undo label offset
+	textRect = rect.OffsetToCopy(-hOffset, -vOffset);
+
 	textView->SetTextRect(textRect);
 
 	BPoint origin = view->LeftTop();
@@ -434,6 +436,10 @@ BTextWidget::StartEdit(BRect bounds, BPoseView* view, BPose* pose)
 		// for widget
 
 	textView->SelectAll();
+	textView->ScrollToSelection();
+		// scroll to beginning so that text is visible
+	textView->ScrollBy(-1, -2);
+		// scroll in rect to center text
 	textView->MakeFocus();
 
 	// make this text widget invisible while we edit it
@@ -538,15 +544,10 @@ BTextWidget::Draw(BRect eraseRect, BRect textRect, float, BPoseView* view,
 
 		// set high color
 		rgb_color highColor;
-		if (view->IsDesktopWindow()) {
-			if (selected)
-				highColor = ui_color(B_DOCUMENT_BACKGROUND_COLOR);
-			else
-				highColor = view->DeskTextColor();
-		} else if (selected && view->Window()->IsActive()) {
+		if (selected)
 			highColor = ui_color(B_DOCUMENT_BACKGROUND_COLOR);
-		} else
-			highColor = kBlack;
+		else
+			highColor = view->DeskTextColor();
 
 		if (clipboardMode == kMoveSelectionTo && !selected) {
 			drawView->SetDrawingMode(B_OP_ALPHA);

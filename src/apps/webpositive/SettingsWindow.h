@@ -8,6 +8,7 @@
 
 #include <Window.h>
 
+
 class BButton;
 class BCheckBox;
 class BMenu;
@@ -17,6 +18,7 @@ class BSpinner;
 class BTextControl;
 class FontSelectionView;
 class SettingsMessage;
+class BFilePanel;
 
 
 class SettingsWindow : public BWindow {
@@ -34,8 +36,6 @@ private:
 			BView*				_CreateGeneralPage(float spacing);
 			BView*				_CreateFontsPage(float spacing);
 			BView*				_CreateProxyPage(float spacing);
-			void				_BuildSizesMenu(BMenu* menu,
-									uint32 messageWhat);
 			void				_SetupFontSelectionView(
 									FontSelectionView* view,
 									BMessage* message);
@@ -43,13 +43,15 @@ private:
 			bool				_CanApplySettings() const;
 			void				_ApplySettings();
 			void				_RevertSettings();
+			void 				_ChooseDownloadFolder(const BMessage* message);
+
+			void				_HandleDownloadPanelResult(BFilePanel* panel,
+									const BMessage* message);
 			void				_ValidateControlsEnabledStatus();
 
+			uint32				_StartUpPolicy() const;
 			uint32				_NewWindowPolicy() const;
 			uint32				_NewTabPolicy() const;
-
-			void				_SetSizesMenuValue(BMenu* menu, int32 value);
-			int32				_SizesMenuValue(BMenu* menu) const;
 
 			BFont				_FindDefaultSerifFont() const;
 
@@ -73,6 +75,10 @@ private:
 			BMenuItem*			fNewTabBehaviorOpenSearchItem;
 			BMenuItem*			fNewTabBehaviorOpenBlankItem;
 
+			BMenuField*			fStartUpBehaviorMenu;
+			BMenuItem*			fStartUpBehaviorResumePriorSession;
+			BMenuItem*			fStartUpBehaviorStartNewSession;
+
 			BSpinner*			fDaysInHistory;
 			BCheckBox*			fShowTabsIfOnlyOnePage;
 			BCheckBox*			fAutoHideInterfaceInFullscreenMode;
@@ -94,9 +100,12 @@ private:
 			BButton*			fApplyButton;
 			BButton*			fCancelButton;
 			BButton*			fRevertButton;
+			BButton*			fChooseButton;
 
-			BMenuField*			fStandardSizesMenu;
-			BMenuField*			fFixedSizesMenu;
+			BSpinner*			fStandardSizesSpinner;
+			BSpinner*			fFixedSizesSpinner;
+
+			BFilePanel*			fOpenFilePanel;
 };
 
 

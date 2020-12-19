@@ -565,8 +565,8 @@ BRow::ValidateField(const BField* field, int32 logicalFieldIndex) const
 	if (column == NULL) {
 		BString dbmessage("\n\n\tThe parent BColumnListView does not have "
 			"\n\ta BColumn at the logical field index ");
-		dbmessage << logicalFieldIndex << ".\n\n";
-		printf(dbmessage.String());
+		dbmessage << logicalFieldIndex << ".\n";
+		puts(dbmessage.String());
 	} else {
 		if (!column->AcceptsField(field)) {
 			BString dbmessage("\n\n\tThe BColumn of type ");
@@ -1686,8 +1686,8 @@ BColumnListView::MessageReceived(BMessage* message)
 void
 BColumnListView::KeyDown(const char* bytes, int32 numBytes)
 {
-	char c = bytes[0];
-	switch (c) {
+	char key = bytes[0];
+	switch (key) {
 		case B_RIGHT_ARROW:
 		case B_LEFT_ARROW:
 		{
@@ -1699,9 +1699,9 @@ BColumnListView::KeyDown(const char* bytes, int32 numBytes)
 				float oldVal = fHorizontalScrollBar->Value();
 				float newVal = oldVal;
 
-				if (c == B_LEFT_ARROW)
+				if (key == B_LEFT_ARROW)
 					newVal -= smallStep;
-				else if (c == B_RIGHT_ARROW)
+				else if (key == B_RIGHT_ARROW)
 					newVal += smallStep;
 
 				if (newVal < minVal)
@@ -1715,10 +1715,25 @@ BColumnListView::KeyDown(const char* bytes, int32 numBytes)
 				if (focusRow == NULL)
 					break;
 
-				bool expanded = focusRow->IsExpanded();
-				if ((c == B_RIGHT_ARROW && !expanded)
-					|| (c == B_LEFT_ARROW && expanded)) {
-					fOutlineView->ToggleFocusRowOpen();
+				bool isExpanded = focusRow->HasLatch()
+					&& focusRow->IsExpanded();
+				switch (key) {
+					case B_LEFT_ARROW:
+						if (isExpanded)
+							fOutlineView->ToggleFocusRowOpen();
+						else if (focusRow->fParent != NULL) {
+							fOutlineView->DeselectAll();
+							fOutlineView->SetFocusRow(focusRow->fParent, true);
+							fOutlineView->ScrollTo(focusRow->fParent);
+						}
+						break;
+
+					case B_RIGHT_ARROW:
+						if (!isExpanded)
+							fOutlineView->ToggleFocusRowOpen();
+						else
+							fOutlineView->ChangeFocusRow(false, true, false);
+						break;
 				}
 			}
 			break;
@@ -1746,7 +1761,7 @@ BColumnListView::KeyDown(const char* bytes, int32 numBytes)
 			float currentValue = fVerticalScrollBar->Value();
 			float newValue = currentValue;
 
-			if (c == B_PAGE_UP)
+			if (key == B_PAGE_UP)
 				newValue -= largeStep;
 			else
 				newValue += largeStep;
@@ -1967,14 +1982,15 @@ BColumnListView::PreferredSize()
 		// Start with the extra width for border and scrollbars etc.
 		size.width = titleRect.left - Bounds().left;
 		size.width += Bounds().right - titleRect.right;
-		// If we want all columns to be visible at their preferred width,
+
+		// If we want all columns to be visible at their current width,
 		// we also need to add the extra margin width that the TitleView
 		// uses to compute its _VirtualWidth() for the horizontal scroll bar.
 		size.width += fTitleView->MarginWidth();
 		for (int32 i = 0; i < count; i++) {
 			BColumn* column = ColumnAt(i);
 			if (column != NULL)
-				size.width += fOutlineView->GetColumnPreferredWidth(column);
+				size.width += column->Width();
 		}
 	}
 
@@ -2539,9 +2555,6 @@ void
 TitleView::DrawTitle(BView* view, BRect rect, BColumn* column, bool depressed)
 {
 	BRect drawRect;
-	rgb_color borderColor = mix_color(
-		fMasterView->Color(B_COLOR_HEADER_BACKGROUND),
-		make_color(0, 0, 0), 128);
 	drawRect = rect;
 
 	font_height fh;

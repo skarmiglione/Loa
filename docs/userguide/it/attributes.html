@@ -23,34 +23,37 @@
 <body>
 
 <div id="banner">
-<div><span>User guide</span></div>
+<div><span>Guida dell'utente</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/it.png" alt="" /> Italiano</li>
-<li><a href="../ca/attributes.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/attributes.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/attributes.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/attributes.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../fr/attributes.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../hu/attributes.html"><img src="../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../pl/attributes.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/attributes.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/attributes.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/attributes.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/attributes.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/attributes.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/attributes.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/attributes.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/attributes.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/attributes.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/attributes.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Italiano&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/attributes.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/attributes.html">Català</a></li>
+<li><a href="../de/attributes.html">Deutsch</a></li>
+<li><a href="../en/attributes.html">English</a></li>
+<li><a href="../es/attributes.html">Español</a></li>
+<li><a href="../fr/attributes.html">Français</a></li>
+<li><a href="../fur/attributes.html">Furlan</a></li>
+<li><a href="../hu/attributes.html">Magyar</a></li>
+<li><a href="../pl/attributes.html">Polski</a></li>
+<li><a href="../pt_PT/attributes.html">Português</a></li>
+<li><a href="../pt_BR/attributes.html">Português (Brazil)</a></li>
+<li><a href="../ro/attributes.html">Română</a></li>
+<li><a href="../sk/attributes.html">Slovenčina</a></li>
+<li><a href="../fi/attributes.html">Suomi</a></li>
+<li><a href="../sv_SE/attributes.html">Svenska</a></li>
+<li><a href="../tr/attributes.html">Türkçe</a></li>
+<li><a href="../zh_CN/attributes.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/attributes.html">Русский</a></li>
+<li><a href="../uk/attributes.html">Українська</a></li>
+<li><a href="../jp/attributes.html">日本語</a></li>
 </ul>
 <span>
  «  <a href="filetypes.html">Tipi di File</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
+::  <a href="contents.html" class="uplink">Contenuti</a> 
 ::  <a href="index.html">L'indice del filesystem</a>  »
 </span></div>
 </div>
@@ -89,7 +92,7 @@
 <p><span class="cli">listattr</span> elenca gli attributi di un file, ma non mostra il loro contenuto.</p>
 <pre>uso: listattr 'nomefile' ['nomefile' ...]</pre>
 <p>Dal precedente screenshot :</p>
-<pre class="terminal"> ~/people -&gt;listattr Clara\ Botters
+<pre class="terminal"> ~/people -&gt;listattr Clara\\ Botters
 File: Clara Botters
    Type         Size                 Name
 -----------  ---------  -------------------------------
@@ -118,7 +121,7 @@ MIME String         21  "BEOS:TYPE"
 <ul>
 <li><p><tt>BEOS:TYPE</tt> gestisce il tipo di file come una stringa <acronym title="Multipurpose Internet Mail Extensions">MIME</acronym>, in questo caso "<tt>application/x-person</tt>", l'attributo determina l'icona predefinita e l'applicazione che apre quel file per esempio quando lo si esegue con un doppio click.</p></li>
 <li><p>"<tt>_trk/pinfo_le</tt>" è l'attributo con cui il Tracker tiene traccia della posizione dell'icona associata al file.</p></li></ul>
-<div class="box-info">Il backslash dopo "Clara" nel Terminale è necessario prima di caratteri speciali come <tt>'"*\$?!</tt>. Anche lo spazio tra "Clara" e "Botters" fa parte di questi. Infatti, il backslash è posto davanti al carattere "spazio" e non dopo "Clara".</div>
+<div class="box-info">Il backslash dopo "Clara" nel Terminale è necessario prima di caratteri speciali come <tt>'"*\\$?!</tt>. Anche lo spazio tra "Clara" e "Botters" fa parte di questi. Infatti, il backslash è posto davanti al carattere "spazio" e non dopo "Clara".</div>
 
 <h3>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -126,7 +129,7 @@ MIME String         21  "BEOS:TYPE"
 <p><span class="cli">catattr</span> visualizza il contenuto di uno specifico attributo di un file.</p>
 <pre>usage: catattr [--raw|-r] attr_name file1 [file2...]</pre>
 <p>Dall'esempio di prima:</p>
-<pre class="terminal"> ~/people -&gt;catattr META:city Clara\ Botters
+<pre class="terminal"> ~/people -&gt;catattr META:city Clara\\ Botters
 Clara Botters : string : Whelton</pre>
 
 <h3>
@@ -141,7 +144,7 @@ Clara Botters : string : Whelton</pre>
                  or a numeric value (ie. 0x1234, 42, 'ABCD', ...)
          The default is "string"</pre>
 <p>Quindi, ipotizzando che Clara abbia ottenuto un lavoro dalla multinazionale Barkelbaer Inc., l'utente riempirà in questo modo l'attributo "Company" (teoricamente vuoto) con le informazioni (che sono di tipo "string"):</p>
-<pre class="terminal"> ~/people -&gt;addattr -t string META:company Barkelbaer\ Inc. Clara\ Botters</pre>
+<pre class="terminal"> ~/people -&gt;addattr -t string META:company Barkelbaer\\ Inc. Clara\\ Botters</pre>
 
 <h3>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -152,7 +155,7 @@ Clara Botters : string : Whelton</pre>
          'attr' is the name of an attribute of the file
          If '-p' is specified, 'attr' is regarded as a pattern.</pre>
 <p>Anche se si può scegliere di non riempire l'attributo "Fax", è possibile rimuoverlo completamente dal file di Clara digitando:</p>
-<pre class="terminal"> ~/people -&gt;rmattr META:fax Clara\ Botters</pre>
+<pre class="terminal"> ~/people -&gt;rmattr META:fax Clara\\ Botters</pre>
 
 <h3>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -172,7 +175,7 @@ Ulteriori informazioni su questi comandi e sulle loro opzioni possono essere tro
 <div class="nav">
 <div class="inner"><span>
  «  <a href="filetypes.html">Tipi di File</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
+::  <a href="contents.html" class="uplink">Contenuti</a> 
 ::  <a href="index.html">L'indice del filesystem</a>  »
 </span></div>
 </div>

@@ -13,6 +13,7 @@
 #include <string.h>
 
 #include <Entry.h>
+#include <File.h>
 #include <FileGameSound.h>
 #include <MediaFile.h>
 #include <MediaTrack.h>
@@ -22,9 +23,7 @@
 #include "GSUtility.h"
 
 
-const int32 kPages = 20;
-struct _gs_media_tracker
-{
+struct _gs_media_tracker {
 	BMediaFile*	file;
 	BMediaTrack*	stream;
 	int64		frames;
@@ -33,84 +32,20 @@ struct _gs_media_tracker
 
 
 // Local utility functions -----------------------------------------------
+template<typename T, int middle>
 bool
-FillBuffer(_gs_ramp* ramp, uint8* data, uint8* buffer, size_t* bytes)
+FillBuffer(_gs_ramp* ramp, T* dest, const T* src, size_t* bytes)
 {
-	int32 samples = *bytes / sizeof(uint8);
+	size_t samples = *bytes / sizeof(T);
 
-	for (int32 byte = 0; byte < samples; byte++) {
+	for (size_t sample = 0; sample < samples; sample++) {
 		float gain = *ramp->value;
-		data[byte] = uint8(float(buffer[byte]) * gain);
+		dest[sample] = T(float(src[sample] - middle) * gain + middle);
 
 		if (ChangeRamp(ramp)) {
-			*bytes = byte * sizeof(uint8);
+			*bytes = sample * sizeof(T);
 			return true;
 		}
-	}
-
-	return false;
-}
-
-
-bool
-FillBuffer(_gs_ramp* ramp, int16* data, int16* buffer, size_t* bytes)
-{
-	int32 samples = *bytes / sizeof(int16);
-
-	for (int32 byte = 0; byte < samples; byte++) {
-		float gain = *ramp->value;
-		data[byte] = int16(float(buffer[byte]) * gain);
-
-		if (ChangeRamp(ramp)) {
-			*bytes = byte * sizeof(int16);
-			return true;
-		}
-	}
-
-	return false;
-}
-
-
-bool
-FillBuffer(_gs_ramp* ramp, int32* data, int32* buffer, size_t* bytes)
-{
-	size_t byte = 0;
-	bool bytesAreReady = (*bytes > 0);
-
-	while (bytesAreReady) {
-		float gain = *ramp->value;
-		data[byte] = int32(float(buffer[byte]) * gain);
-
-		if (ChangeRamp(ramp)) {
-			*bytes = byte;
-			return true;
-		}
-
-		byte++;
-		bytesAreReady = (byte >= *bytes);
-	}
-
-	return false;
-}
-
-
-bool
-FillBuffer(_gs_ramp* ramp, float* data, float* buffer, size_t* bytes)
-{
-	size_t byte = 0;
-	bool bytesAreReady = (*bytes > 0);
-
-	while (bytesAreReady) {
-		float gain = *ramp->value;
-		data[byte] = buffer[byte] * gain;
-
-		if (ChangeRamp(ramp)) {
-			*bytes = byte;
-			return true;
-		}
-
-		byte++;
-		bytesAreReady = (byte >= *bytes);
 	}
 
 	return false;
@@ -132,7 +67,7 @@ BFileGameSound::BFileGameSound(const entry_ref* file, bool looping,
 	fPauseGain(1.0)
 {
 	if (InitCheck() == B_OK)
-		SetInitError(Init(file));
+		SetInitError(Init(new(std::nothrow) BFile(file, B_READ_ONLY)));
 }
 
 
@@ -154,24 +89,36 @@ BFileGameSound::BFileGameSound(const char* file, bool looping,
 
 		if (get_ref_for_path(file, &node) != B_OK)
 			SetInitError(B_ENTRY_NOT_FOUND);
-		else
-			SetInitError(Init(&node));
+		else {
+			BFile* file = new(std::nothrow) BFile(&node, B_READ_ONLY);
+			SetInitError(Init(file));
+		}
 	}
+}
+
+
+BFileGameSound::BFileGameSound(BDataIO* data, bool looping,
+	BGameSoundDevice* device)
+	:
+	BStreamingGameSound(device),
+	fAudioStream(NULL),
+	fStopping(false),
+	fLooping(looping),
+	fBuffer(NULL),
+	fPlayPosition(0),
+	fPausing(NULL),
+	fPaused(false),
+	fPauseGain(1.0)
+{
+	if (InitCheck() == B_OK)
+		SetInitError(Init(data));
 }
 
 
 BFileGameSound::~BFileGameSound()
 {
-	if (fReadThread >= 0) {
-		// TODO: kill_thread() is very bad, since it will leak any resources
-		// that the thread had allocated. It will also keep locks locked that
-		// the thread holds! Set a flag to make the thread quit and use
-		// wait_for_thread() here!
-		kill_thread(fReadThread);
-	}
-
-	if (fAudioStream) {
-		if (fAudioStream->stream)
+	if (fAudioStream != NULL) {
+		if (fAudioStream->stream != NULL)
 			fAudioStream->file->ReleaseTrack(fAudioStream->stream);
 
 		delete fAudioStream->file;
@@ -179,6 +126,7 @@ BFileGameSound::~BFileGameSound()
 
 	delete [] fBuffer;
 	delete fAudioStream;
+	delete fDataSource;
 }
 
 
@@ -206,7 +154,7 @@ BFileGameSound::StopPlaying()
 {
 	status_t error = BStreamingGameSound::StopPlaying();
 
-	if (!fAudioStream || !fAudioStream->stream)
+	if (fAudioStream == NULL || fAudioStream->stream == NULL)
 		return B_OK;
 
 	// start reading next time from the start of the file
@@ -237,85 +185,71 @@ BFileGameSound::FillBuffer(void* inBuffer, size_t inByteCount)
 	// Split or combine decoder buffers into mixer buffers
 	// fPlayPosition is where we got up to in the input buffer after last call
 
+	char* buffer = (char*)inBuffer;
 	size_t out_offset = 0;
 
-	while (inByteCount > 0 && !fPaused) {
-		if (!fPaused || fPausing) {
-			printf("mixout %ld, inByteCount %ld, decin %ld, BufferSize %ld\n",
-				out_offset, inByteCount, fPlayPosition, fBufferSize);
-			if (fPlayPosition == 0 || fPlayPosition >= fBufferSize) {
-				Load();
-			}
-
-			if (fPausing) {
-				Lock();
-
-				bool rampDone = false;
-				size_t bytes = fBufferSize - fPlayPosition;
-
-				if (bytes > inByteCount) {
-					bytes = inByteCount;
-				}
-
-				// Fill the requested buffer, stopping if the paused flag is set
-				char* buffer = (char*)inBuffer;
-
-				switch(Format().format) {
-					case gs_audio_format::B_GS_U8:
-						rampDone = ::FillBuffer(fPausing,
-							(uint8*)&buffer[out_offset],
-							(uint8*)&fBuffer[fPlayPosition], &bytes);
-						break;
-
-					case gs_audio_format::B_GS_S16:
-						rampDone = ::FillBuffer(fPausing,
-							(int16*)&buffer[out_offset],
-							(int16*)&fBuffer[fPlayPosition], &bytes);
-						break;
-
-					case gs_audio_format::B_GS_S32:
-						rampDone = ::FillBuffer(fPausing,
-							(int32*)&buffer[out_offset],
-							(int32*)&fBuffer[fPlayPosition], &bytes);
-						break;
-
-					case gs_audio_format::B_GS_F:
-						rampDone = ::FillBuffer(fPausing,
-							(float*)&buffer[out_offset],
-							(float*)&fBuffer[fPlayPosition], &bytes);
-						break;
-				}
-
-				inByteCount -= bytes;
-				out_offset += bytes;
-				fPlayPosition += bytes;
-
-				// We finished ramping
-				if (rampDone) {
-
-					// Need to be able to stop asap when pause flag is flipped.
-					while (fPlayPosition < fBufferSize && (inByteCount > 0)) {
-						buffer[out_offset++] = fBuffer[fPlayPosition++];
-						inByteCount--;
-					}
-
-					delete fPausing;
-					fPausing = NULL;
-				}
-
-				Unlock();
-			} else {
-
-				char* buffer = (char*)inBuffer;
-
-				// Need to be able to stop asap when the pause flag is flipped.
-				while (fPlayPosition < fBufferSize && (!fPaused || fPausing)
-					&& (inByteCount > 0)) {
-					buffer[out_offset++] = fBuffer[fPlayPosition++];
-					inByteCount--;
-				}
-			}
+	while (inByteCount > 0 && (!fPaused || fPausing != NULL)) {
+		if (fPlayPosition == 0 || fPlayPosition >= fBufferSize) {
+			if (!Load())
+				break;
 		}
+
+		size_t bytes = fBufferSize - fPlayPosition;
+
+		if (bytes > inByteCount)
+			bytes = inByteCount;
+
+		if (fPausing != NULL) {
+			Lock();
+
+			bool rampDone = false;
+
+			switch(Format().format) {
+				case gs_audio_format::B_GS_U8:
+					rampDone = ::FillBuffer<uint8, 128>(fPausing,
+						(uint8*)&buffer[out_offset],
+						(uint8*)&fBuffer[fPlayPosition], &bytes);
+					break;
+
+				case gs_audio_format::B_GS_S16:
+					rampDone = ::FillBuffer<int16, 0>(fPausing,
+						(int16*)&buffer[out_offset],
+						(int16*)&fBuffer[fPlayPosition], &bytes);
+					break;
+
+				case gs_audio_format::B_GS_S32:
+					rampDone = ::FillBuffer<int32, 0>(fPausing,
+						(int32*)&buffer[out_offset],
+						(int32*)&fBuffer[fPlayPosition], &bytes);
+					break;
+
+				case gs_audio_format::B_GS_F:
+					rampDone = ::FillBuffer<float, 0>(fPausing,
+						(float*)&buffer[out_offset],
+						(float*)&fBuffer[fPlayPosition], &bytes);
+					break;
+			}
+
+			if (rampDone) {
+				delete fPausing;
+				fPausing = NULL;
+			}
+
+			Unlock();
+		} else
+			memcpy(&buffer[out_offset], &fBuffer[fPlayPosition], bytes);
+
+		inByteCount -= bytes;
+		out_offset += bytes;
+		fPlayPosition += bytes;
+	}
+
+	// Fill the rest with silence
+	if (inByteCount > 0) {
+		int middle = 0;
+		if (Format().format == gs_audio_format::B_GS_U8)
+			middle = 128;
+		memset(&buffer[out_offset], middle, inByteCount);
 	}
 }
 
@@ -371,20 +305,24 @@ BFileGameSound::IsPaused()
 
 
 status_t
-BFileGameSound::Init(const entry_ref* file)
+BFileGameSound::Init(BDataIO* data)
 {
+	fDataSource = data;
+	if (fDataSource == NULL)
+		return B_NO_MEMORY;
+
 	fAudioStream = new(std::nothrow) _gs_media_tracker;
-	if (!fAudioStream)
+	if (fAudioStream == NULL)
 		return B_NO_MEMORY;
 
 	memset(fAudioStream, 0, sizeof(_gs_media_tracker));
-	fAudioStream->file = new(std::nothrow) BMediaFile(file);
-	if (!fAudioStream->file) {
+	fAudioStream->file = new(std::nothrow) BMediaFile(data);
+	if (fAudioStream->file == NULL) {
 		delete fAudioStream;
 		fAudioStream = NULL;
 		return B_NO_MEMORY;
 	}
-	
+
 	status_t error = fAudioStream->file->InitCheck();
 	if (error != B_OK)
 		return error;
@@ -408,7 +346,7 @@ BFileGameSound::Init(const entry_ref* file)
 	gs_audio_format dformat = Device()->Format();
 
 	// request the format we want the sound
-	memset(&playFormat, 0, sizeof(media_format));
+	playFormat.Clear();
 	playFormat.type = B_MEDIA_RAW_AUDIO;
 	if (fAudioStream->stream->DecodedFormat(&playFormat) != B_OK) {
 		fAudioStream->file->ReleaseTrack(fAudioStream->stream);
@@ -428,8 +366,11 @@ BFileGameSound::Init(const entry_ref* file)
 		fBufferSize = dformat.buffer_size;
 
 	// create the buffer
+	int middle = 0;
+	if (gsformat.format == gs_audio_format::B_GS_U8)
+		middle = 128;
 	fBuffer = new char[fBufferSize * 2];
-	memset(fBuffer, 0, fBufferSize * 2);
+	memset(fBuffer, middle, fBufferSize * 2);
 
 	fFrameSize = gsformat.channel_count * get_sample_size(gsformat.format);
 	fAudioStream->frames = fAudioStream->stream->CountFrames();
@@ -447,7 +388,7 @@ BFileGameSound::Init(const entry_ref* file)
 bool
 BFileGameSound::Load()
 {
-	if (!fAudioStream || !fAudioStream->stream)
+	if (fAudioStream == NULL || fAudioStream->stream == NULL)
 		return false;
 
 	// read a new buffer
@@ -464,6 +405,7 @@ BFileGameSound::Load()
 			fAudioStream->stream->SeekToFrame(&frame);
 		} else {
 			StopPlaying();
+			return false;
 		}
 	}
 

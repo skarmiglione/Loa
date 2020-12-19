@@ -16,9 +16,12 @@
 #include <OS.h>
 
 #include <AutoDeleter.h>
+#include <AutoDeleterDrivers.h>
+#include <BytePointer.h>
 
 #include <syscalls.h>
 #include <syscall_restart.h>
+#include <slab/Slab.h>
 #include <util/AutoLock.h>
 #include <vfs.h>
 #include <wait_for_objects.h>
@@ -35,6 +38,8 @@
 
 
 static const size_t kMaxReadDirBufferSize = 64 * 1024;
+
+extern object_cache* sFileDescriptorCache;
 
 
 static struct file_descriptor* get_fd_locked(struct io_context* context,
@@ -116,7 +121,7 @@ struct file_descriptor*
 alloc_fd(void)
 {
 	file_descriptor* descriptor
-		= (file_descriptor*)malloc(sizeof(struct file_descriptor));
+		= (file_descriptor*)object_cache_alloc(sFileDescriptorCache, 0);
 	if (descriptor == NULL)
 		return NULL;
 
@@ -157,6 +162,9 @@ new_fd_etc(struct io_context* context, struct file_descriptor* descriptor,
 {
 	int fd = -1;
 	uint32 i;
+
+	if (firstIndex < 0 || (uint32)firstIndex >= context->table_size)
+		return B_BAD_VALUE;
 
 	mutex_lock(&context->io_mutex);
 
@@ -210,7 +218,7 @@ put_fd(struct file_descriptor* descriptor)
 		if (descriptor->ops != NULL && descriptor->ops->fd_free != NULL)
 			descriptor->ops->fd_free(descriptor);
 
-		free(descriptor);
+		object_cache_free(sFileDescriptorCache, descriptor, 0);
 	} else if ((descriptor->open_mode & O_DISCONNECTED) != 0
 		&& previous - 1 == descriptor->open_count
 		&& descriptor->ops != NULL) {
@@ -297,6 +305,10 @@ get_fd_locked(struct io_context* context, int fd)
 	struct file_descriptor* descriptor = context->fds[fd];
 
 	if (descriptor != NULL) {
+		// disconnected descriptors cannot be accessed anymore
+		if (descriptor->open_mode & O_DISCONNECTED)
+			return NULL;
+
 		TFD(GetFD(context, fd, descriptor));
 		inc_fd_ref_count(descriptor);
 	}
@@ -320,7 +332,7 @@ get_open_fd(struct io_context* context, int fd)
 	MutexLocker _(context->io_mutex);
 
 	file_descriptor* descriptor = get_fd_locked(context, fd);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return NULL;
 
 	atomic_add(&descriptor->open_count, 1);
@@ -486,7 +498,7 @@ dup_foreign_fd(team_id fromTeam, int fd, bool kernel)
 	file_descriptor* descriptor = get_fd(fromContext, fd);
 	if (descriptor == NULL)
 		return B_FILE_ERROR;
-	CObjectDeleter<file_descriptor> descriptorPutter(descriptor, put_fd);
+	DescriptorPutter descriptorPutter(descriptor);
 
 	// create a new FD in the target I/O context
 	int result = new_fd(get_current_io_context(kernel), descriptor);
@@ -506,10 +518,10 @@ fd_ioctl(bool kernelFD, int fd, uint32 op, void* buffer, size_t length)
 	int status;
 
 	descriptor = get_fd(get_current_io_context(kernelFD), fd);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return B_FILE_ERROR;
 
-	if (descriptor->ops->fd_ioctl != NULL)
+	if (descriptor->ops->fd_ioctl)
 		status = descriptor->ops->fd_ioctl(descriptor, op, buffer, length);
 	else
 		status = B_DEV_INVALID_IOCTL;
@@ -565,7 +577,7 @@ select_fd(int32 fd, struct select_info* info, bool kernel)
 	MutexLocker locker(context->io_mutex);
 
 	struct file_descriptor* descriptor = fdGetter.SetTo(context, fd, true);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return B_FILE_ERROR;
 
 	uint16 eventsToSelect = info->selected_events & ~B_EVENT_INVALID;
@@ -687,7 +699,7 @@ fd_is_valid(int fd, bool kernel)
 {
 	struct file_descriptor* descriptor
 		= get_fd(get_current_io_context(kernel), fd);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return false;
 
 	put_fd(descriptor);
@@ -720,15 +732,12 @@ common_close(int fd, bool kernel)
 static ssize_t
 common_user_io(int fd, off_t pos, void* buffer, size_t length, bool write)
 {
-	if (!IS_USER_ADDRESS(buffer))
-		return B_BAD_ADDRESS;
-
 	if (pos < -1)
 		return B_BAD_VALUE;
 
 	FDGetter fdGetter;
 	struct file_descriptor* descriptor = fdGetter.SetTo(fd, false);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (!descriptor)
 		return B_FILE_ERROR;
 
 	if (write ? (descriptor->open_mode & O_RWMASK) == O_RDONLY
@@ -747,6 +756,12 @@ common_user_io(int fd, off_t pos, void* buffer, size_t length, bool write)
 		return B_BAD_VALUE;
 	}
 
+	if (length == 0)
+		return 0;
+
+	if (!IS_USER_ADDRESS(buffer))
+		return B_BAD_ADDRESS;
+
 	SyscallRestartWrapper<status_t> status;
 
 	if (write)
@@ -757,8 +772,10 @@ common_user_io(int fd, off_t pos, void* buffer, size_t length, bool write)
 	if (status != B_OK)
 		return status;
 
-	if (movePosition)
-		descriptor->pos = pos + length;
+	if (movePosition) {
+		descriptor->pos = write && (descriptor->open_mode & O_APPEND) != 0
+			? descriptor->ops->fd_seek(descriptor, 0, SEEK_END) : pos + length;
+	}
 
 	return length <= SSIZE_MAX ? (ssize_t)length : SSIZE_MAX;
 }
@@ -780,7 +797,7 @@ common_user_vector_io(int fd, off_t pos, const iovec* userVecs, size_t count,
 
 	FDGetter fdGetter;
 	struct file_descriptor* descriptor = fdGetter.SetTo(fd, false);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (!descriptor)
 		return B_FILE_ERROR;
 
 	if (write ? (descriptor->open_mode & O_RWMASK) == O_RDONLY
@@ -811,6 +828,15 @@ common_user_vector_io(int fd, off_t pos, const iovec* userVecs, size_t count,
 
 	ssize_t bytesTransferred = 0;
 	for (uint32 i = 0; i < count; i++) {
+		if (vecs[i].iov_base == NULL)
+			continue;
+		if (!IS_USER_ADDRESS(vecs[i].iov_base)) {
+			status = B_BAD_ADDRESS;
+			if (bytesTransferred == 0)
+				return status;
+			break;
+		}
+
 		size_t length = vecs[i].iov_len;
 		if (write) {
 			status = descriptor->ops->fd_write(descriptor, pos,
@@ -838,8 +864,10 @@ common_user_vector_io(int fd, off_t pos, const iovec* userVecs, size_t count,
 			break;
 	}
 
-	if (movePosition)
-		descriptor->pos = pos;
+	if (movePosition) {
+		descriptor->pos = write && (descriptor->open_mode & O_APPEND) != 0
+			? descriptor->ops->fd_seek(descriptor, 0, SEEK_END) : pos;
+	}
 
 	return bytesTransferred;
 }
@@ -893,12 +921,12 @@ _user_seek(int fd, off_t pos, int seekType)
 	struct file_descriptor* descriptor;
 
 	descriptor = get_fd(get_current_io_context(false), fd);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (!descriptor)
 		return B_FILE_ERROR;
 
 	TRACE(("user_seek(descriptor = %p)\n", descriptor));
 
-	if (descriptor->ops->fd_seek != NULL)
+	if (descriptor->ops->fd_seek)
 		pos = descriptor->ops->fd_seek(descriptor, pos, seekType);
 	else
 		pos = ESPIPE;
@@ -911,10 +939,14 @@ _user_seek(int fd, off_t pos, int seekType)
 status_t
 _user_ioctl(int fd, uint32 op, void* buffer, size_t length)
 {
-	if (!IS_USER_ADDRESS(buffer))
-		return B_BAD_ADDRESS;
-
 	TRACE(("user_ioctl: fd %d\n", fd));
+
+	// "buffer" is not always a pointer depending on "op", so we cannot
+	// check that it is a userland buffer here. Instead we check that
+	// it is at least not within the bounds of kernel memory; as in
+	// the cases where it is a numeric constant it is usually a low one.
+	if (IS_KERNEL_ADDRESS(buffer))
+		return B_BAD_ADDRESS;
 
 	SyscallRestartWrapper<status_t> status;
 
@@ -939,7 +971,7 @@ _user_read_dir(int fd, struct dirent* userBuffer, size_t bufferSize,
 	io_context* ioContext = get_current_io_context(false);
 	FDGetter fdGetter;
 	struct file_descriptor* descriptor = fdGetter.SetTo(ioContext, fd, false);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return B_FILE_ERROR;
 
 	if (descriptor->ops->fd_read_dir == NULL)
@@ -960,14 +992,18 @@ _user_read_dir(int fd, struct dirent* userBuffer, size_t bufferSize,
 	if (status != B_OK)
 		return status;
 
+	ASSERT(count <= maxCount);
+
 	// copy the buffer back -- determine the total buffer size first
 	size_t sizeToCopy = 0;
-	struct dirent* entry = buffer;
+	BytePointer<struct dirent> entry = buffer;
 	for (uint32 i = 0; i < count; i++) {
 		size_t length = entry->d_reclen;
 		sizeToCopy += length;
-		entry = (struct dirent*)((uint8*)entry + length);
+		entry += length;
 	}
+
+	ASSERT(sizeToCopy <= bufferSize);
 
 	if (user_memcpy(userBuffer, buffer, sizeToCopy) != B_OK)
 		return B_BAD_ADDRESS;
@@ -985,10 +1021,10 @@ _user_rewind_dir(int fd)
 	TRACE(("user_rewind_dir(fd = %d)\n", fd));
 
 	descriptor = get_fd(get_current_io_context(false), fd);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return B_FILE_ERROR;
 
-	if (descriptor->ops->fd_rewind_dir != NULL)
+	if (descriptor->ops->fd_rewind_dir)
 		status = descriptor->ops->fd_rewind_dir(descriptor);
 	else
 		status = B_UNSUPPORTED;
@@ -1126,7 +1162,7 @@ _kern_write(int fd, off_t pos, const void* buffer, size_t length)
 	FDGetter fdGetter;
 	struct file_descriptor* descriptor = fdGetter.SetTo(fd, true);
 
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return B_FILE_ERROR;
 	if ((descriptor->open_mode & O_RWMASK) == O_RDONLY)
 		return B_FILE_ERROR;
@@ -1254,7 +1290,7 @@ _kern_read_dir(int fd, struct dirent* buffer, size_t bufferSize,
 
 	struct io_context* ioContext = get_current_io_context(true);
 	descriptor = get_fd(ioContext, fd);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return B_FILE_ERROR;
 
 	if (descriptor->ops->fd_read_dir) {
@@ -1280,7 +1316,7 @@ _kern_rewind_dir(int fd)
 	TRACE(("sys_rewind_dir(fd = %d)\n",fd));
 
 	descriptor = get_fd(get_current_io_context(true), fd);
-	if (descriptor == NULL || (descriptor->open_mode & O_DISCONNECTED) != 0)
+	if (descriptor == NULL)
 		return B_FILE_ERROR;
 
 	if (descriptor->ops->fd_rewind_dir)

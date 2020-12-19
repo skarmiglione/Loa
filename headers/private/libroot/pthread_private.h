@@ -46,6 +46,7 @@ typedef struct _pthread_attr {
 	int32		sched_priority;
 	size_t		stack_size;
 	size_t		guard_size;
+	void		*stack_address;
 } pthread_attr;
 
 typedef struct _pthread_rwlockattr {
@@ -90,6 +91,8 @@ status_t __pthread_init_creation_attributes(
 	status_t (*entryFunction)(void*, void*), void* argument1,
 	void* argument2, const char* name,
 	struct thread_creation_attributes* attributes);
+void __pthread_set_default_priority(int32 priority);
+status_t __pthread_mutex_lock(pthread_mutex_t* mutex, bigtime_t timeout);
 
 #ifdef __cplusplus
 }

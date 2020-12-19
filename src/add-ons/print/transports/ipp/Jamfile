@@ -1,7 +1,5 @@
 SubDir HAIKU_TOP src add-ons print transports ipp ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
-
 SubDirHdrs [ FDirName $(HAIKU_TOP) src add-ons print transports shared ] ;
 
 UsePrivateHeaders shared print ;
@@ -15,7 +13,6 @@ Addon IPP :
 	HttpURLConnection.cpp
 	IppContent.cpp
 	IppURLConnection.cpp
-	URL.cpp
 	Socket.o
 	SocketStream.o
 	DbgMsg.o

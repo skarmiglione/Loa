@@ -14,6 +14,7 @@
 #include <boot/heap.h>
 #include <boot/PathBlacklist.h>
 #include <boot/stdio.h>
+#include <boot/net/NetStack.h>
 
 #include "file_systems/packagefs/packagefs.h"
 
@@ -86,6 +87,8 @@ main(stage2_args *args)
 
 	if (bootVolume.IsValid()) {
 		// we got a volume to boot from!
+		load_driver_settings(args, bootVolume.RootDirectory());
+
 		status_t status;
 		while ((status = load_kernel(args, bootVolume)) < B_OK) {
 			// loading the kernel failed, so let the user choose another
@@ -122,7 +125,10 @@ main(stage2_args *args)
 				platform_switch_to_logo();
 
 			load_modules(args, bootVolume);
-			load_driver_settings(args, bootVolume.RootDirectory());
+
+			gKernelArgs.ucode_data = NULL;
+			gKernelArgs.ucode_data_size = 0;
+			platform_load_ucode(bootVolume);
 
 			// apply boot settings
 			apply_boot_settings();
@@ -130,6 +136,8 @@ main(stage2_args *args)
 			// set up kernel args version info
 			gKernelArgs.kernel_args_size = sizeof(kernel_args);
 			gKernelArgs.version = CURRENT_KERNEL_ARGS_VERSION;
+			if (gKernelArgs.ucode_data == NULL)
+				gKernelArgs.kernel_args_size = kernel_args_size_v1;
 
 			// clone the boot_volume KMessage into kernel accessible memory
 			// note, that we need to 8-byte align the buffer and thus allocate
@@ -145,7 +153,8 @@ main(stage2_args *args)
 			gKernelArgs.boot_volume = buffer;
 			gKernelArgs.boot_volume_size = gBootVolume.ContentSize();
 
-			// ToDo: cleanup, heap_release() etc.
+			platform_cleanup_devices();
+			// TODO: cleanup, heap_release() etc.
 			heap_print_statistics();
 			platform_start_kernel();
 		}

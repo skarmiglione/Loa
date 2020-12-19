@@ -1,11 +1,10 @@
 SubDir HAIKU_TOP src tests kits game direct_window_test ;
 
-SetSubDirSupportedPlatformsBeOSCompatible ;
 AddSubDirSupportedPlatforms libbe_test ;
 
 SimpleTest DirectWindowStars
 	: Stars.cpp StarWindow.cpp
-	: game be [ TargetLibsupc++ ]
+	: game be [ TargetLibstdc++ ] [ TargetLibsupc++ ]
 ;
 
 if ( $(TARGET_PLATFORM) = libbe_test ) {

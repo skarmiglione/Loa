@@ -22,7 +22,7 @@
 #ifdef _LOADER_MODE
 #	define panic printf
 #	define dprintf printf
-#	define kernel_debugger printf
+#	define kernel_debugger(x) printf("%s", x)
 #endif
 
 
@@ -381,7 +381,8 @@ extern "C"
 void
 abort()
 {
-	panic("abort() called!");
+	while (true)
+		panic("abort() called!");
 }
 
 
@@ -403,6 +404,7 @@ extern "C"
 void
 exit(int status)
 {
-	panic("exit() called with status code = %d!", status);
+	while (true)
+		panic("exit() called with status code = %d!", status);
 }
 

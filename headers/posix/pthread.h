@@ -1,6 +1,6 @@
 /*
  * Copyright 2001-2011 Haiku, Inc. All Rights Reserved.
- * Distributed under the terms of the Haiku License.
+ * Distributed under the terms of the MIT License.
  */
 #ifndef _PTHREAD_H_
 #define _PTHREAD_H_
@@ -209,6 +209,11 @@ extern int pthread_attr_getguardsize(const pthread_attr_t *attr,
 	size_t *guardsize);
 extern int pthread_attr_setguardsize(pthread_attr_t *attr, size_t guardsize);
 
+extern int pthread_attr_getstack(const pthread_attr_t *attr,
+	void **stackaddr, size_t *stacksize);
+extern int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr,
+	size_t stacksize);
+
 #if 0   /* Unimplemented attribute functions: */
 
 /* [TPS] */
@@ -220,25 +225,14 @@ extern int pthread_attr_getschedpolicy(const pthread_attr_t *attr,
 	int *policy);
 extern int pthread_attr_setschedpolicy(pthread_attr_t *attr, int policy);
 
-/* [TSA] */
-extern int pthread_attr_getstackaddr(const pthread_attr_t *attr,
-	void **stackaddr);
-extern int pthread_attr_setstackaddr(pthread_attr_t *attr, void *stackaddr);
-
-/* [TSA TSS] */
-extern int pthread_attr_getstack(const pthread_attr_t *attr,
-	void **stackaddr, size_t *stacksize);
-extern int pthread_attr_setstack(pthread_attr_t *attr, void *stackaddr, size_t stacksize);
-
 #endif	/* 0 */
-
 
 /* thread functions */
 extern int pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 	void *(*start_routine)(void*), void *arg);
 extern int pthread_detach(pthread_t thread);
 extern int pthread_equal(pthread_t t1, pthread_t t2);
-extern void pthread_exit(void *value_ptr);
+extern void pthread_exit(void *value_ptr) __attribute__ ((noreturn));
 extern int pthread_join(pthread_t thread, void **_value);
 extern pthread_t pthread_self(void);
 extern int pthread_getconcurrency(void);

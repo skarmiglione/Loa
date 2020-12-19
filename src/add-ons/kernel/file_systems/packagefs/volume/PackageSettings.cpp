@@ -8,7 +8,7 @@
 
 #include <driver_settings.h>
 
-#include <AutoDeleter.h>
+#include <AutoDeleterDrivers.h>
 #include <directories.h>
 #include <fs/KPath.h>
 #include <vfs.h>
@@ -193,9 +193,9 @@ PackageSettings::Load(dev_t mountPointDeviceID, ino_t mountPointNodeID,
 
 	// get the mount point relative settings file path
 	const char* settingsFilePath = mountType == PACKAGE_FS_MOUNT_TYPE_HOME
-		? kUserSettingsGlobalDirectory "/packages"
-			+ strlen(kUserConfigDirectory) + 1
-		: kSystemSettingsDirectory "/packages" + strlen(kSystemDirectory) + 1;
+		? &(kUserSettingsGlobalDirectory "/packages")
+			[strlen(kUserConfigDirectory) + 1]
+		: &(kSystemSettingsDirectory "/packages")[strlen(kSystemDirectory) + 1];
 
 	// get an absolute path
 	KPath path;
@@ -216,8 +216,7 @@ PackageSettings::Load(dev_t mountPointDeviceID, ino_t mountPointNodeID,
 	void* settingsHandle = load_driver_settings(path.Path());
 	if (settingsHandle == NULL)
 		return B_ENTRY_NOT_FOUND;
-	CObjectDeleter<void, status_t> settingsDeleter(settingsHandle,
-		&unload_driver_settings);
+	DriverSettingsUnloader settingsDeleter(settingsHandle);
 
 	const driver_settings* settings = get_driver_settings(settingsHandle);
 	for (int i = 0; i < settings->parameter_count; i++) {

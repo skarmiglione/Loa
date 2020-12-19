@@ -1,16 +1,15 @@
 SubDir HAIKU_TOP src add-ons kernel drivers network wlan iprowifi4965 ;
 
-UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd11_network compat ]
+UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_network compat ]
 	: true ;
-UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd11_wlan ] : true ;
+UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_wlan ] : true ;
 UsePrivateHeaders net system ;
 UsePrivateKernelHeaders ;
 
 SubDirCcFlags [ FDefines _KERNEL=1 FBSD_DRIVER=1 _XOPEN_SOURCE ]
 	-Wno-format
 	-Wno-unused
-	-Wno-uninitialized
-	-Werror ;
+	-Wno-uninitialized ;
 
 UseHeaders [ FDirName $(SUBDIR) ] : true ;
 
@@ -20,8 +19,8 @@ KernelAddon iprowifi4965 :
 	if_iwn.c
 	glue.c
 	:
-	libfreebsd11_wlan.a
-	libfreebsd11_network.a
+	freebsd_wlan.a
+	libfreebsd_network.a
 	;
 
 HAIKU_WIFI_FIRMWARE_PACKAGES on iprowifi4965 =

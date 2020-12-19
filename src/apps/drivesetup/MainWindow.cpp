@@ -65,6 +65,7 @@ enum {
 	MSG_INITIALIZE				= 'init',
 	MSG_DELETE					= 'delt',
 	MSG_EJECT					= 'ejct',
+	MSG_OPEN_DISKPROBE			= 'opdp',
 	MSG_SURFACE_TEST			= 'sfct',
 	MSG_RESCAN					= 'rscn',
 
@@ -217,6 +218,9 @@ MainWindow::MainWindow()
 		new BMessage(MSG_FORMAT));
 	fEjectMenuItem = new BMenuItem(B_TRANSLATE("Eject"),
 		new BMessage(MSG_EJECT), 'E');
+	fOpenDiskProbeMenuItem = new BMenuItem(B_TRANSLATE("Open with DiskProbe"),
+		new BMessage(MSG_OPEN_DISKPROBE));
+
 	fSurfaceTestMenuItem = new BMenuItem(
 		B_TRANSLATE("Surface test (not implemented)"),
 		new BMessage(MSG_SURFACE_TEST));
@@ -271,6 +275,10 @@ MainWindow::MainWindow()
 	fPartitionMenu->AddSeparatorItem();
 
 	fPartitionMenu->AddItem(fMountAllMenuItem);
+
+	fPartitionMenu->AddSeparatorItem();
+
+	fPartitionMenu->AddItem(fOpenDiskProbeMenuItem);
 	fMenuBar->AddItem(fPartitionMenu);
 
 	AddChild(fMenuBar);
@@ -288,6 +296,8 @@ MainWindow::MainWindow()
 		new BMessage(MSG_MOUNT), 'M');
 	fUnmountContextMenuItem = new BMenuItem(B_TRANSLATE("Unmount"),
 		new BMessage(MSG_UNMOUNT), 'U');
+	fOpenDiskProbeContextMenuItem = new BMenuItem(B_TRANSLATE("Open with DiskProbe"),
+		new BMessage(MSG_OPEN_DISKPROBE));
 	fFormatContextMenuItem = new BMenu(B_TRANSLATE("Format"));
 
 	fContextMenu->AddItem(fCreateContextMenuItem);
@@ -297,6 +307,8 @@ MainWindow::MainWindow()
 	fContextMenu->AddSeparatorItem();
 	fContextMenu->AddItem(fMountContextMenuItem);
 	fContextMenu->AddItem(fUnmountContextMenuItem);
+	fContextMenu->AddSeparatorItem();
+	fContextMenu->AddItem(fOpenDiskProbeContextMenuItem);
 	fContextMenu->SetTargetForItems(this);
 
 	// add DiskView
@@ -389,6 +401,17 @@ MainWindow::MessageReceived(BMessage* message)
 				_ScanDrives();
 			}
 			break;
+		case MSG_OPEN_DISKPROBE:
+		{
+			PartitionListRow* row = dynamic_cast<PartitionListRow*>(
+				fListView->CurrentSelection());
+			const char* args[] = { row->DevicePath(), NULL };
+
+			be_roster->Launch("application/x-vnd.Haiku-DiskProbe", 1,
+				(char**)args);
+
+			break;
+		}
 		case MSG_SURFACE_TEST:
 			printf("MSG_SURFACE_TEST\n");
 			break;
@@ -645,6 +668,8 @@ MainWindow::_UpdateMenus(BDiskDevice* disk,
 		fWipeMenuItem->SetEnabled(false);
 		fEjectMenuItem->SetEnabled(false);
 		fSurfaceTestMenuItem->SetEnabled(false);
+		fOpenDiskProbeMenuItem->SetEnabled(false);
+		fOpenDiskProbeContextMenuItem->SetEnabled(false);
 	} else {
 //		fWipeMenuItem->SetEnabled(true);
 		fWipeMenuItem->SetEnabled(false);
@@ -766,6 +791,9 @@ MainWindow::_UpdateMenus(BDiskDevice* disk,
 			fFormatContextMenuItem->SetEnabled(false);
 		}
 
+		fOpenDiskProbeMenuItem->SetEnabled(true);
+		fOpenDiskProbeContextMenuItem->SetEnabled(true);
+
 		if (prepared)
 			disk->CancelModifications();
 
@@ -795,7 +823,7 @@ MainWindow::_DisplayPartitionError(BString _message,
 		snprintf(message, sizeof(message), _message.String(), name.String());
 	} else {
 		_message.ReplaceAll("%s", "");
-		snprintf(message, sizeof(message), _message.String());
+		strlcpy(message, _message.String(), sizeof(message));
 	}
 
 	if (error < B_OK) {
@@ -957,39 +985,44 @@ MainWindow::_Initialize(BDiskDevice* disk, partition_id selectedPartition,
 		}
 	}
 
-	char message[512];
-
 	if (!found) {
-		snprintf(message, sizeof(message), B_TRANSLATE("Disk system \"%s\" "
-			"not found!"));
-		_DisplayPartitionError(message);
+		_DisplayPartitionError(B_TRANSLATE("Disk system \"%s\" not found!"));
 		return;
 	}
 
+	BString message;
+
 	if (diskSystem.IsFileSystem()) {
+		BString intelExtendedPartition = "Intel Extended Partition";
 		if (disk->ID() == selectedPartition) {
-			snprintf(message, sizeof(message), B_TRANSLATE("Are you sure you "
+			message = B_TRANSLATE("Are you sure you "
 				"want to format a raw disk? (Most people initialize the disk "
 				"with a partitioning system first) You will be asked "
-				"again before changes are written to the disk."));
+				"again before changes are written to the disk.");
 		} else if (partition->ContentName()
 			&& strlen(partition->ContentName()) > 0) {
-			snprintf(message, sizeof(message), B_TRANSLATE("Are you sure you "
+			message = B_TRANSLATE("Are you sure you "
 				"want to format the partition \"%s\"? You will be asked "
-				"again before changes are written to the disk."),
-				partition->ContentName());
+				"again before changes are written to the disk.");
+			message.ReplaceFirst("%s", partition->ContentName());
+		} else if (partition->Type() == intelExtendedPartition) {
+			message = B_TRANSLATE("Are you sure you "
+				"want to format the Intel Extended Partition? Any "
+				"subpartitions it contains will be overwritten if you "
+				"continue. You will be asked again before changes are "
+				"written to the disk.");
 		} else {
-			snprintf(message, sizeof(message), B_TRANSLATE("Are you sure you "
+			message = B_TRANSLATE("Are you sure you "
 				"want to format the partition? You will be asked again "
-				"before changes are written to the disk."));
+				"before changes are written to the disk.");
 		}
 	} else {
-		snprintf(message, sizeof(message), B_TRANSLATE("Are you sure you "
+		message = B_TRANSLATE("Are you sure you "
 			"want to initialize the selected disk? All data will be lost. "
 			"You will be asked again before changes are written to the "
-			"disk.\n"));
+			"disk.\n");
 	}
-	BAlert* alert = new BAlert("first notice", message,
+	BAlert* alert = new BAlert("first notice", message.String(),
 		B_TRANSLATE("Continue"), B_TRANSLATE("Cancel"), NULL,
 		B_WIDTH_FROM_WIDEST, B_WARNING_ALERT);
 	alert->SetShortcut(1, B_ESCAPE);
@@ -1046,30 +1079,32 @@ MainWindow::_Initialize(BDiskDevice* disk, partition_id selectedPartition,
 	// Warn the user one more time...
 	if (previousName.Length() > 0) {
 		if (partition->IsDevice()) {
-			snprintf(message, sizeof(message), B_TRANSLATE("Are you sure you "
+			message = B_TRANSLATE("Are you sure you "
 				"want to write the changes back to disk now?\n\n"
 				"All data on the disk %s will be irretrievably lost if you "
-				"do so!"), previousName.String());
+				"do so!");
+			message.ReplaceFirst("%s", previousName.String());
 		} else {
-			snprintf(message, sizeof(message), B_TRANSLATE("Are you sure you "
+			message = B_TRANSLATE("Are you sure you "
 				"want to write the changes back to disk now?\n\n"
 				"All data on the partition %s will be irretrievably lost if you "
-				"do so!"), previousName.String());
+				"do so!");
+			message.ReplaceFirst("%s", previousName.String());
 		}
 	} else {
 		if (partition->IsDevice()) {
-			snprintf(message, sizeof(message), B_TRANSLATE("Are you sure you "
+			message = B_TRANSLATE("Are you sure you "
 				"want to write the changes back to disk now?\n\n"
 				"All data on the selected disk will be irretrievably lost if "
-				"you do so!"));
+				"you do so!");
 		} else {
-			snprintf(message, sizeof(message), B_TRANSLATE("Are you sure you "
+			message = B_TRANSLATE("Are you sure you "
 				"want to write the changes back to disk now?\n\n"
 				"All data on the selected partition will be irretrievably lost "
-				"if you do so!"));
+				"if you do so!");
 		}
 	}
-	alert = new BAlert("final notice", message,
+	alert = new BAlert("final notice", message.String(),
 		B_TRANSLATE("Write changes"), B_TRANSLATE("Cancel"), NULL,
 		B_WIDTH_FROM_WIDEST, B_WARNING_ALERT);
 	alert->SetShortcut(1, B_ESCAPE);
@@ -1417,7 +1452,7 @@ MainWindow::_UpdateWindowZoomLimits()
 {
 	float maxHeight = 0;
 	int32 numColumns = fListView->CountColumns();
-	BRow* parentRow = NULL;
+	BRow* parentRow = fListView->RowAt(0, NULL);
 	BColumn* column = NULL;
 
 	maxHeight += _ColumnListViewHeight(fListView, NULL);
@@ -1428,7 +1463,6 @@ MainWindow::_UpdateWindowZoomLimits()
 		maxWidth += column->Width();
 	}
 
-	parentRow = fListView->RowAt(0, NULL);
 	maxHeight += B_H_SCROLL_BAR_HEIGHT;
 	maxHeight += 1.5 * parentRow->Height();	// the label row
 	maxHeight += fDiskView->Bounds().Height();

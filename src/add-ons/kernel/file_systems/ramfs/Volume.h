@@ -24,8 +24,8 @@
 
 #include <fs_interface.h>
 #include <SupportDefs.h>
+#include <lock.h>
 
-#include <userlandfs/shared/RecursiveLock.h>
 #include <util/DoublyLinkedList.h>
 
 #include "Entry.h"
@@ -34,9 +34,8 @@
 #include "String.h"
 
 class AllocationInfo;
-class Block;
-class BlockAllocator;
-class BlockReference;
+class Attribute;
+class AttributeIndex;
 class Directory;
 class DirectoryEntryTable;
 class Entry;
@@ -47,7 +46,6 @@ class IndexDirectory;
 class LastModifiedIndex;
 class NameIndex;
 class Node;
-class NodeAttributeTable;
 class NodeListener;
 class NodeListenerTree;
 class NodeTable;
@@ -99,10 +97,9 @@ public:
 	status_t Mount(uint32 flags);
 	status_t Unmount();
 
-	dev_t GetID() const { return fID; }
+	dev_t GetID() const { return fVolume != NULL ? fVolume->id : -1; }
 	fs_volume* FSVolume() const { return fVolume; }
 
-	off_t GetBlockSize() const;
 	off_t CountBlocks() const;
 	off_t CountFreeBlocks() const;
 
@@ -136,11 +133,9 @@ public:
 							  uint32 flags);
 	status_t RemoveEntryListener(EntryListener *listener, Entry *entry);
 
-	// node attribute table
+	// node attributes
 	status_t NodeAttributeAdded(ino_t id, Attribute *attribute);
 	status_t NodeAttributeRemoved(ino_t id, Attribute *attribute);
-	status_t FindNodeAttribute(ino_t id, const char *name,
-							   Attribute **attribute);
 
 	// indices
 	IndexDirectory *GetIndexDirectory() const	{ return fIndexDirectory; }
@@ -159,11 +154,6 @@ public:
 
 	ino_t NextNodeID() { return fNextNodeID++; }
 
-	status_t AllocateBlock(size_t size, BlockReference **block);
-	void FreeBlock(BlockReference *block);
-	BlockReference *ResizeBlock(BlockReference *block, size_t size);
-	// debugging only
-	bool CheckBlock(BlockReference *block, size_t size = 0);
 	void GetAllocationInfo(AllocationInfo &info);
 
 	bigtime_t GetAccessTime() const	{ return fAccessTime; }
@@ -183,25 +173,20 @@ protected:
 private:
 	typedef DoublyLinkedList<Query>	QueryList;
 
-	dev_t					fID;
 	ino_t					fNextNodeID;
 	NodeTable				*fNodeTable;
 	DirectoryEntryTable		*fDirectoryEntryTable;
-	NodeAttributeTable		*fNodeAttributeTable;
 	IndexDirectory			*fIndexDirectory;
 	Directory				*fRootDirectory;
 	String					fName;
-	RecursiveLock			fLocker;
-	RecursiveLock			fIteratorLocker;
-	RecursiveLock			fQueryLocker;
+	rw_lock					fLocker;
+	recursive_lock			fIteratorLocker;
+	recursive_lock			fQueryLocker;
 	NodeListenerTree		*fNodeListeners;
 	NodeListenerList		fAnyNodeListeners;
 	EntryListenerTree		*fEntryListeners;
 	EntryListenerList		fAnyEntryListeners;
 	QueryList				fQueries;
-	BlockAllocator			*fBlockAllocator;
-	off_t					fBlockSize;
-	off_t					fAllocatedBlocks;
 	bigtime_t				fAccessTime;
 	bool					fMounted;
 };

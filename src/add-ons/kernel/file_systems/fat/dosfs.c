@@ -398,6 +398,14 @@ volume_init(int fd, uint8* buf,
 		}
 	}
 
+	/* check that the partition is large enough to contain the file system */
+	if (geo != NULL
+			&& vol->total_sectors >
+				geo->sectors_per_track * geo->cylinder_count
+				* geo->head_count) {
+		dprintf("dosfs: volume extends past end of partition, mounting read-only\n");
+		vol->flags |= B_FS_IS_READONLY;
+	}
 
 	// now we are convinced of the drive's validity
 
@@ -517,7 +525,7 @@ mount_fat_disk(const char *path, fs_volume *_vol, const int flags,
 	}
 
 	// get device characteristics
-	if (ioctl(fd, B_GET_GEOMETRY, &geo) < 0) {
+	if (ioctl(fd, B_GET_GEOMETRY, &geo, sizeof(device_geometry)) < 0) {
 		struct stat st;
 		if (fstat(fd, &st) >= 0 && S_ISREG(st.st_mode)) {
 			/* support mounting disk images */
@@ -593,14 +601,6 @@ mount_fat_disk(const char *path, fs_volume *_vol, const int flags,
 		dprintf("dosfs error: failed to initialize volume\n");
 		err = B_ERROR;
 		goto error1;
-	}
-
-	/* check that the partition is large enough to contain the file system */
-	if (vol->total_sectors > geo.sectors_per_track * geo.cylinder_count
-			* geo.head_count) {
-		dprintf("dosfs: volume extends past end of partition\n");
-		err = B_PARTITION_TOO_SMALL;
-		goto error2;
 	}
 
 	vol->volume = _vol;
@@ -908,9 +908,11 @@ update_fsinfo(nspace *vol)
 {
 	if (vol->fat_bits == 32 && vol->fsinfo_sector != 0xffff
 		&& (vol->flags & B_FS_IS_READONLY) == 0) {
-		uchar *buffer = (uchar *)block_cache_get_writable_etc(vol->fBlockCache,
-				vol->fsinfo_sector, 0, vol->bytes_per_sector, -1);
-		if (buffer != NULL) {
+		uchar *buffer;
+		status_t status = block_cache_get_writable_etc(vol->fBlockCache,
+				vol->fsinfo_sector, 0, vol->bytes_per_sector, -1,
+				(void**)&buffer);
+		if (status == B_OK) {
 			if ((read32(buffer,0) == 0x41615252) && (read32(buffer,0x1e4) == 0x61417272) && (read16(buffer,0x1fe) == 0xaa55)) {
 				//number of free clusters
 				buffer[0x1e8] = (vol->free_clusters & 0xff);
@@ -929,8 +931,8 @@ update_fsinfo(nspace *vol)
 			}
 			block_cache_put(vol->fBlockCache, vol->fsinfo_sector);
 		} else {
-			dprintf("update_fsinfo: error getting fsinfo sector %x\n",
-				vol->fsinfo_sector);
+			dprintf("update_fsinfo: error getting fsinfo sector %x: %s\n",
+				vol->fsinfo_sector, strerror(status));
 		}
 	}
 }
@@ -940,14 +942,17 @@ static status_t
 get_fsinfo(nspace *vol, uint32 *free_count, uint32 *last_allocated)
 {
 	uchar *buffer;
-	int32 result;
+	status_t result;
 
 	if ((vol->fat_bits != 32) || (vol->fsinfo_sector == 0xffff))
 		return B_ERROR;
 
-	if ((buffer = (uchar *)block_cache_get_etc(vol->fBlockCache, vol->fsinfo_sector, 0, vol->bytes_per_sector)) == NULL) {
-		dprintf("get_fsinfo: error getting fsinfo sector %x\n", vol->fsinfo_sector);
-		return EIO;
+	result = block_cache_get_etc(vol->fBlockCache, vol->fsinfo_sector, 0,
+		vol->bytes_per_sector, &buffer);
+	if (result != B_OK) {
+		dprintf("get_fsinfo: error getting fsinfo sector %x: %s\n",
+			vol->fsinfo_sector, strerror(result));
+		return result;
 	}
 
 	if ((read32(buffer,0) == 0x41615252) && (read32(buffer,0x1e4) == 0x61417272) && (read16(buffer,0x1fe) == 0xaa55)) {
@@ -1093,12 +1098,12 @@ dosfs_write_fs_stat(fs_volume *_vol, const struct fs_info * fss, uint32 mask)
 
 		if (vol->vol_entry == -1) {
 			// stored in the bpb
-			uchar *buffer = block_cache_get_writable_etc(vol->fBlockCache, 0, 0,
-				vol->bytes_per_sector, -1);
-			if (buffer == NULL) {
-				result = EIO;
+			uchar *buffer;
+			result = block_cache_get_writable_etc(vol->fBlockCache, 0,
+				0, vol->bytes_per_sector, -1, (void**)&buffer);
+			if (result != B_OK)
 				goto bi;
-			}
+
 			if ((vol->sectors_per_fat == 0 && (buffer[0x42] != 0x29
 					|| strncmp((const char *)buffer + 0x47, vol->vol_label, 11)
 						!= 0))

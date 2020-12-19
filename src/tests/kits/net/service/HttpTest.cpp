@@ -1,29 +1,182 @@
 /*
  * Copyright 2010, Christophe Huriaux
- * Copyright 2014, Haiku, inc.
+ * Copyright 2014-2020, Haiku, inc.
  * Distributed under the terms of the MIT licence
  */
 
 
 #include "HttpTest.h"
 
-
+#include <algorithm>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
-#include <cstdio>
+#include <fstream>
+#include <map>
+#include <posix/libgen.h>
+#include <string>
 
-#include <NetworkKit.h>
+#include <AutoDeleter.h>
 #include <HttpRequest.h>
+#include <NetworkKit.h>
+#include <UrlProtocolListener.h>
+#include <UrlProtocolRoster.h>
 
-#include <cppunit/TestCaller.h>
+#include <tools/cppunit/ThreadedTestCaller.h>
+
+#include "TestServer.h"
 
 
-static const int kHeaderCountInTrivialRequest = 7;
-	// FIXME This is too strict and not very useful.
+namespace {
+
+typedef std::map<std::string, std::string> HttpHeaderMap;
 
 
-HttpTest::HttpTest()
-	: fBaseUrl("http://httpbin.org/")
+class TestListener : public BUrlProtocolListener {
+public:
+	TestListener(const std::string& expectedResponseBody,
+				 const HttpHeaderMap& expectedResponseHeaders)
+		:
+		fExpectedResponseBody(expectedResponseBody),
+		fExpectedResponseHeaders(expectedResponseHeaders)
+	{
+	}
+
+	virtual void DataReceived(
+		BUrlRequest *caller,
+		const char *data,
+		off_t position,
+		ssize_t size)
+	{
+		std::copy_n(
+			data + position,
+			size,
+			std::back_inserter(fActualResponseBody));
+	}
+
+	virtual void HeadersReceived(
+		BUrlRequest* caller,
+		const BUrlResult& result)
+	{
+		const BHttpResult& http_result
+			= dynamic_cast<const BHttpResult&>(result);
+		const BHttpHeaders& headers = http_result.Headers();
+
+		for (int32 i = 0; i < headers.CountHeaders(); ++i) {
+			const BHttpHeader& header = headers.HeaderAt(i);
+			fActualResponseHeaders[std::string(header.Name())]
+				= std::string(header.Value());
+		}
+	}
+
+
+	virtual bool CertificateVerificationFailed(
+		BUrlRequest* caller,
+		BCertificate& certificate,
+		const char* message)
+	{
+		// TODO: Add tests that exercize this behavior.
+		//
+		// At the moment there doesn't seem to be any public API for providing
+		// an alternate certificate authority, or for constructing a
+		// BCertificate to be sent to BUrlContext::AddCertificateException().
+		// Once we have such a public API then it will be useful to create
+		// test scenarios that exercize the validation performed by the
+		// undrelying TLS implementaiton to verify that it is configured
+		// to do so.
+		//
+		// For now we just disable TLS certificate validation entirely because
+		// we are generating a self-signed TLS certificate for these tests.
+		return true;
+	}
+
+
+	void Verify()
+	{
+		CPPUNIT_ASSERT_EQUAL(fExpectedResponseBody, fActualResponseBody);
+
+		for (HttpHeaderMap::iterator iter = fActualResponseHeaders.begin();
+			 iter != fActualResponseHeaders.end();
+			 ++iter)
+		{
+			CPPUNIT_ASSERT_EQUAL_MESSAGE(
+				"(header " + iter->first + ")",
+				fExpectedResponseHeaders[iter->first],
+				iter->second);
+		}
+		CPPUNIT_ASSERT_EQUAL(
+			fExpectedResponseHeaders.size(),
+			fActualResponseHeaders.size());
+	}
+
+private:
+	std::string fExpectedResponseBody;
+	std::string fActualResponseBody;
+
+	HttpHeaderMap fExpectedResponseHeaders;
+	HttpHeaderMap fActualResponseHeaders;
+};
+
+
+void SendAuthenticatedRequest(
+	BUrlContext &context,
+	BUrl &testUrl,
+	const std::string& expectedResponseBody,
+	const HttpHeaderMap &expectedResponseHeaders)
+{
+	TestListener listener(expectedResponseBody, expectedResponseHeaders);
+
+	ObjectDeleter<BUrlRequest> requestDeleter(
+		BUrlProtocolRoster::MakeRequest(testUrl, &listener, &context));
+	BHttpRequest* request = dynamic_cast<BHttpRequest*>(requestDeleter.Get());
+	CPPUNIT_ASSERT(request != NULL);
+
+	request->SetUserName("walter");
+	request->SetPassword("secret");
+
+	CPPUNIT_ASSERT(request->Run());
+
+	while (request->IsRunning())
+		snooze(1000);
+
+	CPPUNIT_ASSERT_EQUAL(B_OK, request->Status());
+
+	const BHttpResult &result =
+		dynamic_cast<const BHttpResult &>(request->Result());
+	CPPUNIT_ASSERT_EQUAL(200, result.StatusCode());
+	CPPUNIT_ASSERT_EQUAL(BString("OK"), result.StatusText());
+
+	listener.Verify();
+}
+
+
+// Return the path of a file path relative to this source file.
+std::string TestFilePath(const std::string& relativePath)
+{
+	char *testFileSource = strdup(__FILE__);
+	MemoryDeleter _(testFileSource);
+
+	std::string testSrcDir(::dirname(testFileSource));
+
+	return testSrcDir + "/" + relativePath;
+}
+
+
+template <typename T>
+void AddCommonTests(BThreadedTestCaller<T>& testCaller)
+{
+	testCaller.addThread("GetTest", &T::GetTest);
+	testCaller.addThread("UploadTest", &T::UploadTest);
+	testCaller.addThread("BasicAuthTest", &T::AuthBasicTest);
+	testCaller.addThread("DigestAuthTest", &T::AuthDigestTest);
+}
+
+}
+
+
+HttpTest::HttpTest(TestServerMode mode)
+	:
+	fTestServer(mode)
 {
 }
 
@@ -34,209 +187,320 @@ HttpTest::~HttpTest()
 
 
 void
+HttpTest::setUp()
+{
+	CPPUNIT_ASSERT_EQUAL_MESSAGE(
+		"Starting up test server",
+		B_OK,
+		fTestServer.Start());
+}
+
+
+void
 HttpTest::GetTest()
 {
-	BUrl testUrl(fBaseUrl, "/user-agent");
-	BUrlContext* c = new BUrlContext();
-	c->AcquireReference();
-	BHttpRequest t(testUrl);
+	BUrl testUrl(fTestServer.BaseUrl(), "/");
+	BUrlContext* context = new BUrlContext();
+	context->AcquireReference();
 
-	t.SetContext(c);
+	std::string expectedResponseBody(
+		"Path: /\r\n"
+		"\r\n"
+		"Headers:\r\n"
+		"--------\r\n"
+		"Host: 127.0.0.1:PORT\r\n"
+		"Accept: */*\r\n"
+		"Accept-Encoding: gzip\r\n"
+		"Connection: close\r\n"
+		"User-Agent: Services Kit (Haiku)\r\n");
+	HttpHeaderMap expectedResponseHeaders;
+	expectedResponseHeaders["Content-Encoding"] = "gzip";
+	expectedResponseHeaders["Content-Length"] = "144";
+	expectedResponseHeaders["Content-Type"] = "text/plain";
+	expectedResponseHeaders["Date"] = "Sun, 09 Feb 2020 19:32:42 GMT";
+	expectedResponseHeaders["Server"] = "Test HTTP Server for Haiku";
 
-	CPPUNIT_ASSERT(t.Run());
+	TestListener listener(expectedResponseBody, expectedResponseHeaders);
 
-	while (t.IsRunning())
+	ObjectDeleter<BUrlRequest> requestDeleter(
+		BUrlProtocolRoster::MakeRequest(testUrl, &listener, context));
+	BHttpRequest* request = dynamic_cast<BHttpRequest*>(requestDeleter.Get());
+	CPPUNIT_ASSERT(request != NULL);
+
+	CPPUNIT_ASSERT(request->Run());
+	while (request->IsRunning())
 		snooze(1000);
 
-	CPPUNIT_ASSERT_EQUAL(B_OK, t.Status());
+	CPPUNIT_ASSERT_EQUAL(B_OK, request->Status());
 
-	const BHttpResult& r = dynamic_cast<const BHttpResult&>(t.Result());
-	CPPUNIT_ASSERT_EQUAL(200, r.StatusCode());
-	CPPUNIT_ASSERT_EQUAL(BString("OK"), r.StatusText());
-	CPPUNIT_ASSERT_EQUAL(kHeaderCountInTrivialRequest,
-		r.Headers().CountHeaders());
-	CPPUNIT_ASSERT_EQUAL(42, r.Length());
-		// Fixed size as we know the response format.
-	CPPUNIT_ASSERT(!c->GetCookieJar().GetIterator().HasNext());
+	const BHttpResult& result
+		= dynamic_cast<const BHttpResult&>(request->Result());
+	CPPUNIT_ASSERT_EQUAL(200, result.StatusCode());
+	CPPUNIT_ASSERT_EQUAL(BString("OK"), result.StatusText());
+
+	CPPUNIT_ASSERT_EQUAL(144, result.Length());
+
+	listener.Verify();
+
+	CPPUNIT_ASSERT(!context->GetCookieJar().GetIterator().HasNext());
 		// This page should not set cookies
 
-	c->ReleaseReference();
+	context->ReleaseReference();
 }
 
 
 void
 HttpTest::ProxyTest()
 {
-	BUrl testUrl(fBaseUrl, "/user-agent");
+	BUrl testUrl(fTestServer.BaseUrl(), "/");
 
-	BUrlContext* c = new BUrlContext();
-	c->AcquireReference();
-	c->SetProxy("120.203.214.182", 83);
+	TestProxyServer proxy;
+	CPPUNIT_ASSERT_EQUAL_MESSAGE(
+		"Test proxy server startup",
+		B_OK,
+		proxy.Start());
 
-	BHttpRequest t(testUrl);
-	t.SetContext(c);
+	BUrlContext* context = new BUrlContext();
+	context->AcquireReference();
+	context->SetProxy("127.0.0.1", proxy.Port());
 
-	BUrlProtocolListener l;
-	t.SetListener(&l);
+	std::string expectedResponseBody(
+		"Path: /\r\n"
+		"\r\n"
+		"Headers:\r\n"
+		"--------\r\n"
+		"Host: 127.0.0.1:PORT\r\n"
+		"Content-Length: 0\r\n"
+		"Accept: */*\r\n"
+		"Accept-Encoding: gzip\r\n"
+		"Connection: close\r\n"
+		"User-Agent: Services Kit (Haiku)\r\n"
+		"X-Forwarded-For: 127.0.0.1:PORT\r\n");
+	HttpHeaderMap expectedResponseHeaders;
+	expectedResponseHeaders["Content-Encoding"] = "gzip";
+	expectedResponseHeaders["Content-Length"] = "169";
+	expectedResponseHeaders["Content-Type"] = "text/plain";
+	expectedResponseHeaders["Date"] = "Sun, 09 Feb 2020 19:32:42 GMT";
+	expectedResponseHeaders["Server"] = "Test HTTP Server for Haiku";
 
-	CPPUNIT_ASSERT(t.Run());
+	TestListener listener(expectedResponseBody, expectedResponseHeaders);
 
-	while (t.IsRunning())
+	ObjectDeleter<BUrlRequest> requestDeleter(
+		BUrlProtocolRoster::MakeRequest(testUrl, &listener, context));
+	BHttpRequest* request = dynamic_cast<BHttpRequest*>(requestDeleter.Get());
+	CPPUNIT_ASSERT(request != NULL);
+
+	CPPUNIT_ASSERT(request->Run());
+
+	while (request->IsRunning())
 		snooze(1000);
 
-	CPPUNIT_ASSERT_EQUAL(B_OK, t.Status());
+	CPPUNIT_ASSERT_EQUAL(B_OK, request->Status());
 
-	const BHttpResult& r = dynamic_cast<const BHttpResult&>(t.Result());
-
-printf("%s\n", r.StatusText().String());
-
-	CPPUNIT_ASSERT_EQUAL(200, r.StatusCode());
-	CPPUNIT_ASSERT_EQUAL(BString("OK"), r.StatusText());
-	CPPUNIT_ASSERT_EQUAL(42, r.Length());
+	const BHttpResult& response
+		= dynamic_cast<const BHttpResult&>(request->Result());
+	CPPUNIT_ASSERT_EQUAL(200, response.StatusCode());
+	CPPUNIT_ASSERT_EQUAL(BString("OK"), response.StatusText());
+	CPPUNIT_ASSERT_EQUAL(169, response.Length());
 		// Fixed size as we know the response format.
-	CPPUNIT_ASSERT(!c->GetCookieJar().GetIterator().HasNext());
+	CPPUNIT_ASSERT(!context->GetCookieJar().GetIterator().HasNext());
 		// This page should not set cookies
 
-	c->ReleaseReference();
-}
+	listener.Verify();
 
-
-class PortTestListener: public BUrlProtocolListener
-{
-public:
-	virtual			~PortTestListener() {};
-
-			void	DataReceived(BUrlRequest*, const char* data, off_t,
-						ssize_t size)
-			{
-				fResult.Append(data, size);
-			}
-
-	BString fResult;
-};
-
-
-void
-HttpTest::PortTest()
-{
-	BUrl testUrl("http://portquiz.net:4242");
-	BHttpRequest t(testUrl);
-
-	// portquiz returns more easily parseable results when UA is Wget...
-	t.SetUserAgent("Wget/1.15 (haiku testsuite)");
-
-	PortTestListener listener;
-	t.SetListener(&listener);
-
-	CPPUNIT_ASSERT(t.Run());
-
-	while (t.IsRunning())
-		snooze(1000);
-
-	CPPUNIT_ASSERT_EQUAL(B_OK, t.Status());
-
-	const BHttpResult& r = dynamic_cast<const BHttpResult&>(t.Result());
-	CPPUNIT_ASSERT_EQUAL(200, r.StatusCode());
-
-	CPPUNIT_ASSERT(listener.fResult.StartsWith("Port 4242 test successful!"));
+	context->ReleaseReference();
 }
 
 
 void
 HttpTest::UploadTest()
 {
-	BUrl testUrl(fBaseUrl, "/post");
-	BUrlContext c;
-	BHttpRequest t(testUrl);
+	std::string testFilePath = TestFilePath("testfile.txt");
 
-	t.SetContext(&c);
+	// The test server will echo the POST body back to us in the HTTP response,
+	// so here we load it into memory so that we can compare to make sure that
+	// the server received it.
+	std::string fileContents;
+	{
+		std::ifstream inputStream(
+			testFilePath.c_str(),
+			std::ios::in | std::ios::binary);
+		CPPUNIT_ASSERT(inputStream);
 
-	BHttpForm f;
-	f.AddString("hello", "world");
-	CPPUNIT_ASSERT(f.AddFile("_uploadfile", BPath("/system/data/licenses/MIT"))
-		== B_OK);
+		inputStream.seekg(0, std::ios::end);
+		fileContents.resize(inputStream.tellg());
 
-	t.SetPostFields(f);
+		inputStream.seekg(0, std::ios::beg);
+		inputStream.read(&fileContents[0], fileContents.size());
+		inputStream.close();
 
-	CPPUNIT_ASSERT(t.Run());
+		CPPUNIT_ASSERT(!fileContents.empty());
+	}
 
-	while (t.IsRunning())
+	std::string expectedResponseBody(
+		"Path: /post\r\n"
+		"\r\n"
+		"Headers:\r\n"
+		"--------\r\n"
+		"Host: 127.0.0.1:PORT\r\n"
+		"Accept: */*\r\n"
+		"Accept-Encoding: gzip\r\n"
+		"Connection: close\r\n"
+		"User-Agent: Services Kit (Haiku)\r\n"
+		"Content-Type: multipart/form-data; boundary=<<BOUNDARY-ID>>\r\n"
+		"Content-Length: 1404\r\n"
+		"\r\n"
+		"Request body:\r\n"
+		"-------------\r\n"
+		"--<<BOUNDARY-ID>>\r\n"
+		"Content-Disposition: form-data; name=\"_uploadfile\";"
+		" filename=\"testfile.txt\"\r\n"
+		"Content-Type: application/octet-stream\r\n"
+		"\r\n"
+		+ fileContents
+		+ "\r\n"
+		"--<<BOUNDARY-ID>>\r\n"
+		"Content-Disposition: form-data; name=\"hello\"\r\n"
+		"\r\n"
+		"world\r\n"
+		"--<<BOUNDARY-ID>>--\r\n"
+		"\r\n");
+	HttpHeaderMap expectedResponseHeaders;
+	expectedResponseHeaders["Content-Encoding"] = "gzip";
+	expectedResponseHeaders["Content-Length"] = "913";
+	expectedResponseHeaders["Content-Type"] = "text/plain";
+	expectedResponseHeaders["Date"] = "Sun, 09 Feb 2020 19:32:42 GMT";
+	expectedResponseHeaders["Server"] = "Test HTTP Server for Haiku";
+	TestListener listener(expectedResponseBody, expectedResponseHeaders);
+
+	BUrl testUrl(fTestServer.BaseUrl(), "/post");
+
+	BUrlContext context;
+
+	ObjectDeleter<BUrlRequest> requestDeleter(
+		BUrlProtocolRoster::MakeRequest(testUrl, &listener, &context));
+	BHttpRequest* request = dynamic_cast<BHttpRequest*>(requestDeleter.Get());
+	CPPUNIT_ASSERT(request != NULL);
+
+	BHttpForm form;
+	form.AddString("hello", "world");
+	CPPUNIT_ASSERT_EQUAL(
+		B_OK,
+		form.AddFile("_uploadfile", BPath(testFilePath.c_str())));
+
+	request->SetPostFields(form);
+
+	CPPUNIT_ASSERT(request->Run());
+
+	while (request->IsRunning())
 		snooze(1000);
 
-	CPPUNIT_ASSERT_EQUAL(B_OK, t.Status());
+	CPPUNIT_ASSERT_EQUAL(B_OK, request->Status());
 
-	const BHttpResult& r = dynamic_cast<const BHttpResult&>(t.Result());
-	CPPUNIT_ASSERT_EQUAL(200, r.StatusCode());
-	CPPUNIT_ASSERT_EQUAL(BString("OK"), r.StatusText());
-	CPPUNIT_ASSERT_EQUAL(466, r.Length());
-		// Fixed size as we know the response format.
+	const BHttpResult &result =
+		dynamic_cast<const BHttpResult &>(request->Result());
+	CPPUNIT_ASSERT_EQUAL(200, result.StatusCode());
+	CPPUNIT_ASSERT_EQUAL(BString("OK"), result.StatusText());
+	CPPUNIT_ASSERT_EQUAL(913, result.Length());
+
+	listener.Verify();
 }
 
 
 void
 HttpTest::AuthBasicTest()
 {
-	BUrl testUrl(fBaseUrl, "/basic-auth/walter/secret");
-	_AuthTest(testUrl);
+	BUrlContext context;
+
+	BUrl testUrl(fTestServer.BaseUrl(), "/auth/basic/walter/secret");
+
+	std::string expectedResponseBody(
+		"Path: /auth/basic/walter/secret\r\n"
+		"\r\n"
+		"Headers:\r\n"
+		"--------\r\n"
+		"Host: 127.0.0.1:PORT\r\n"
+		"Accept: */*\r\n"
+		"Accept-Encoding: gzip\r\n"
+		"Connection: close\r\n"
+		"User-Agent: Services Kit (Haiku)\r\n"
+		"Referer: SCHEME://127.0.0.1:PORT/auth/basic/walter/secret\r\n"
+		"Authorization: Basic d2FsdGVyOnNlY3JldA==\r\n");
+
+	HttpHeaderMap expectedResponseHeaders;
+	expectedResponseHeaders["Content-Encoding"] = "gzip";
+	expectedResponseHeaders["Content-Length"] = "212";
+	expectedResponseHeaders["Content-Type"] = "text/plain";
+	expectedResponseHeaders["Date"] = "Sun, 09 Feb 2020 19:32:42 GMT";
+	expectedResponseHeaders["Server"] = "Test HTTP Server for Haiku";
+	expectedResponseHeaders["Www-Authenticate"] = "Basic realm=\"Fake Realm\"";
+
+	SendAuthenticatedRequest(context, testUrl, expectedResponseBody,
+		expectedResponseHeaders);
+
+	CPPUNIT_ASSERT(!context.GetCookieJar().GetIterator().HasNext());
+		// This page should not set cookies
 }
 
 
 void
 HttpTest::AuthDigestTest()
 {
-	BUrl testUrl(fBaseUrl, "/digest-auth/auth/walter/secret");
-	_AuthTest(testUrl);
-}
+	BUrlContext context;
 
+	BUrl testUrl(fTestServer.BaseUrl(), "/auth/digest/walter/secret");
 
-void
-HttpTest::_AuthTest(BUrl& testUrl)
-{
-	BUrlContext c;
-	BHttpRequest t(testUrl);
+	std::string expectedResponseBody(
+		"Path: /auth/digest/walter/secret\r\n"
+		"\r\n"
+		"Headers:\r\n"
+		"--------\r\n"
+		"Host: 127.0.0.1:PORT\r\n"
+		"Accept: */*\r\n"
+		"Accept-Encoding: gzip\r\n"
+		"Connection: close\r\n"
+		"User-Agent: Services Kit (Haiku)\r\n"
+		"Referer: SCHEME://127.0.0.1:PORT/auth/digest/walter/secret\r\n"
+		"Authorization: Digest username=\"walter\","
+		" realm=\"user@shredder\","
+		" nonce=\"f3a95f20879dd891a5544bf96a3e5518\","
+		" algorithm=MD5,"
+		" opaque=\"f0bb55f1221a51b6d38117c331611799\","
+		" uri=\"/auth/digest/walter/secret\","
+		" qop=auth,"
+		" cnonce=\"60a3d95d286a732374f0f35fb6d21e79\","
+		" nc=00000001,"
+		" response=\"f4264de468aa1a91d81ac40fa73445f3\"\r\n"
+		"Cookie: stale_after=never; fake=fake_value\r\n");
 
-	t.SetContext(&c);
+	HttpHeaderMap expectedResponseHeaders;
+	expectedResponseHeaders["Content-Encoding"] = "gzip";
+	expectedResponseHeaders["Content-Length"] = "403";
+	expectedResponseHeaders["Content-Type"] = "text/plain";
+	expectedResponseHeaders["Date"] = "Sun, 09 Feb 2020 19:32:42 GMT";
+	expectedResponseHeaders["Server"] = "Test HTTP Server for Haiku";
+	expectedResponseHeaders["Set-Cookie"] = "fake=fake_value; Path=/";
+	expectedResponseHeaders["Www-Authenticate"]
+		= "Digest realm=\"user@shredder\", "
+		"nonce=\"f3a95f20879dd891a5544bf96a3e5518\", "
+		"qop=\"auth\", "
+		"opaque=f0bb55f1221a51b6d38117c331611799, "
+		"algorithm=MD5, "
+		"stale=FALSE";
 
-	t.SetUserName("walter");
-	t.SetPassword("secret");
+	SendAuthenticatedRequest(context, testUrl, expectedResponseBody,
+		expectedResponseHeaders);
 
-	CPPUNIT_ASSERT(t.Run());
-
-	while (t.IsRunning())
-		snooze(1000);
-
-	CPPUNIT_ASSERT_EQUAL(B_OK, t.Status());
-
-	const BHttpResult& r = dynamic_cast<const BHttpResult&>(t.Result());
-	CPPUNIT_ASSERT_EQUAL(200, r.StatusCode());
-	CPPUNIT_ASSERT_EQUAL(BString("OK"), r.StatusText());
-	CPPUNIT_ASSERT_EQUAL(kHeaderCountInTrivialRequest,
-		r.Headers().CountHeaders());
-	CPPUNIT_ASSERT_EQUAL(48, r.Length());
-		// Fixed size as we know the response format.
-}
-
-
-/* static */ template<class T> void
-HttpTest::_AddCommonTests(BString prefix, CppUnit::TestSuite& suite)
-{
-	BString name;
-
-	name = prefix;
-	name << "GetTest";
-	suite.addTest(new CppUnit::TestCaller<T>(name.String(), &T::GetTest));
-
-	name = prefix;
-	name << "UploadTest";
-	suite.addTest(new CppUnit::TestCaller<T>(name.String(), &T::UploadTest));
-
-	name = prefix;
-	name << "AuthBasicTest";
-	suite.addTest(new CppUnit::TestCaller<T>(name.String(), &T::AuthBasicTest));
-
-	name = prefix;
-	name << "AuthDigestTest";
-	suite.addTest(new CppUnit::TestCaller<T>(name.String(), &T::AuthDigestTest));
+	std::map<BString, BString> cookies;
+	BNetworkCookieJar::Iterator iter
+		= context.GetCookieJar().GetIterator();
+	while (iter.HasNext()) {
+		const BNetworkCookie* cookie = iter.Next();
+		cookies[cookie->Name()] = cookie->Value();
+	}
+	CPPUNIT_ASSERT_EQUAL(2, cookies.size());
+	CPPUNIT_ASSERT_EQUAL(BString("fake_value"), cookies["fake"]);
+	CPPUNIT_ASSERT_EQUAL(BString("never"), cookies["stale_after"]);
 }
 
 
@@ -246,27 +510,30 @@ HttpTest::AddTests(BTestSuite& parent)
 	{
 		CppUnit::TestSuite& suite = *new CppUnit::TestSuite("HttpTest");
 
+		HttpTest* httpTest = new HttpTest();
+		BThreadedTestCaller<HttpTest>* httpTestCaller
+			= new BThreadedTestCaller<HttpTest>("HttpTest::", httpTest);
+
 		// HTTP + HTTPs
-		_AddCommonTests<HttpTest>("HttpTest::", suite);
+		AddCommonTests<HttpTest>(*httpTestCaller);
 
-		// HTTP-only
-		suite.addTest(new CppUnit::TestCaller<HttpTest>(
-			"HttpTest::PortTest", &HttpTest::PortTest));
+		httpTestCaller->addThread("ProxyTest", &HttpTest::ProxyTest);
 
-		// TODO: reaches out to some mysterious IP 120.203.214.182 which does
-		// not respond anymore?
-		//suite.addTest(new CppUnit::TestCaller<HttpTest>("HttpTest::ProxyTest",
-		//	&HttpTest::ProxyTest));
-
+		suite.addTest(httpTestCaller);
 		parent.addTest("HttpTest", &suite);
 	}
 
 	{
 		CppUnit::TestSuite& suite = *new CppUnit::TestSuite("HttpsTest");
 
-		// HTTP + HTTPs
-		_AddCommonTests<HttpsTest>("HttpsTest::", suite);
+		HttpsTest* httpsTest = new HttpsTest();
+		BThreadedTestCaller<HttpsTest>* httpsTestCaller
+			= new BThreadedTestCaller<HttpsTest>("HttpsTest::", httpsTest);
 
+		// HTTP + HTTPs
+		AddCommonTests<HttpsTest>(*httpsTestCaller);
+
+		suite.addTest(httpsTestCaller);
 		parent.addTest("HttpsTest", &suite);
 	}
 }
@@ -276,7 +543,7 @@ HttpTest::AddTests(BTestSuite& parent)
 
 
 HttpsTest::HttpsTest()
-	: HttpTest()
+	:
+	HttpTest(TEST_SERVER_MODE_HTTPS)
 {
-	fBaseUrl.SetProtocol("https");
 }

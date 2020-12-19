@@ -39,7 +39,7 @@ for lib in [ HaikuImageGetSystemLibs ] $(developmentLibs) {
 
 # static libraries
 AddFilesToPackage develop lib :
-	libcolumnlistview.a
+	libc.a libcolumnlistview.a
 	<$(architecture)>liblocalestub.a
 	libm.a libpthread.a
 	libprint.a libprintutils.a
@@ -49,6 +49,10 @@ AddFilesToPackage develop lib :
 AddFilesToPackage develop lib : libposix_error_mapper.a ;
 
 # ABI independent stuff
+
+# directory attributes
+AddDirectoryToPackage develop : system-develop.rdef ;
+
 
 # headers
 AddHeaderDirectoryToPackage config ;
@@ -61,10 +65,10 @@ AddHeaderDirectoryToPackage posix ;
 # private headers
 AddHeaderDirectoryToPackage private ;
 CopyDirectoryToPackage develop headers private libs compat
-	: [ FDirName $(HAIKU_TOP) src libs compat freebsd11_network ]
+	: [ FDirName $(HAIKU_TOP) src libs compat freebsd_network ]
 	: : -x *.c -x *.cpp -x *.awk -x Jamfile -x miidevs -x usbdevs ;
 CopyDirectoryToPackage develop headers private libs compat
-	: [ FDirName $(HAIKU_TOP) src libs compat freebsd11_wlan ]
+	: [ FDirName $(HAIKU_TOP) src libs compat freebsd_wlan ]
 	: : -x *.c -x Jamfile ;
 
 # create be -> os symlink for now
@@ -75,7 +79,7 @@ AddHeaderDirectoryToPackage compatibility bsd : bsd ;
 AddHeaderDirectoryToPackage compatibility gnu : gnu ;
 
 # cpp headers
-if $(HAIKU_GCC_VERSION_$(architecture)[1]) = 2 {
+if $(HAIKU_CC_IS_LEGACY_GCC_$(architecture)) = 1 {
 	# GCC 2 only -- for GCC 4 they come with the gcc package
 	CopyDirectoryToPackage develop headers c++
 		: [ FDirName $(HAIKU_TOP) headers cpp ] : 2.95.3 ;

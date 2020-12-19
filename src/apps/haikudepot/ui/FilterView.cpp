@@ -1,5 +1,6 @@
 /*
  * Copyright 2013, Stephan Aßmus <superstippi@gmx.de>.
+ * Copyright 2019-2020, Andrew Lindesay <apl@lindesay.co.nz>.
  * All rights reserved. Distributed under the terms of the MIT License.
  */
 
@@ -8,6 +9,7 @@
 #include <algorithm>
 #include <stdio.h>
 
+#include <AutoLocker.h>
 #include <Catalog.h>
 #include <CheckBox.h>
 #include <LayoutBuilder.h>
@@ -25,19 +27,6 @@
 #define B_TRANSLATION_CONTEXT "FilterView"
 
 
-static void
-add_categories_to_menu(const CategoryList& categories, BMenu* menu)
-{
-	for (int i = 0; i < categories.CountItems(); i++) {
-		const CategoryRef& category = categories.ItemAtFast(i);
-		BMessage* message = new BMessage(MSG_CATEGORY_SELECTED);
-		message->AddString("name", category->Name());
-		BMenuItem* item = new BMenuItem(category->Label(), message);
-		menu->AddItem(item);
-	}
-}
-
-
 FilterView::FilterView()
 	:
 	BGroupView("filter view", B_VERTICAL)
@@ -45,10 +34,6 @@ FilterView::FilterView()
 	// Construct category popup
 	BPopUpMenu* showMenu = new BPopUpMenu(B_TRANSLATE("Category"));
 	fShowField = new BMenuField("category", B_TRANSLATE("Category:"), showMenu);
-
-	fShowFeaturedPackages = new BCheckBox("showonlyfeatured",
-		B_TRANSLATE("Show only featured packages"),
-		new BMessage(MSG_SHOW_FEATURED_PACKAGES));
 
 	// Construct search terms field
 	fSearchTermsText = new BTextControl("search terms",
@@ -71,7 +56,6 @@ FilterView::FilterView()
 		.AddGroup(B_HORIZONTAL)
 			.AddGroup(B_HORIZONTAL, B_USE_DEFAULT_SPACING, 1.2f)
 				.Add(fShowField, 0.0f)
-				.Add(fShowFeaturedPackages, 0.0f)
 				.SetExplicitMaxSize(BSize(B_SIZE_UNLIMITED, B_SIZE_UNSET))
 			.End()
 			.AddGlue(0.5f)
@@ -92,9 +76,7 @@ void
 FilterView::AttachedToWindow()
 {
 	fShowField->Menu()->SetTargetForItems(Window());
-	fShowFeaturedPackages->SetTarget(Window());
 	fSearchTermsText->SetTarget(this);
-
 	fSearchTermsText->MakeFocus();
 }
 
@@ -119,10 +101,8 @@ FilterView::MessageReceived(BMessage* message)
 
 
 void
-FilterView::AdoptModel(const Model& model)
+FilterView::AdoptModel(Model& model)
 {
-	fShowFeaturedPackages->SetValue(model.ShowFeaturedPackages());
-
 	// Adopt categories
 	BMenu* showMenu = fShowField->Menu();
 	showMenu->RemoveItems(0, showMenu->CountItems(), true);
@@ -130,25 +110,61 @@ FilterView::AdoptModel(const Model& model)
 	showMenu->AddItem(new BMenuItem(B_TRANSLATE("All categories"),
 		new BMessage(MSG_CATEGORY_SELECTED)));
 
-	showMenu->AddItem(new BSeparatorItem());
+	AutoLocker<BLocker> locker(model.Lock());
+	int32 categoryCount = model.CountCategories();
 
-	add_categories_to_menu(model.Categories(), showMenu);
-
-	bool foundSelectedCategory = false;
-	for (int32 i = 0; i < showMenu->CountItems(); i++) {
-		BMenuItem* item = showMenu->ItemAt(i);
-		BMessage* message = item->Message();
-		if (message == NULL)
-			continue;
-		BString category;
-		if (message->FindString("name", &category) == B_OK
-			&& model.Category() == category) {
-			item->SetMarked(true);
-			foundSelectedCategory = true;
-			break;
-		}
+	if (categoryCount > 0) {
+		showMenu->AddItem(new BSeparatorItem());
+		_AddCategoriesToMenu(model, showMenu);
 	}
-	if (!foundSelectedCategory)
+
+	showMenu->SetEnabled(categoryCount > 0);
+
+	if (!_SelectCategoryCode(showMenu, model.Category()))
 		showMenu->ItemAt(0)->SetMarked(true);
 }
 
+
+/*! Tries to mark the menu item that corresponds to the supplied
+    category code.  If the supplied code was found and the item marked
+    then the method will return true.
+*/
+
+/*static*/ bool
+FilterView::_SelectCategoryCode(BMenu* menu, const BString& code)
+{
+	for (int32 i = 0; i < menu->CountItems(); i++) {
+		BMenuItem* item = menu->ItemAt(i);
+		if (_MatchesCategoryCode(item, code)) {
+			item->SetMarked(true);
+			return true;
+		}
+	}
+	return false;
+}
+
+
+/*static*/ bool
+FilterView::_MatchesCategoryCode(BMenuItem* item, const BString& code)
+{
+	BMessage* message = item->Message();
+	if (message == NULL)
+		return false;
+	BString itemCode;
+	message->FindString("code", &itemCode);
+	return itemCode == code;
+}
+
+
+/*static*/ void
+FilterView::_AddCategoriesToMenu(Model& model, BMenu* menu)
+{
+	int count = model.CountCategories();
+	for (int i = 0; i < count; i++) {
+		const CategoryRef& category = model.CategoryAtIndex(i);
+		BMessage* message = new BMessage(MSG_CATEGORY_SELECTED);
+		message->AddString("code", category->Code());
+		BMenuItem* item = new BMenuItem(category->Name(), message);
+		menu->AddItem(item);
+	}
+}

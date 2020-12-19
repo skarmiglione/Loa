@@ -23,15 +23,15 @@ MESSAGE="This script will install firmware for various wireless network cards.
  access, only Intel's ipw2100 and ipw2200 will be installed.
 
  If you do not have internet access and need to install the other firmwares,
- goto http://www.haiku-os.org/guides/dailytasks/wireless. This page has
- instructions on which files to manually download and where to copy them into
- this OS. It also has different script that can be run on another OS and will
- prepare a zip archive for easy install. After that, re-run this script."
+ goto https://www.haiku-os.org/docs/userguide/en/workshop-wlan.html. This page
+ has instructions on which files to manually download and where to copy them
+ into this OS. It also has different script that can be run on another OS and
+ will prepare a zip archive for easy install. After that, re-run this script."
 VIEW='View licenses'
 ABORT='Abort installation'
 OK='I agree to the licenses. Install firmwares.'
 
-baseURL='http://www.haiku-files.org/files/wifi-firmwares'
+baseURL='https://raw.githubusercontent.com/haiku/firmware/master/wifi/'
 firmwareDir=`finddir B_SYSTEM_DATA_DIRECTORY`/firmware
 tempDir=`finddir B_SYSTEM_TEMP_DIRECTORY`/wifi-firmwares
 driversDir=`finddir B_SYSTEM_ADDONS_DIRECTORY`/kernel/drivers
@@ -195,7 +195,7 @@ function InstallBroadcom43xx()
 	driver='broadcom43xx'
 	PreFirmwareInstallation
 
-	BuildBroadcomFWCutter
+	pkgman install -y cmd:b43_fwcutter
 	returnCode=$?
 	if [ $returnCode -gt 0 ] ; then
 		echo "...failed. ${driver}'s firmware will not be installed."
@@ -239,64 +239,6 @@ function InstallMarvell88w8335()
 
 	rm "${tempFirmwareDir}/${driver}/${file}"
 	PostFirmwareInstallation
-}
-
-
-function BuildBroadcomFWCutter()
-{
-	# Download & extract b43-fwcutter.
-	local file="b43-fwcutter-012.tar.bz2"
-	local dir="${tempFirmwareDir}/${driver}/b43-fwcutter"
-	local url="${baseURL}/b43/fwcutter/${file}"
-	DownloadFileIfNotCached $url $file $dir
-	if [ $result -gt 0 ]; then
-		return $result
-	fi
-
-	# Extract archive.
-	cd "$tempDir"
-	tar xjf "$dir/$file"
-
-	# Download additonal files for building b43-fwcutter.
-	cd b43-fwcutter-012
-	local baseURL='https://git.haiku-os.org/haiku/plain/src/system/libroot/posix/glibc'
-	DownloadFileIfNotCached ${baseURL}/string/byteswap.h byteswap.h $dir
-	if [ $result -gt 0 ]; then
-		return $result
-	fi
-	DownloadFileIfNotCached ${baseURL}/include/arch/x86/bits/byteswap.h byteswap.h $dir/bits
-	if [ $result -gt 0 ]; then
-		return $result
-	fi
-
-	# Copy those files to working directory.
-	mkdir -p bits
-	cp $dir/byteswap.h .
-	cp $dir/bits/byteswap.h bits/
-
-	# Build b43-fwcutter.
-	echo "Compiling b43-fwcutter for installing Broadcom's firmware ..."
-	make PREFIX=/boot/system CFLAGS="-I. -Wall -D_BSD_SOURCE" >/dev/null 2>&1
-	result=$?
-	if [ $result -gt 0 ]; then
-		echo "... failed to compile b43-fwcutter."
-	else
-		echo "... successfully compiled b43-fwcutter."
-	fi
-	if [ ! -e b43-fwcutter ] ; then
-		return 1
-	fi
-	mv b43-fwcutter "$tempDir"
-
-	cd "${tempFirmwareDir}/${driver}/b43-fwcutter"
-	rm b43-fwcutter-012.tar.bz2
-	rm byteswap.h
-	rm bits/byteswap.h
-	rmdir bits
-	cd ..
-	rmdir b43-fwcutter
-
-	return 0
 }
 
 

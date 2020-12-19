@@ -4,14 +4,14 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2014, Haiku. All rights reserved.
+ * Copyright 2008-2020, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		Loïc
  *		Humdinger
+ *		Loïc
  *		Vincent Duvert
  *		Wabouz
  *
@@ -32,24 +32,27 @@
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../../images/flags/fr.png" alt="" /> Français</li>
-<li><a href="../../ca/applications/terminal.html"><img src="../../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../../de/applications/terminal.html"><img src="../../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../../en/applications/terminal.html"><img src="../../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../../es/applications/terminal.html"><img src="../../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../../it/applications/terminal.html"><img src="../../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../../hu/applications/terminal.html"><img src="../../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../../pl/applications/terminal.html"><img src="../../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../../pt_PT/applications/terminal.html"><img src="../../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../../pt_BR/applications/terminal.html"><img src="../../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../../ro/applications/terminal.html"><img src="../../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../../sk/applications/terminal.html"><img src="../../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../../fi/applications/terminal.html"><img src="../../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../../sv_SE/applications/terminal.html"><img src="../../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../../zh_CN/applications/terminal.html"><img src="../../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../../ru/applications/terminal.html"><img src="../../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../../uk/applications/terminal.html"><img src="../../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../../jp/applications/terminal.html"><img src="../../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Français&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../../id/applications/terminal.html">Bahasa Indonesia</a></li>
+<li><a href="../../ca/applications/terminal.html">Català</a></li>
+<li><a href="../../de/applications/terminal.html">Deutsch</a></li>
+<li><a href="../../en/applications/terminal.html">English</a></li>
+<li><a href="../../es/applications/terminal.html">Español</a></li>
+<li><a href="../../fur/applications/terminal.html">Furlan</a></li>
+<li><a href="../../it/applications/terminal.html">Italiano</a></li>
+<li><a href="../../hu/applications/terminal.html">Magyar</a></li>
+<li><a href="../../pl/applications/terminal.html">Polski</a></li>
+<li><a href="../../pt_PT/applications/terminal.html">Português</a></li>
+<li><a href="../../pt_BR/applications/terminal.html">Português (Brazil)</a></li>
+<li><a href="../../ro/applications/terminal.html">Română</a></li>
+<li><a href="../../sk/applications/terminal.html">Slovenčina</a></li>
+<li><a href="../../fi/applications/terminal.html">Suomi</a></li>
+<li><a href="../../sv_SE/applications/terminal.html">Svenska</a></li>
+<li><a href="../../tr/applications/terminal.html">Türkçe</a></li>
+<li><a href="../../zh_CN/applications/terminal.html"> 中文 ［中文］</a></li>
+<li><a href="../../ru/applications/terminal.html">Русский</a></li>
+<li><a href="../../uk/applications/terminal.html">Українська</a></li>
+<li><a href="../../jp/applications/terminal.html">日本語</a></li>
 </ul>
 <span>
  «  <a href="stylededit.html">StyledEdit</a> 
@@ -80,9 +83,9 @@
 <p>Vous pouvez ouvrir autant de Terminaux que vous voulez, chacun dans sa fenêtre propre, en lançant plusieurs fois l’application Terminal ou en tapant <span class="key">Alt</span> <span class="key">N</span> depuis un Terminal ouvert. Vous pouvez également utiliser la vue en onglets du Terminal : utilisez la combinaison <span class="key">Alt</span> <span class="key">T</span> pour ouvrir un nouvel onglet.</p>
 <img src="../images/apps-images/terminal.png" alt="terminal.png" />
 <br />
-<p>Double-cliquez dans une partie vide de la barre d'onglets pour ouvrir un nouvel onglet ou sur un onglet  pour le renommer. Plusieurs variables identifiables par un % peuvent être utilisées. Elles sont détaillées dans une info-bulle lorsque vous passez la souris sur le champ de texte.<br />
-Par défaut, <tt>%1d: %p</tt>, un onglet affiche le répertoire courant et, séparé par <tt>:</tt>, le nom de la tâche en cours d'exécution (ou <tt>--</tt> si seul bash est en cours, probablement inactif). La copie d'écran ci-dessus montre le premier onglet avec une session FTP dans le dossier <span class="path">Desktop</span>, et un seconde onglet inactif dans le répertoire personnel <span class="path">home</span>.<br />
-De la même façon, vous pouvez éditer le titre de la fenêtre du Terminal via <span class="menu">Edit|Window title...</span>.</p>
+<p>Double-clicking into the emtpy part of the tab bar opens a new tab; onto a tab opens a dialog to rename its title. There are several %-designated variables that are explained with a tooltip when you hover the mouse over the text field.<br />
+By default, <tt>%1d: %p</tt>, a tab shows the current directory and, separated by a <tt>:</tt>, the name of the currently running process (or <tt>--</tt> if it's just bash running, probably idling). The screenshot above shows the first tab with a FTP session in the <span class="path">Desktop</span> folder and a second tab idling at <span class="path">home</span>.<br />
+Via <span class="menu">Settings | Window title...</span> the Terminal window's title can be edited in a similar way.</p>
 <p>Right-clicking a tab shows a context menu to <span class="menu">Close tab</span>, <span class="menu">Close other tabs</span> or, like double-clicking, <span class="menu">Edit tab title...</span>.
 Un clic droit sur un onglet affiche un menu contextuel pour fermer cet onglet (<span class="menu">Close tab</span>), fermer les autres onglets (<span class="menu">Close other tabs</span>) ou, comme un double-clic, éditer le titre de l'onglet (<span class="menu">Edit tab title...</span>).</p>
 <p>Une fenêtre du Terminal peut être redimensionnée comme toute autre fenêtre ou en utilisant le menu <span class="menu">Settings | Window Size</span>. <span class="key">Alt</span> <span class="key">Entrée</span> permet de basculer en mode plein écran.</p>
@@ -94,11 +97,12 @@ comme <span class="menu">Window title</span> (Titre de la fenêtre), <span class
 <p><span class="menu">Settings | Settings...</span> ouvre un panneau pour configurer les réglages standards du Terminal.</p>
 <img src="../images/apps-images/terminal-settings.png" alt="terminal-settings.png" />
 <br />
-<p>La plupart des réglages proposés parlent d'eux même.<br />
-Quand vous passez votre souris sur les «formules» servant à nommer les titres des onglets et des fenêtres, les variables à votre disposition apparaissent dans des bulles d’aides.<br />
-Vous pouvez choisir un schéma de couleur prédéfini comme <span class="menu">Midnight</span> (Minuit) ou <span class="menu">Rétro</span>, ou en créer un <span class="menu">Personnalisé</span> quelle couleur vous souhaiter modifier (<span class="menu">Texte</span>, <span class="menu">Arrière plan</span>, <span class="menu">Curseur</span> etc.) en utilisant le sélecteur de couleur au dessous.</p>
-<p>Suivent quelques options : vous pouvez avoir un <span class="menu">Curseur clignotant</span> et choisir d'<span class="menu">utiliser du clair plutôt qu'un texte gras</span>. Ce dernier réglage évite le rendu parfois assez inesthétique des caractères gras dans le Terminal.<br />
-En activant la boite à cocher <span class="menu">Confirm exit if active programs exist</span> (Demander une confirmation à la fermeture si un programme est actif), la fenêtre du terminal que vous essayerez de fermer, vous avertira de la présence d'une application en cours d'exécution.</p>
+<p>Most of the offered settings speak for themselves. Not entirely obvious though, the font size is set in the submenu of the <span class="menu">Font</span> popup menu.<br />
+Hover your mouse over the "formulas" for naming tab and window titles to get tooltips for the available variables. <br />
+You can choose pre-defined color schema like <span class="menu">Midnight</span> or <span class="menu">Retro</span> or create a <span class="menu">Custom</span> one by selecting which color you want to change (<span class="menu">Text</span>, <span class="menu">Background</span>, <span class="menu">Cursor</span> etc.) and then use  the color picker below.</p>
+<p>A few more options follow: you can have a <span class="menu">Blinking cursor</span> and choose to <span class="menu">Allow bold text</span>.<br />
+<span class="menu">Use left Option as Meta key</span> if you work with certain UNIX software that relies on accessing an extended portion of the ASCII character set, like e.g. GNU Emacs and  the GNU readline library.<br />
+Activate the checkbox to <span class="menu">Confirm exit if active programs exist</span> and you'll be warned when trying to close a Terminal window while an app is still being executed.</p>
 <table summary="layout" border="0" cellpadding="2" cellspacing="0">
 <tr><td class="onelinetop"><span class="button">Save to file...</span></td><td width="10"> </td><td>permet d'enregistrer différents réglages sous des profils distincts, que vous pouvez ouvrir en double-cliquant dessus pour ouvrir un terminal ainsi configuré.</td></tr>
 <tr><td><span class="button">Revert</span></td><td> </td><td>restaure les réglages qui étaient actifs quand vous avez ouvert le panneau de réglage.</td></tr>
@@ -123,12 +127,12 @@ Ces deux fichiers peuvent être créés dans votre dossier <span class="path">/b
 vous ouvrez un nouveau Terminal. Il configure divers alias et variables qui affectent le comportement et l’apparence de bash. Vous trouverez en ligne de nombreuses ressources qui détaillent les possibilités de configuration.</p>
 <p>« The Haiku/BeOS Tip Server » met à votre disposition quelques astuces pour vous aider à démarrer, comme :</p>
 <ul>
-<li><a href="http://betips.net/1997/09/09/customize-your-terminal-prompt/">Personnaliser votre invite de commandes</a></li>
-<li><a href="http://betips.net/1997/09/09/more-prompt-customizations/">Plus de personnalisations de l’invite de commandes</a></li>
-<li><a href="http://betips.net/1997/09/09/enhancing-bash/">Améliorer bash</a></li>
-<li><a href="http://betips.net/1997/09/09/custom-keyboard-shortcuts/">Raccourcis claviers personnalisés</a></li>
+<li><a href="https://betips.net/?p=5">Customize your Terminal prompt</a></li>
+<li><a href="https://betips.net/?p=66">More prompt customizations</a></li>
+<li><a href="https://betips.net/?p=67">Enhancing bash</a></li>
+<li><a href="https://betips.net/?p=105">Custom keyboard shortcuts</a></li>
 </ul>
-<p>Il y en a d’autres, <a href="http://betips.net/index.php?s=.profile">jetez un œil</a>.</p>
+<p>There are more, <a href="https://betips.net/?s=profile">have a look</a>.</p>
 
 <h3>inputrc</h3>
 <p>Le fichier <span class="cli">inputrc</span> permet de configurer des équivalents claviers. Haiku fournit déjà des valeurs par défaut, vous n’aurez donc probablement pas à vous occupez de ces réglages plus compliqués. Si vous avez des besoins spécifiques, consultez des ressources en ligne, comme <a href="http://tiswww.case.edu/php/chet/readline/rluserman.html">The GNU Readline Library</a>.</p>

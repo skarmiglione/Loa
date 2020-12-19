@@ -135,7 +135,7 @@ ActivityWindow::ActivityWindow()
 	// "Settings" menu
 	menu = new BMenu(B_TRANSLATE("Settings"));
 	menu->AddItem(new BMenuItem(B_TRANSLATE("Settings" B_UTF8_ELLIPSIS),
-		new BMessage(kMsgShowSettings)));
+		new BMessage(kMsgShowSettings), ','));
 
 	menu->AddSeparatorItem();
 	fAlwaysOnTop = new BMenuItem(B_TRANSLATE("Always on top"), new BMessage(kMsgAlwaysOnTop));
@@ -366,6 +366,7 @@ ActivityWindow::_AddDefaultView()
 			// The first view defaults to memory usage
 			view->AddDataSource(new UsedMemoryDataSource());
 			view->AddDataSource(new CachedMemoryDataSource());
+			view->AddDataSource(new SwapSpaceDataSource());
 			break;
 		case 2:
 			// The third view defaults to network in/out

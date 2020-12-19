@@ -1,5 +1,5 @@
 /*
- * Copyright 2001-2017, Axel Dörfler, axeld@pinc-software.de.
+ * Copyright 2001-2019, Axel Dörfler, axeld@pinc-software.de.
  * This file may be used under the terms of the MIT License.
  */
 
@@ -8,7 +8,9 @@
 
 
 #include "Attribute.h"
+#include "CheckVisitor.h"
 #include "Debug.h"
+#include "file_systems/DeviceOpener.h"
 #include "Inode.h"
 #include "Journal.h"
 #include "Query.h"
@@ -25,165 +27,6 @@ static const int32 kDesiredAllocationGroups = 56;
 	// with this setting, though (i.e. you can create a 400 MB
 	// file on a 1 GB disk without the need for double indirect
 	// blocks).
-
-
-class DeviceOpener {
-public:
-						DeviceOpener(int fd, int mode);
-						DeviceOpener(const char* device, int mode);
-						~DeviceOpener();
-
-			int			Open(const char* device, int mode);
-			int			Open(int fd, int mode);
-			void*		InitCache(off_t numBlocks, uint32 blockSize);
-			void		RemoveCache(bool allowWrites);
-
-			void		Keep();
-
-			int			Device() const { return fDevice; }
-			int			Mode() const { return fMode; }
-			bool		IsReadOnly() const { return _IsReadOnly(fMode); }
-
-			status_t	GetSize(off_t* _size, uint32* _blockSize = NULL);
-
-private:
-	static	bool		_IsReadOnly(int mode)
-							{ return (mode & O_RWMASK) == O_RDONLY;}
-	static	bool		_IsReadWrite(int mode)
-							{ return (mode & O_RWMASK) == O_RDWR;}
-
-			int			fDevice;
-			int			fMode;
-			void*		fBlockCache;
-};
-
-
-DeviceOpener::DeviceOpener(const char* device, int mode)
-	:
-	fBlockCache(NULL)
-{
-	Open(device, mode);
-}
-
-
-DeviceOpener::DeviceOpener(int fd, int mode)
-	:
-	fBlockCache(NULL)
-{
-	Open(fd, mode);
-}
-
-
-DeviceOpener::~DeviceOpener()
-{
-	if (fDevice >= 0) {
-		RemoveCache(false);
-		close(fDevice);
-	}
-}
-
-
-int
-DeviceOpener::Open(const char* device, int mode)
-{
-	fDevice = open(device, mode | O_NOCACHE);
-	if (fDevice < 0)
-		fDevice = errno;
-
-	if (fDevice < 0 && _IsReadWrite(mode)) {
-		// try again to open read-only (don't rely on a specific error code)
-		return Open(device, O_RDONLY | O_NOCACHE);
-	}
-
-	if (fDevice >= 0) {
-		// opening succeeded
-		fMode = mode;
-		if (_IsReadWrite(mode)) {
-			// check out if the device really allows for read/write access
-			device_geometry geometry;
-			if (!ioctl(fDevice, B_GET_GEOMETRY, &geometry)) {
-				if (geometry.read_only) {
-					// reopen device read-only
-					close(fDevice);
-					return Open(device, O_RDONLY | O_NOCACHE);
-				}
-			}
-		}
-	}
-
-	return fDevice;
-}
-
-
-int
-DeviceOpener::Open(int fd, int mode)
-{
-	fDevice = dup(fd);
-	if (fDevice < 0)
-		return errno;
-
-	fMode = mode;
-
-	return fDevice;
-}
-
-
-void*
-DeviceOpener::InitCache(off_t numBlocks, uint32 blockSize)
-{
-	return fBlockCache = block_cache_create(fDevice, numBlocks, blockSize,
-		IsReadOnly());
-}
-
-
-void
-DeviceOpener::RemoveCache(bool allowWrites)
-{
-	if (fBlockCache == NULL)
-		return;
-
-	block_cache_delete(fBlockCache, allowWrites);
-	fBlockCache = NULL;
-}
-
-
-void
-DeviceOpener::Keep()
-{
-	fDevice = -1;
-}
-
-
-/*!	Returns the size of the device in bytes. It uses B_GET_GEOMETRY
-	to compute the size, or fstat() if that failed.
-*/
-status_t
-DeviceOpener::GetSize(off_t* _size, uint32* _blockSize)
-{
-	device_geometry geometry;
-	if (ioctl(fDevice, B_GET_GEOMETRY, &geometry) < 0) {
-		// maybe it's just a file
-		struct stat stat;
-		if (fstat(fDevice, &stat) < 0)
-			return B_ERROR;
-
-		if (_size)
-			*_size = stat.st_size;
-		if (_blockSize)	// that shouldn't cause us any problems
-			*_blockSize = 512;
-
-		return B_OK;
-	}
-
-	if (_size) {
-		*_size = 1LL * geometry.head_count * geometry.cylinder_count
-			* geometry.sectors_per_track * geometry.bytes_per_sector;
-	}
-	if (_blockSize)
-		*_blockSize = geometry.bytes_per_sector;
-
-	return B_OK;
-}
 
 
 //	#pragma mark -
@@ -282,7 +125,8 @@ Volume::Volume(fs_volume* volume)
 	fIndicesNode(NULL),
 	fDirtyCachedBlocks(0),
 	fFlags(0),
-	fCheckingThread(-1)
+	fCheckingThread(-1),
+	fCheckVisitor(NULL)
 {
 	mutex_init(&fLock, "bfs volume");
 	mutex_init(&fQueryLock, "bfs queries");
@@ -357,8 +201,11 @@ Volume::Mount(const char* deviceName, uint32 flags)
 	off_t diskSize;
 	if (opener.GetSize(&diskSize, &fDeviceBlockSize) != B_OK)
 		RETURN_ERROR(B_ERROR);
-	if (diskSize < (NumBlocks() << BlockShift()))
+	if (diskSize < (NumBlocks() << BlockShift())) {
+		FATAL(("Disk size (%" B_PRIdOFF " bytes) < file system size (%"
+			B_PRIdOFF " bytes)!\n", diskSize, NumBlocks() << BlockShift()));
 		RETURN_ERROR(B_BAD_VALUE);
+	}
 
 	// set the current log pointers, so that journaling will work correctly
 	fLogStart = fSuperBlock.LogStart();
@@ -430,6 +277,9 @@ Volume::Mount(const char* deviceName, uint32 flags)
 	} else {
 		status = B_BAD_VALUE;
 		FATAL(("could not create root node!\n"));
+
+		// We need to wait for the block allocator to finish
+		fBlockAllocator.Uninitialize();
 		return status;
 	}
 
@@ -619,6 +469,28 @@ Volume::RemoveQuery(Query* query)
 }
 
 
+status_t
+Volume::CreateCheckVisitor()
+{
+	if (fCheckVisitor != NULL)
+		return B_BUSY;
+
+	fCheckVisitor = new(std::nothrow) ::CheckVisitor(this);
+	if (fCheckVisitor == NULL)
+		return B_NO_MEMORY;
+
+	return B_OK;
+}
+
+
+void
+Volume::DeleteCheckVisitor()
+{
+	delete fCheckVisitor;
+	fCheckVisitor = NULL;
+}
+
+
 //	#pragma mark - Disk scanning and initialization
 
 
@@ -798,7 +670,11 @@ Volume::_EraseUnusedBootBlock()
 {
 	const int32 blockSize = 512;
 	const char emptySector[blockSize] = { 0 };
+	// Erase boot block if any
 	if (write_pos(fDevice, 0, emptySector, blockSize) != blockSize)
+		return B_IO_ERROR;
+	// Erase ext2 superblock if any
+	if (write_pos(fDevice, 1024, emptySector, blockSize) != blockSize)
 		return B_IO_ERROR;
 
 	return B_OK;

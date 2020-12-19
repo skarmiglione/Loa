@@ -26,10 +26,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "Block.h"
-#include "BlockAllocator.h"
+#include <vm/vm_page.h>
+
 #include "DebugSupport.h"
 #include "Directory.h"
+#include "DirectoryEntryTable.h"
 #include "Entry.h"
 #include "EntryListener.h"
 #include "IndexDirectory.h"
@@ -37,16 +38,10 @@
 #include "Misc.h"
 #include "NameIndex.h"
 #include "Node.h"
-#include "NodeChildTable.h"
 #include "NodeListener.h"
 #include "NodeTable.h"
 #include "TwoKeyAVLTree.h"
 #include "Volume.h"
-
-// default block size
-static const off_t kDefaultBlockSize = 4096;
-
-static const size_t kDefaultAreaSize = kDefaultBlockSize * 128;
 
 // default volume name
 static const char *kDefaultVolumeName = "RAM FS";
@@ -133,27 +128,22 @@ class EntryListenerTree : public _EntryListenerTree {};
 Volume::Volume(fs_volume* volume)
 	:
 	fVolume(volume),
-	fID(0),
 	fNextNodeID(kRootParentID + 1),
 	fNodeTable(NULL),
 	fDirectoryEntryTable(NULL),
-	fNodeAttributeTable(NULL),
 	fIndexDirectory(NULL),
 	fRootDirectory(NULL),
 	fName(kDefaultVolumeName),
-	fLocker("volume"),
-	fIteratorLocker("iterators"),
-	fQueryLocker("queries"),
 	fNodeListeners(NULL),
 	fAnyNodeListeners(),
 	fEntryListeners(NULL),
 	fAnyEntryListeners(),
-	fBlockAllocator(NULL),
-	fBlockSize(kDefaultBlockSize),
-	fAllocatedBlocks(0),
 	fAccessTime(0),
 	fMounted(false)
 {
+	rw_lock_init(&fLocker, "ramfs volume");
+	recursive_lock_init(&fIteratorLocker, "ramfs iterators");
+	recursive_lock_init(&fQueryLocker, "ramfs queries");
 }
 
 
@@ -161,6 +151,10 @@ Volume::Volume(fs_volume* volume)
 Volume::~Volume()
 {
 	Unmount();
+
+	recursive_lock_destroy(&fIteratorLocker);
+	recursive_lock_destroy(&fQueryLocker);
+	rw_lock_destroy(&fLocker);
 }
 
 
@@ -170,24 +164,7 @@ Volume::Mount(uint32 flags)
 {
 	Unmount();
 
-	// check the locker's semaphores
-	if (fLocker.Sem() < 0)
-		return fLocker.Sem();
-	if (fIteratorLocker.Sem() < 0)
-		return fIteratorLocker.Sem();
-	if (fQueryLocker.Sem() < 0)
-		return fQueryLocker.Sem();
-
 	status_t error = B_OK;
-	fID = id;
-	// create a block allocator
-	if (error == B_OK) {
-		fBlockAllocator = new(nothrow) BlockAllocator(kDefaultAreaSize);
-		if (fBlockAllocator)
-			error = fBlockAllocator->InitCheck();
-		else
-			SET_ERROR(error, B_NO_MEMORY);
-	}
 	// create the listener trees
 	if (error == B_OK) {
 		fNodeListeners = new(nothrow) NodeListenerTree;
@@ -212,14 +189,6 @@ Volume::Mount(uint32 flags)
 		fDirectoryEntryTable = new(nothrow) DirectoryEntryTable;
 		if (fDirectoryEntryTable)
 			error = fDirectoryEntryTable->InitCheck();
-		else
-			SET_ERROR(error, B_NO_MEMORY);
-	}
-	// create the node attribute table
-	if (error == B_OK) {
-		fNodeAttributeTable = new(nothrow) NodeAttributeTable;
-		if (fNodeAttributeTable)
-			error = fNodeAttributeTable->InitCheck();
 		else
 			SET_ERROR(error, B_NO_MEMORY);
 	}
@@ -274,10 +243,6 @@ Volume::Unmount()
 		fNodeListeners = NULL;
 	}
 	// delete the tables
-	if (fNodeAttributeTable) {
-		delete fNodeAttributeTable;
-		fNodeAttributeTable = NULL;
-	}
 	if (fDirectoryEntryTable) {
 		delete fDirectoryEntryTable;
 		fDirectoryEntryTable = NULL;
@@ -286,42 +251,22 @@ Volume::Unmount()
 		delete fNodeTable;
 		fNodeTable = NULL;
 	}
-	// delete the block allocator
-	if (fBlockAllocator) {
-		delete fBlockAllocator;
-		fBlockAllocator = NULL;
-	}
-	fID = 0;
 	return B_OK;
-}
-
-// GetBlockSize
-off_t
-Volume::GetBlockSize() const
-{
-	return fBlockSize;
 }
 
 // CountBlocks
 off_t
 Volume::CountBlocks() const
 {
-	size_t bytes = 0;
-	system_info sysInfo;
-	if (get_system_info(&sysInfo) == B_OK) {
-		int32 freePages = sysInfo.max_pages - sysInfo.used_pages;
-		bytes = (uint32)freePages * B_PAGE_SIZE
-				+ fBlockAllocator->GetAvailableBytes();
-	}
-	return bytes / kDefaultBlockSize;
+	// TODO: Compute how many pages we are using across all DataContainers.
+	return 0;
 }
 
 // CountFreeBlocks
 off_t
 Volume::CountFreeBlocks() const
 {
-	// TODO:...
-	return CountBlocks() - fBlockAllocator->GetUsedBytes() / kDefaultBlockSize;
+	return vm_page_num_free_pages();
 }
 
 // SetName
@@ -349,7 +294,7 @@ Volume::NewVNode(Node *node)
 {
 	status_t error = NodeAdded(node);
 	if (error == B_OK) {
-		error = new_vnode(GetID(), node->GetID(), node);
+		error = new_vnode(FSVolume(), node->GetID(), node, &gRamFSVnodeOps);
 		if (error != B_OK)
 			NodeRemoved(node);
 	}
@@ -362,7 +307,8 @@ Volume::PublishVNode(Node *node)
 {
 	status_t error = NodeAdded(node);
 	if (error == B_OK) {
-		error = publish_vnode(GetID(), node->GetID(), node);
+		error = publish_vnode(FSVolume(), node->GetID(), node, &gRamFSVnodeOps,
+			node->GetMode(), 0);
 		if (error != B_OK)
 			NodeRemoved(node);
 	}
@@ -373,7 +319,7 @@ Volume::PublishVNode(Node *node)
 status_t
 Volume::GetVNode(ino_t id, Node **node)
 {
-	return (fMounted ? get_vnode(GetID(), id, (void**)node) : B_BAD_VALUE);
+	return (fMounted ? get_vnode(FSVolume(), id, (void**)node) : B_BAD_VALUE);
 }
 
 // GetVNode
@@ -384,7 +330,7 @@ Volume::GetVNode(Node *node)
 	status_t error = (fMounted ? GetVNode(node->GetID(), &dummy)
 							   : B_BAD_VALUE );
 	if (error == B_OK && dummy != node) {
-		FATAL(("Two Nodes have the same ID: %Ld!\n", node->GetID()));
+		FATAL("Two Nodes have the same ID: %" B_PRIdINO "!\n", node->GetID());
 		PutVNode(dummy);
 		error = B_ERROR;
 	}
@@ -395,14 +341,14 @@ Volume::GetVNode(Node *node)
 status_t
 Volume::PutVNode(ino_t id)
 {
-	return (fMounted ? put_vnode(GetID(), id) : B_BAD_VALUE);
+	return (fMounted ? put_vnode(FSVolume(), id) : B_BAD_VALUE);
 }
 
 // PutVNode
 status_t
 Volume::PutVNode(Node *node)
 {
-	return (fMounted ? put_vnode(GetID(), node->GetID()) : B_BAD_VALUE);
+	return (fMounted ? put_vnode(FSVolume(), node->GetID()) : B_BAD_VALUE);
 }
 
 // RemoveVNode
@@ -410,7 +356,7 @@ status_t
 Volume::RemoveVNode(Node *node)
 {
 	if (fMounted)
-		return remove_vnode(GetID(), node->GetID());
+		return remove_vnode(FSVolume(), node->GetID());
 	status_t error = NodeRemoved(node);
 	if (error == B_OK)
 		delete node;
@@ -421,7 +367,7 @@ Volume::RemoveVNode(Node *node)
 status_t
 Volume::UnremoveVNode(Node *node)
 {
-	return (fMounted ? unremove_vnode(GetID(), node->GetID()) : B_BAD_VALUE);
+	return (fMounted ? unremove_vnode(FSVolume(), node->GetID()) : B_BAD_VALUE);
 }
 
 // NodeAdded
@@ -550,7 +496,7 @@ Volume::EntryAdded(ino_t id, Entry *entry)
 {
 	status_t error = (entry ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = fDirectoryEntryTable->AddNodeChild(id, entry);
+		error = fDirectoryEntryTable->AddEntry(id, entry);
 		if (error == B_OK) {
 			// notify listeners
 			// listeners interested in that entry
@@ -581,7 +527,7 @@ Volume::EntryRemoved(ino_t id, Entry *entry)
 {
 	status_t error = (entry ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = fDirectoryEntryTable->RemoveNodeChild(id, entry);
+		error = fDirectoryEntryTable->RemoveEntry(id, entry);
 		if (error == B_OK) {
 			// notify listeners
 			// listeners interested in that entry
@@ -612,7 +558,7 @@ Volume::FindEntry(ino_t id, const char *name, Entry **entry)
 {
 	status_t error = (entry ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		*entry = fDirectoryEntryTable->GetNodeChild(id, name);
+		*entry = fDirectoryEntryTable->GetEntry(id, name);
 		if (!*entry)
 			error = B_ENTRY_NOT_FOUND;
 	}
@@ -662,7 +608,6 @@ Volume::NodeAttributeAdded(ino_t id, Attribute *attribute)
 {
 	status_t error = (attribute ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = fNodeAttributeTable->AddNodeChild(id, attribute);
 		// notify the respective attribute index
 		if (error == B_OK) {
 			if (AttributeIndex *index = FindAttributeIndex(
@@ -680,7 +625,6 @@ Volume::NodeAttributeRemoved(ino_t id, Attribute *attribute)
 {
 	status_t error = (attribute ? B_OK : B_BAD_VALUE);
 	if (error == B_OK) {
-		error = fNodeAttributeTable->RemoveNodeChild(id, attribute);
 		// notify the respective attribute index
 		if (error == B_OK) {
 			if (AttributeIndex *index = FindAttributeIndex(
@@ -691,25 +635,12 @@ Volume::NodeAttributeRemoved(ino_t id, Attribute *attribute)
 
 		// update live queries
 		if (error == B_OK && attribute->GetNode()) {
-			const uint8* oldKey;
+			uint8 oldKey[kMaxIndexKeyLength];
 			size_t oldLength;
-			attribute->GetKey(&oldKey, &oldLength);
+			attribute->GetKey(oldKey, &oldLength);
 			UpdateLiveQueries(NULL, attribute->GetNode(), attribute->GetName(),
 				attribute->GetType(), oldKey, oldLength, NULL, 0);
 		}
-	}
-	return error;
-}
-
-// FindNodeAttribute
-status_t
-Volume::FindNodeAttribute(ino_t id, const char *name, Attribute **attribute)
-{
-	status_t error = (attribute ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		*attribute = fNodeAttributeTable->GetNodeChild(id, name);
-		if (!*attribute)
-			error = B_ENTRY_NOT_FOUND;
 	}
 	return error;
 }
@@ -754,7 +685,7 @@ Volume::FindAttributeIndex(const char *name, uint32 type)
 void
 Volume::AddQuery(Query *query)
 {
-	AutoLocker<RecursiveLock> _(fQueryLocker);
+	RecursiveLocker _(fQueryLocker);
 
 	if (query)
 		fQueries.Insert(query);
@@ -764,7 +695,7 @@ Volume::AddQuery(Query *query)
 void
 Volume::RemoveQuery(Query *query)
 {
-	AutoLocker<RecursiveLock> _(fQueryLocker);
+	RecursiveLocker _(fQueryLocker);
 
 	if (query)
 		fQueries.Remove(query);
@@ -776,7 +707,7 @@ Volume::UpdateLiveQueries(Entry *entry, Node* node, const char *attribute,
 	int32 type, const uint8 *oldKey, size_t oldLength, const uint8 *newKey,
 	size_t newLength)
 {
-	AutoLocker<RecursiveLock> _(fQueryLocker);
+	RecursiveLocker _(fQueryLocker);
 
 	for (Query* query = fQueries.First();
 		 query;
@@ -784,54 +715,6 @@ Volume::UpdateLiveQueries(Entry *entry, Node* node, const char *attribute,
 		query->LiveUpdate(entry, node, attribute, type, oldKey, oldLength,
 			newKey, newLength);
 	}
-}
-
-// AllocateBlock
-status_t
-Volume::AllocateBlock(size_t size, BlockReference **block)
-{
-	status_t error = (size > 0 && size <= fBlockSize && block
-					  ? B_OK : B_BAD_VALUE);
-	if (error == B_OK) {
-		*block = fBlockAllocator->AllocateBlock(size);
-		if (*block)
-			fAllocatedBlocks++;
-		else
-			SET_ERROR(error, B_NO_MEMORY);
-	}
-	return error;
-}
-
-// FreeBlock
-void
-Volume::FreeBlock(BlockReference *block)
-{
-	if (block) {
-		fBlockAllocator->FreeBlock(block);
-		fAllocatedBlocks--;
-	}
-}
-
-// ResizeBlock
-BlockReference *
-Volume::ResizeBlock(BlockReference *block, size_t size)
-{
-	BlockReference *newBlock = NULL;
-	if (size <= fBlockSize && block) {
-		if (size == 0) {
-			fBlockAllocator->FreeBlock(block);
-			fAllocatedBlocks--;
-		} else
-			newBlock = fBlockAllocator->ResizeBlock(block, size);
-	}
-	return newBlock;
-}
-
-// CheckBlock
-bool
-Volume::CheckBlock(BlockReference *block, size_t size)
-{
-	return fBlockAllocator->CheckBlock(block, size);
 }
 
 // GetAllocationInfo
@@ -843,68 +726,57 @@ Volume::GetAllocationInfo(AllocationInfo &info)
 	fNodeTable->GetAllocationInfo(info);
 	info.AddOtherAllocation(sizeof(DirectoryEntryTable));
 	fDirectoryEntryTable->GetAllocationInfo(info);
-	info.AddOtherAllocation(sizeof(NodeAttributeTable));
-	fNodeAttributeTable->GetAllocationInfo(info);
 	// node hierarchy
 	fRootDirectory->GetAllocationInfo(info);
 	// name
 	info.AddStringAllocation(fName.GetLength());
-	// block allocator
-	info.AddOtherAllocation(sizeof(BlockAllocator));
-	fBlockAllocator->GetAllocationInfo(info);
 }
 
 // ReadLock
 bool
 Volume::ReadLock()
 {
-	bool alreadyLocked = fLocker.IsLocked();
-	if (fLocker.Lock()) {
-		if (!alreadyLocked)
-			fAccessTime = system_time();
-		return true;
-	}
-	return false;
+	bool ok = rw_lock_read_lock(&fLocker) == B_OK;
+	if (ok && fLocker.owner_count > 1)
+		fAccessTime = system_time();
+	return ok;
 }
 
 // ReadUnlock
 void
 Volume::ReadUnlock()
 {
-	fLocker.Unlock();
+	rw_lock_read_unlock(&fLocker);
 }
 
 // WriteLock
 bool
 Volume::WriteLock()
 {
-	bool alreadyLocked = fLocker.IsLocked();
-	if (fLocker.Lock()) {
-		if (!alreadyLocked)
-			fAccessTime = system_time();
-		return true;
-	}
-	return false;
+	bool ok = rw_lock_write_lock(&fLocker) == B_OK;
+	if (ok && fLocker.owner_count > 1)
+		fAccessTime = system_time();
+	return ok;
 }
 
 // WriteUnlock
 void
 Volume::WriteUnlock()
 {
-	fLocker.Unlock();
+	rw_lock_write_unlock(&fLocker);
 }
 
 // IteratorLock
 bool
 Volume::IteratorLock()
 {
-	return fIteratorLocker.Lock();
+	return recursive_lock_lock(&fIteratorLocker) == B_OK;
 }
 
 // IteratorUnlock
 void
 Volume::IteratorUnlock()
 {
-	fIteratorLocker.Unlock();
+	recursive_lock_unlock(&fIteratorLocker);
 }
 

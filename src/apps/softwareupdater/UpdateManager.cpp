@@ -1,5 +1,5 @@
 /*
- * Copyright 2013-2017, Haiku, Inc. All Rights Reserved.
+ * Copyright 2013-2019, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -7,6 +7,7 @@
  *		Rene Gollent <rene@gollent.com>
  *		Ingo Weinhold <ingo_weinhold@gmx.de>
  *		Brian Hill <supernova@tycho.email>
+ *		Jacob Secunda
  */
 
 
@@ -44,26 +45,20 @@ UpdateManager::UpdateManager(BPackageInstallationLocation location,
 	BPackageManager(location, &fClientInstallationInterface, this),
 	BPackageManager::UserInteractionHandler(),
 	fClientInstallationInterface(),
-	fStatusWindow(NULL),
+	fStatusWindow(new SoftwareUpdaterWindow()),
+	fStatusWindowMessenger(fStatusWindow),
+	fProblemWindow(NULL),
+	fProblemWindowMessenger(),
 	fCurrentStep(ACTION_STEP_INIT),
 	fChangesConfirmed(false),
 	fVerbose(verbose)
 {
-	fStatusWindow = new SoftwareUpdaterWindow();
 	_SetCurrentStep(ACTION_STEP_START);
 }
 
 
 UpdateManager::~UpdateManager()
 {
-	if (fStatusWindow != NULL) {
-		fStatusWindow->Lock();
-		fStatusWindow->Quit();
-	}
-	if (fProblemWindow != NULL) {
-		fProblemWindow->Lock();
-		fProblemWindow->Quit();
-	}
 }
 
 
@@ -80,7 +75,7 @@ UpdateManager::CheckNetworkConnection()
 			return;
 		}
 	}
-	
+
 	// No network connection detected, cannot continue
 	throw BException(B_TRANSLATE_COMMENT(
 		"No active network connection was found", "Error message"));
@@ -91,11 +86,10 @@ update_type
 UpdateManager::GetUpdateType()
 {
 	int32 action = USER_SELECTION_NEEDED;
-	BMessenger messenger(fStatusWindow);
-	if (messenger.IsValid()) {
+	if (fStatusWindowMessenger.IsValid()) {
 		BMessage message(kMsgGetUpdateType);
 		BMessage reply;
-		messenger.SendMessage(&message, &reply);
+		fStatusWindowMessenger.SendMessage(&message, &reply);
 		reply.FindInt32(kKeyAlertResult, &action);
 	}
 	return (update_type)action;
@@ -109,11 +103,10 @@ UpdateManager::CheckRepositories()
 	if (fVerbose)
 		printf("Remote repositories available: %" B_PRId32 "\n", count);
 	if (count == 0) {
-		BMessenger messenger(fStatusWindow);
-		if (messenger.IsValid()) {
+		if (fStatusWindowMessenger.IsValid()) {
 			BMessage message(kMsgNoRepositories);
 			BMessage reply;
-			messenger.SendMessage(&message, &reply);
+			fStatusWindowMessenger.SendMessage(&message, &reply);
 			int32 result;
 			reply.FindInt32(kKeyAlertResult, &result);
 			if (result == 1)
@@ -131,7 +124,7 @@ UpdateManager::JobFailed(BSupportKit::BJob* job)
 {
 	if (!fVerbose)
 		return;
-	
+
 	BString error = job->ErrorString();
 	if (error.Length() > 0) {
 		error.ReplaceAll("\n", "\n*** ");
@@ -158,8 +151,10 @@ UpdateManager::FinalUpdate(const char* header, const char* text)
 void
 UpdateManager::HandleProblems()
 {
-	if (fProblemWindow == NULL)
+	if (fProblemWindow == NULL) {
 		fProblemWindow = new ProblemWindow;
+		fProblemWindowMessenger.SetTo(fProblemWindow);
+	}
 
 	ProblemWindow::SolverPackageSet installPackages;
 	ProblemWindow::SolverPackageSet uninstallPackages;
@@ -179,7 +174,7 @@ UpdateManager::ConfirmChanges(bool fromMostSpecific)
 	int32 upgradeCount = 0;
 	int32 installCount = 0;
 	int32 uninstallCount = 0;
-	
+
 	if (fromMostSpecific) {
 		for (int32 i = count - 1; i >= 0; i--)
 			_PrintResult(*fInstalledRepositories.ItemAt(i), upgradeCount,
@@ -189,16 +184,16 @@ UpdateManager::ConfirmChanges(bool fromMostSpecific)
 			_PrintResult(*fInstalledRepositories.ItemAt(i), upgradeCount,
 				installCount, uninstallCount);
 	}
-	
+
 	if (fVerbose)
 		printf("Upgrade count=%" B_PRId32 ", Install count=%" B_PRId32
 			", Uninstall count=%" B_PRId32 "\n",
 			upgradeCount, installCount, uninstallCount);
-	
+
 	fChangesConfirmed = fStatusWindow->ConfirmUpdates();
 	if (!fChangesConfirmed)
 		throw BAbortedByUserException();
-	
+
 	_SetCurrentStep(ACTION_STEP_DOWNLOAD);
 	fPackageDownloadsTotal = upgradeCount + installCount;
 	fPackageDownloadsCount = 1;
@@ -221,7 +216,7 @@ UpdateManager::Warn(status_t error, const char* format, ...)
 		else
 			printf(": %s\n", strerror(error));
 	}
-	
+
 	if (fStatusWindow != NULL) {
 		if (fStatusWindow->UserCancelRequested())
 			throw BAbortedByUserException();
@@ -244,7 +239,7 @@ UpdateManager::ProgressPackageDownloadStarted(const char* packageName)
 		_UpdateDownloadProgress(header.String(), packageName, 0.0);
 		fNewDownloadStarted = false;
 	}
-	
+
 	if (fVerbose)
 		printf("Downloading %s...\n", packageName);
 }
@@ -277,22 +272,22 @@ UpdateManager::ProgressPackageDownloadActive(const char* packageName,
 			"\xE2\x96\x89",
 			"\xE2\x96\x88",
 		};
-	
+
 		int width = 70;
-	
+
 		struct winsize winSize;
 		if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &winSize) == 0
 			&& winSize.ws_col < 77) {
 			// We need 7 characters for the percent display
 			width = winSize.ws_col - 7;
 		}
-	
+
 		int position;
 		int ipart = (int)(completionValue * width);
 		int fpart = (int)(((completionValue * width) - ipart) * 8);
-	
+
 		fputs("\r", stdout); // return to the beginning of the line
-	
+
 		for (position = 0; position < width; position++) {
 			if (position < ipart) {
 				// This part is fully downloaded, show a full block
@@ -305,13 +300,13 @@ UpdateManager::ProgressPackageDownloadActive(const char* packageName,
 				fputs(progressChars[fpart], stdout);
 			}
 		}
-	
+
 		// Also print the progress percentage
 		printf(" %3d%%", (int)(completionValue * 100));
-	
+
 		fflush(stdout);
 	}
-	
+
 }
 
 
@@ -322,7 +317,7 @@ UpdateManager::ProgressPackageDownloadComplete(const char* packageName)
 		_UpdateDownloadProgress(NULL, packageName, 100.0);
 		fPackageDownloadsCount++;
 	}
-	
+
 	if (fVerbose) {
 		// Overwrite the progress bar with whitespace
 		fputs("\r", stdout);
@@ -331,7 +326,7 @@ UpdateManager::ProgressPackageDownloadComplete(const char* packageName)
 		for (int i = 0; i < (w.ws_col); i++)
 			fputs(" ", stdout);
 		fputs("\r\x1b[1A", stdout); // Go to previous line.
-	
+
 		printf("Downloading %s...done.\n", packageName);
 	}
 }
@@ -343,7 +338,7 @@ UpdateManager::ProgressPackageChecksumStarted(const char* title)
 	// Repository checksums
 	if (fCurrentStep == ACTION_STEP_START)
 		_UpdateStatusWindow(NULL, title);
-	
+
 	if (fVerbose)
 		printf("%s...", title);
 }
@@ -364,7 +359,7 @@ UpdateManager::ProgressStartApplyingChanges(InstalledRepository& repository)
 	BString header(B_TRANSLATE("Applying changes"));
 	BString detail(B_TRANSLATE("Packages are being updated"));
 	fStatusWindow->UpdatesApplying(header.String(), detail.String());
-	
+
 	if (fVerbose)
 		printf("[%s] Applying changes ...\n", repository.Name().String());
 }
@@ -376,8 +371,16 @@ UpdateManager::ProgressTransactionCommitted(InstalledRepository& repository,
 {
 	_SetCurrentStep(ACTION_STEP_COMPLETE);
 	BString header(B_TRANSLATE("Updates completed"));
-	BString detail(B_TRANSLATE("A reboot may be necessary to complete some "
-		"updates."));
+
+	BString detail;
+	if (BPackageRoster().IsRebootNeeded()) {
+		detail = B_TRANSLATE("A reboot is necessary to complete the "
+			"update process.");
+		fStatusWindow->PostMessage(kMsgShowReboot);
+	} else {
+		detail = B_TRANSLATE("Updates have been successfully installed.");
+	}
+
 	_FinalUpdate(header.String(), detail.String());
 
 	if (fVerbose) {
@@ -394,7 +397,7 @@ UpdateManager::ProgressTransactionCommitted(InstalledRepository& repository,
 					issue->PackageName().String(), issue->ToString().String());
 			}
 		}
-	
+
 		printf("[%s] Changes applied. Old activation state backed up in \"%s\"\n",
 			repositoryName, result.OldStateDirectory().String());
 		printf("[%s] Cleaning up ...\n", repositoryName);
@@ -508,10 +511,10 @@ UpdateManager::_UpdateStatusWindow(const char* header, const char* detail)
 {
 	if (header == NULL && detail == NULL)
 		return;
-	
+
 	if (fStatusWindow->UserCancelRequested())
 		throw BAbortedByUserException();
-	
+
 	BMessage message(kMsgTextUpdate);
 	if (header != NULL)
 		message.AddString(kKeyHeader, header);
@@ -527,10 +530,10 @@ UpdateManager::_UpdateDownloadProgress(const char* header,
 {
 	if (packageName == NULL)
 		return;
-	
+
 	if (fStatusWindow->UserCancelRequested())
 		throw BAbortedByUserException();
-	
+
 	BString packageCount;
 	packageCount.SetToFormat(
 		B_TRANSLATE_COMMENT("%i of %i", "Do not translate %i"),
@@ -556,7 +559,7 @@ UpdateManager::_FinalUpdate(const char* header, const char* text)
 		notification.SetContent(text);
 		notification.Send();
 	}
-	
+
 	fStatusWindow->FinalUpdate(header, text);
 }
 

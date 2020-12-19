@@ -84,8 +84,7 @@ BNetworkCookieJar::~BNetworkCookieJar()
 
 	PrivateHashMap::Iterator it = fCookieHashMap->GetIterator();
 	while (it.HasNext()) {
-		BNetworkCookieList* list = *it.NextValue();
-		it.Remove();
+		BNetworkCookieList* list = it.Next().value;
 		list->LockForWriting();
 		delete list;
 	}
@@ -599,14 +598,14 @@ BNetworkCookieJar::Iterator::NextDomain()
 		fList->Unlock();
 
 	if (fCookieJar->fCookieHashMap->Lock()) {
-		fList = *fIterator->fCookieMapIterator.NextValue();
+		fList = fIterator->fCookieMapIterator.Next().value;
 		fList->LockForReading();
 
 		while (fList->CountItems() == 0
 			&& fIterator->fCookieMapIterator.HasNext()) {
 			// Empty list. Skip it
 			fList->Unlock();
-			fList = *fIterator->fCookieMapIterator.NextValue();
+			fList = fIterator->fCookieMapIterator.Next().value;
 			fList->LockForReading();
 		}
 
@@ -688,14 +687,14 @@ BNetworkCookieJar::Iterator::_FindNext()
 	fLastList = fList;
 
 	if (fCookieJar->fCookieHashMap->Lock()) {
-		fList = *(fIterator->fCookieMapIterator.NextValue());
+		fList = (fIterator->fCookieMapIterator.Next().value);
 		fList->LockForReading();
 
 		while (fList->CountItems() == 0
 			&& fIterator->fCookieMapIterator.HasNext()) {
 			// Empty list. Skip it
 			fList->Unlock();
-			fList = *fIterator->fCookieMapIterator.NextValue();
+			fList = fIterator->fCookieMapIterator.Next().value;
 			fList->LockForReading();
 		}
 
@@ -787,7 +786,7 @@ BNetworkCookieJar::UrlIterator::Remove()
 			fLastList->RemoveItemAt(fLastIndex);
 
 			if (fLastList->CountItems() == 0) {
-				fIterator->fCookieMapIterator.Remove();
+				fCookieJar->fCookieHashMap->Remove(fIterator->fCookieMapIterator);
 				delete fLastList;
 				fLastList = NULL;
 			} else {

@@ -161,7 +161,9 @@ es1370_stream_commit_parms(es1370_stream *stream)
 		es1370_reg_write_32(&card->config, ES1370_REG_DAC2_FRAMEADR & 0xff, (uint32)stream->buffer->phy_base);
 		es1370_reg_write_32(&card->config, ES1370_REG_DAC2_FRAMECNT & 0xff, ((stream->blksize * stream->bufcount) >> 2) - 1);
 		es1370_reg_write_32(&card->config, ES1370_REG_DAC2_SCOUNT & 0xff, stream->bufframes - 1);
-		LOG(("es1370_stream_commit_parms %ld %ld\n", ((stream->blksize * stream->bufcount) >> 2) - 1, (stream->blksize / frame_size) - 1));
+		LOG(("es1370_stream_commit_parms %" B_PRId32 " %" B_PRId32 "\n",
+			((stream->blksize * stream->bufcount) >> 2) - 1,
+			(stream->blksize / frame_size) - 1));
 	}
 
 	return B_OK;
@@ -177,8 +179,8 @@ es1370_stream_get_nth_buffer(es1370_stream *stream, uint8 chan, uint8 buf,
 	sample_size = stream->b16 + 1;
 	frame_size = sample_size * stream->channels;
 	
-	*buffer = stream->buffer->log_base + (buf * stream->bufframes * frame_size)
-		+ chan * sample_size;
+	*buffer = (char *)stream->buffer->log_base
+		+ (buf * stream->bufframes * frame_size) + chan * sample_size;
 	*stride = frame_size;
 	
 	return B_OK;
@@ -447,12 +449,15 @@ es1370_setup(es1370_dev * card)
 	card->config.irq = card->info.u.h0.interrupt_line;
 	card->config.type = 0;
 	
-	PRINT(("%s deviceid = %#04x chiprev = %x model = %x enhanced at %lx\n", card->name, card->info.device_id,
-		card->info.revision, card->info.u.h0.subsystem_id, card->config.base));
+	PRINT(("%s deviceid = %#04x chiprev = %x model = %x enhanced at %" B_PRIx32
+		"\n", card->name, card->info.device_id, card->info.revision,
+		card->info.u.h0.subsystem_id, card->config.base));
 
 	cmd = (*pci->read_pci_config)(card->info.bus, card->info.device, card->info.function, PCI_command, 2);
 	PRINT(("PCI command before: %x\n", cmd));
-	(*pci->write_pci_config)(card->info.bus, card->info.device, card->info.function, PCI_command, 2, cmd | PCI_command_io);
+	(*pci->write_pci_config)(card->info.bus, card->info.device,
+		card->info.function, PCI_command, 2,
+		cmd | PCI_command_master | PCI_command_io);
 	cmd = (*pci->read_pci_config)(card->info.bus, card->info.device, card->info.function, PCI_command, 2);
 	PRINT(("PCI command after: %x\n", cmd));
 	
@@ -480,7 +485,7 @@ es1370_setup(es1370_dev * card)
 
 	snooze(50000); // 50 ms
 
-	PRINT(("installing interrupt : %lx\n", card->config.irq));
+	PRINT(("installing interrupt : %" B_PRIu32 "\n", card->config.irq));
 	err = install_io_interrupt_handler(card->config.irq, es1370_int, card, 0);
 	if (err != B_OK) {
 		PRINT(("failed to install interrupt\n"));
@@ -554,7 +559,7 @@ init_driver(void)
 			}
 #endif
 			if (es1370_setup(&cards[num_cards])) {
-				PRINT(("Setup of es1370 %ld failed\n", num_cards+1));
+				PRINT(("Setup of es1370 %" B_PRId32 " failed\n", num_cards+1));
 #ifdef __HAIKU__
 				(*pci->unreserve_device)(info.bus, info.device, info.function,
 					DRIVER_NAME, &cards[num_cards]);

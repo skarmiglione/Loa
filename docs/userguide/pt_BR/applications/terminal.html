@@ -4,15 +4,15 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2014, Haiku. All rights reserved.
+ * Copyright 2008-2020, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
- *		tiagoms
- *		Adriano Duarte
  *		Humdinger
+ *		Adriano Duarte
+ *		tiagoms
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -31,24 +31,27 @@
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../../images/flags/pt_BR.png" alt="" /> Português (Brazil)</li>
-<li><a href="../../ca/applications/terminal.html"><img src="../../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../../de/applications/terminal.html"><img src="../../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../../en/applications/terminal.html"><img src="../../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../../es/applications/terminal.html"><img src="../../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../../fr/applications/terminal.html"><img src="../../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../../it/applications/terminal.html"><img src="../../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../../hu/applications/terminal.html"><img src="../../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../../pl/applications/terminal.html"><img src="../../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../../pt_PT/applications/terminal.html"><img src="../../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../../ro/applications/terminal.html"><img src="../../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../../sk/applications/terminal.html"><img src="../../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../../fi/applications/terminal.html"><img src="../../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../../sv_SE/applications/terminal.html"><img src="../../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../../zh_CN/applications/terminal.html"><img src="../../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../../ru/applications/terminal.html"><img src="../../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../../uk/applications/terminal.html"><img src="../../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../../jp/applications/terminal.html"><img src="../../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Português (Brazil)&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../../id/applications/terminal.html">Bahasa Indonesia</a></li>
+<li><a href="../../ca/applications/terminal.html">Català</a></li>
+<li><a href="../../de/applications/terminal.html">Deutsch</a></li>
+<li><a href="../../en/applications/terminal.html">English</a></li>
+<li><a href="../../es/applications/terminal.html">Español</a></li>
+<li><a href="../../fr/applications/terminal.html">Français</a></li>
+<li><a href="../../fur/applications/terminal.html">Furlan</a></li>
+<li><a href="../../it/applications/terminal.html">Italiano</a></li>
+<li><a href="../../hu/applications/terminal.html">Magyar</a></li>
+<li><a href="../../pl/applications/terminal.html">Polski</a></li>
+<li><a href="../../pt_PT/applications/terminal.html">Português</a></li>
+<li><a href="../../ro/applications/terminal.html">Română</a></li>
+<li><a href="../../sk/applications/terminal.html">Slovenčina</a></li>
+<li><a href="../../fi/applications/terminal.html">Suomi</a></li>
+<li><a href="../../sv_SE/applications/terminal.html">Svenska</a></li>
+<li><a href="../../tr/applications/terminal.html">Türkçe</a></li>
+<li><a href="../../zh_CN/applications/terminal.html"> 中文 ［中文］</a></li>
+<li><a href="../../ru/applications/terminal.html">Русский</a></li>
+<li><a href="../../uk/applications/terminal.html">Українська</a></li>
+<li><a href="../../jp/applications/terminal.html">日本語</a></li>
 </ul>
 <span>
  «  <a href="stylededit.html">StyledEdit</a> 
@@ -80,9 +83,9 @@
 <p>Pode-se abrir quantos Terminais forem necessários, também cada um em sua própria janela simplesmente carregando mais Terminais ou com <span class="key">ALT</span> <span class="key">N</span> a partir de um Terminal já aberto. Ou utilizar a visão em guias do Terminal e abrir mais guias com <span class="key">ALT</span> <span class="key">T</span>.</p>
 <img src="../images/apps-images/terminal.png" alt="terminal.png" />
 <br />
-<p>Duplo clique dentro de uma parte vazia da barra de guias abre uma nova guia; dentro de uma guia abre um diálogo para renomear seu título. Existem muitas variáveis %-designadas que são explicadas com uma dica quando paira o mouse sobre o campo de texto.<br />
-Por padrão, <tt>%1d: %p</tt>, uma guia exibe o diretório atual e, separado por <tt>:</tt>, o nome do processo atualmente em execução (ou <tt>--</tt> se apenas o bash está executando, provavelmente ocioso). A captura de tela acima exibe a primeira guia com uma sessão FTP na pasta <span class="path">Área de Trabalho</span> e a segunda guia ociosa na <span class="path">home</span>.<br />
-Através de <span class="menu">Editar | Título da janela...</span> o título da janela do Terminal pode ser editado de maneira similar.</p>
+<p>Double-clicking into the emtpy part of the tab bar opens a new tab; onto a tab opens a dialog to rename its title. There are several %-designated variables that are explained with a tooltip when you hover the mouse over the text field.<br />
+By default, <tt>%1d: %p</tt>, a tab shows the current directory and, separated by a <tt>:</tt>, the name of the currently running process (or <tt>--</tt> if it's just bash running, probably idling). The screenshot above shows the first tab with a FTP session in the <span class="path">Desktop</span> folder and a second tab idling at <span class="path">home</span>.<br />
+Via <span class="menu">Settings | Window title...</span> the Terminal window's title can be edited in a similar way.</p>
 <p>Clicar com o botão direito do mouse em uma guia exibe um menu de contexto para <span class="menu">Fechar guia</span>, <span class="menu">Fechar outras guias</span> ou, como o duplo clique, <span class="menu">Editar título da guia...</span>.</p>
 <p>Uma janela do Terminal pode ser redimensionada como qualquer outra janela ou usando as predefinições a partir do menu <span class="menu">Definções | Tamanho da janela</span>. <span class="key">ALT</span> <span class="key">ENTER</span> alterna para o modo de tela cheia.</p>
 <p>All the settings you change directly through the <span class="menu">Settings</span> menu, like <span class="menu">Window title</span>, <span class="menu">Window size</span>, <span class="menu">Text encoding</span> or <span class="menu">Font size</span> are only kept for the current session. If you want to make permanent changes, you have to apply them in the <span class="menu">Settings...</span> panel.</p>
@@ -92,10 +95,11 @@ Através de <span class="menu">Editar | Título da janela...</span> o título da
 <p><span class="menu">Definições | Definições...</span> abre uma janela de diálogo para configurar as definições padrão de um Terminal.</p>
 <img src="../images/apps-images/terminal-settings.png" alt="terminal-settings.png" />
 <br />
-<p>Most of the offered settings speak for themselves.<br />
+<p>Most of the offered settings speak for themselves. Not entirely obvious though, the font size is set in the submenu of the <span class="menu">Font</span> popup menu.<br />
 Hover your mouse over the "formulas" for naming tab and window titles to get tooltips for the available variables. <br />
 You can choose pre-defined color schema like <span class="menu">Midnight</span> or <span class="menu">Retro</span> or create a <span class="menu">Custom</span> one by selecting which color you want to change (<span class="menu">Text</span>, <span class="menu">Background</span>, <span class="menu">Cursor</span> etc.) and then use  the color picker below.</p>
-<p>A few more options follow: you can have a <span class="menu">Blinking cursor</span> and choose to <span class="menu">Use bright instead of bold text</span>. The latter setting avoids the sometimes rather unsightly rendering of bold fonts in the Terminal.<br />
+<p>A few more options follow: you can have a <span class="menu">Blinking cursor</span> and choose to <span class="menu">Allow bold text</span>.<br />
+<span class="menu">Use left Option as Meta key</span> if you work with certain UNIX software that relies on accessing an extended portion of the ASCII character set, like e.g. GNU Emacs and  the GNU readline library.<br />
 Activate the checkbox to <span class="menu">Confirm exit if active programs exist</span> and you'll be warned when trying to close a Terminal window while an app is still being executed.</p>
 <table summary="layout" border="0" cellpadding="2" cellspacing="0">
 <tr><td class="onelinetop"><span class="button">Save to file...</span></td><td width="10"> </td><td>let's you save different settings as separate profiles, which on double-click open an accordingly configured Terminal.</td></tr>
@@ -120,12 +124,12 @@ Ambos podem ser criados na pasta <span class="path">/boot/home/config/settings/<
 <p>O <span class="cli">profile</span> é carregado toda vez que se abre um novo Terminal. Ele define todos os tipos de apelidos e variáveis que afetarão o comportamento e a aparência do bash. Você encontrará muitos recursos online que detalharão todas as possibilidades.</p>
 <p>O Haiku/BeOS Tip Server tem algumas dicas para que possa começar, por exemplo:</p>
 <ul>
-<li><a href="http://betips.net/1997/09/09/customize-your-terminal-prompt/">Personalize o prompt do seu Terminal</a></li>
-<li><a href="http://betips.net/1997/09/09/more-prompt-customizations/">Mais personalizações do prompt</a></li>
-<li><a href="http://betips.net/1997/09/09/enhancing-bash/">Melhorando o bash</a></li>
-<li><a href="http://betips.net/1997/09/09/custom-keyboard-shortcuts/">Atalhos de teclado personalizados</a></li>
+<li><a href="https://betips.net/?p=5">Customize your Terminal prompt</a></li>
+<li><a href="https://betips.net/?p=66">More prompt customizations</a></li>
+<li><a href="https://betips.net/?p=67">Enhancing bash</a></li>
+<li><a href="https://betips.net/?p=105">Custom keyboard shortcuts</a></li>
 </ul>
-<p>Há mais, <a href="http://betips.net/index.php?s=.profile">dê uma olhada</a>.</p>
+<p>There are more, <a href="https://betips.net/?s=profile">have a look</a>.</p>
 
 <h3>inputrc</h3>
 <p>O <span class="cli">inputrc</span> mexe com combinação de teclas. Uma vez que o Haiku proporciona padrões úteis, provavelmente não precisa se atrapalhar com estas definições mais complicadas. Se possui necessidades especiais aqui, consulte um dos muitos recursos online, por exemplo <a href="http://tiswww.case.edu/php/chet/readline/rluserman.html">The GNU Readline Library</a>.</p>

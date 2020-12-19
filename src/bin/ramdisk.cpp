@@ -17,6 +17,8 @@
 #include <String.h>
 
 #include <AutoDeleter.h>
+#include <AutoDeleterPosix.h>
+#include <StringForSize.h>
 #include <TextTable.h>
 
 #include <file_systems/ram_disk/ram_disk.h>
@@ -140,29 +142,7 @@ command_register(int argc, const char* const* argv)
 			case 's':
 			{
 				const char* sizeString = optarg;
-				char* end;
-				deviceSize = strtoll(sizeString, &end, 0);
-				if (end != sizeString && deviceSize > 0) {
-					int64 originalDeviceSize = deviceSize;
-					switch (*end) {
-						case 'g':
-							deviceSize *= 1024;
-						case 'm':
-							deviceSize *= 1024;
-						case 'k':
-							deviceSize *= 1024;
-							end++;
-							break;
-						case '\0':
-							break;
-						default:
-							deviceSize = -1;
-							break;
-					}
-
-					if (deviceSize > 0 && originalDeviceSize > deviceSize)
-						deviceSize = -1;
-				}
+				deviceSize = parse_size(sizeString);
 
 				if (deviceSize <= 0) {
 					fprintf(stderr, "Error: Invalid size argument: \"%s\"\n",
@@ -408,7 +388,7 @@ command_list(int argc, const char* const* argv)
 			strerror(errno));
 		return 1;
 	}
-	CObjectDeleter<DIR, int> dirCloser(dir, &closedir);
+	DirCloser dirCloser(dir);
 
 	TextTable table;
 	table.AddColumn("ID", B_ALIGN_RIGHT);
@@ -433,7 +413,7 @@ command_list(int argc, const char* const* argv)
 
 		// issue the request
 		ram_disk_ioctl_info request;
-		if (ioctl(fd, RAM_DISK_IOCTL_INFO, &request) < 0)
+		if (ioctl(fd, RAM_DISK_IOCTL_INFO, &request, sizeof(request)) < 0)
 			continue;
 
 		int32 rowIndex = table.CountRows();

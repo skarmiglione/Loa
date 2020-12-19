@@ -1,5 +1,5 @@
 /*
- * Copyright 2006-2017, Haiku, Inc. All Rights Reserved.
+ * Copyright 2006-2018, Haiku, Inc. All Rights Reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
@@ -22,13 +22,13 @@
 #include <Application.h>
 #include <Bitmap.h>
 #include <Catalog.h>
-#include <ControlLook.h>
 #include <DataIO.h>
 #include <Deskbar.h>
 #include <Dragger.h>
 #include <Drivers.h>
 #include <File.h>
 #include <FindDirectory.h>
+#include <GradientLinear.h>
 #include <MenuItem.h>
 #include <MessageRunner.h>
 #include <Notification.h>
@@ -49,16 +49,14 @@
 #define B_TRANSLATION_CONTEXT "PowerStatus"
 
 
-extern "C" _EXPORT BView *instantiate_deskbar_item(void);
+extern "C" _EXPORT BView *instantiate_deskbar_item(float maxWidth,
+	float maxHeight);
 extern const char* kDeskbarItemName;
 
 const uint32 kMsgToggleLabel = 'tglb';
 const uint32 kMsgToggleTime = 'tgtm';
 const uint32 kMsgToggleStatusIcon = 'tgsi';
 const uint32 kMsgToggleExtInfo = 'texi';
-
-const uint32 kMinIconWidth = 16;
-const uint32 kMinIconHeight = 16;
 
 const int32 kLowBatteryPercentage = 15;
 const int32 kNoteBatteryPercentage = 30;
@@ -68,7 +66,7 @@ PowerStatusView::PowerStatusView(PowerStatusDriverInterface* interface,
 	BRect frame, int32 resizingMode,  int batteryID, bool inDeskbar)
 	:
 	BView(frame, kDeskbarItemName, resizingMode,
-		B_WILL_DRAW | B_FULL_UPDATE_ON_RESIZE),
+		B_WILL_DRAW | B_TRANSPARENT_BACKGROUND | B_FULL_UPDATE_ON_RESIZE),
 	fDriverInterface(interface),
 	fBatteryID(batteryID),
 	fInDeskbar(inDeskbar)
@@ -124,13 +122,8 @@ void
 PowerStatusView::AttachedToWindow()
 {
 	BView::AttachedToWindow();
-	if (Parent() != NULL) {
-		if ((Parent()->Flags() & B_DRAW_ON_CHILDREN) != 0)
-			SetViewColor(B_TRANSPARENT_COLOR);
-		else
-			AdoptParentColors();
-	} else
-		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
+
+	SetViewColor(B_TRANSPARENT_COLOR);
 
 	if (ViewUIColor() != B_NO_COLOR)
 		SetLowUIColor(ViewUIColor());
@@ -157,6 +150,7 @@ PowerStatusView::MessageReceived(BMessage *message)
 
 		default:
 			BView::MessageReceived(message);
+			break;
 	}
 }
 
@@ -186,7 +180,8 @@ PowerStatusView::_DrawBattery(BView* view, BRect rect)
 		gap = ceilf((rect.left - left) / 2);
 
 		// left
-		view->FillRect(BRect(rect.left, rect.top, rect.left + gap - 1, rect.bottom));
+		view->FillRect(BRect(rect.left, rect.top, rect.left + gap - 1,
+			rect.bottom));
 		// right
 		view->FillRect(BRect(rect.right - gap + 1, rect.top, rect.right,
 			rect.bottom));
@@ -208,41 +203,69 @@ PowerStatusView::_DrawBattery(BView* view, BRect rect)
 	else if (percent < 0 || !fHasBattery)
 		percent = 0;
 
-	if (percent > 0) {
-		rect.InsetBy(gap, gap);
-		rgb_color base = (rgb_color){84, 84, 84, 255};
-		if (view->LowColor().Brightness() < 128)
-			base = (rgb_color){172, 172, 172, 255};
+	rect.InsetBy(gap, gap);
 
-		if (be_control_look != NULL) {
-			BRect empty = rect;
-			if (fHasBattery && percent > 0)
-				empty.left += empty.Width() * percent / 100.0;
-
-			be_control_look->DrawButtonBackground(view, empty, empty, base,
-				fHasBattery
-					? BControlLook::B_ACTIVATED : BControlLook::B_DISABLED,
-				fHasBattery && percent > 0
-					? (BControlLook::B_ALL_BORDERS
-						& ~BControlLook::B_LEFT_BORDER)
-					: BControlLook::B_ALL_BORDERS);
+	if (fHasBattery) {
+		// draw unfilled area
+		rgb_color unfilledColor = make_color(0x4c, 0x4c, 0x4c);
+		if (view->LowColor().Brightness() < 128) {
+			unfilledColor.red = 256 - unfilledColor.red;
+			unfilledColor.green = 256 - unfilledColor.green;
+			unfilledColor.blue = 256 - unfilledColor.blue;
 		}
 
-		if (fHasBattery) {
+		BRect unfilled = rect;
+		if (percent > 0)
+			unfilled.left += unfilled.Width() * percent / 100.0;
+
+		view->SetHighColor(unfilledColor);
+		view->FillRect(unfilled);
+
+		if (percent > 0) {
+			// draw filled area
+			rgb_color fillColor;
 			if (percent <= kLowBatteryPercentage)
-				base.set_to(180, 0, 0);
+				fillColor.set_to(180, 0, 0);
 			else if (percent <= kNoteBatteryPercentage)
-				base.set_to(200, 140, 0);
+				fillColor.set_to(200, 140, 0);
 			else
-				base.set_to(20, 180, 0);
+				fillColor.set_to(20, 180, 0);
 
-			rect.right = rect.left + rect.Width() * percent / 100.0;
+			BRect fill = rect;
+			fill.right = fill.left + fill.Width() * percent / 100.0;
 
-			if (be_control_look != NULL) {
-				be_control_look->DrawButtonBackground(view, rect, rect, base,
-					fHasBattery ? 0 : BControlLook::B_DISABLED);
-			} else
-				view->FillRect(rect);
+			// draw bevel
+			rgb_color bevelLightColor  = tint_color(fillColor, 0.2);
+			rgb_color bevelShadowColor = tint_color(fillColor, 1.08);
+
+			view->BeginLineArray(4);
+			view->AddLine(BPoint(fill.left, fill.bottom),
+				BPoint(fill.left, fill.top), bevelLightColor);
+			view->AddLine(BPoint(fill.left, fill.top),
+				BPoint(fill.right, fill.top), bevelLightColor);
+			view->AddLine(BPoint(fill.right, fill.top),
+				BPoint(fill.right, fill.bottom), bevelShadowColor);
+			view->AddLine(BPoint(fill.left, fill.bottom),
+				BPoint(fill.right, fill.bottom), bevelShadowColor);
+			view->EndLineArray();
+
+			fill.InsetBy(1, 1);
+
+			// draw gradient
+			float topTint = 0.49;
+			float middleTint1 = 0.62;
+			float middleTint2 = 0.76;
+			float bottomTint = 0.90;
+
+			BGradientLinear gradient;
+			gradient.AddColor(tint_color(fillColor, topTint), 0);
+			gradient.AddColor(tint_color(fillColor, middleTint1), 132);
+			gradient.AddColor(tint_color(fillColor, middleTint2), 136);
+			gradient.AddColor(tint_color(fillColor, bottomTint), 255);
+			gradient.SetStart(fill.LeftTop());
+			gradient.SetEnd(fill.LeftBottom());
+
+			view->FillRect(fill, gradient);
 		}
 	}
 
@@ -294,18 +317,10 @@ PowerStatusView::DrawTo(BView* view, BRect rect)
 
 	if (fShowStatusIcon) {
 		iconRect = rect;
-		if (showLabel) {
-			if (inside == false)
-				iconRect.right -= textWidth + 2;
-		}
+		if (showLabel && inside == false)
+			iconRect.right -= textWidth + 2;
 
-		if (iconRect.Width() + 1 >= kMinIconWidth
-			&& iconRect.Height() + 1 >= kMinIconHeight) {
-			_DrawBattery(view, iconRect);
-		} else {
-			// there is not enough space for the icon
-			iconRect.Set(0, 0, -1, -1);
-		}
+		_DrawBattery(view, iconRect);
 	}
 
 	if (showLabel) {
@@ -367,7 +382,7 @@ PowerStatusView::_SetLabel(char* buffer, size_t bufferLength)
 
 
 void
-PowerStatusView::Update(bool force)
+PowerStatusView::Update(bool force, bool notify)
 {
 	int32 previousPercent = fPercent;
 	time_t previousTimeLeft = fTimeLeft;
@@ -397,7 +412,7 @@ PowerStatusView::Update(bool force)
 
 	if (fInDeskbar) {
 		// make sure the tray icon is (just) large enough
-		float width = fShowStatusIcon ? kMinIconWidth - 1 : 0;
+		float width = fShowStatusIcon ? Bounds().Height() : 0;
 
 		if (fShowLabel) {
 			char text[64];
@@ -464,7 +479,7 @@ PowerStatusView::Update(bool force)
 	}
 
 	if (!fOnline && fHasBattery && previousPercent > kLowBatteryPercentage
-			&& fPercent <= kLowBatteryPercentage) {
+			&& fPercent <= kLowBatteryPercentage && notify) {
 		_NotifyLowBattery();
 	}
 }
@@ -595,7 +610,7 @@ PowerStatusReplicant::PowerStatusReplicant(BRect frame, int32 resizingMode,
 			B_FOLLOW_RIGHT | B_FOLLOW_BOTTOM);
 		AddChild(dragger);
 	} else
-		Update();
+		Update(false,false);
 }
 
 
@@ -691,6 +706,7 @@ PowerStatusReplicant::MessageReceived(BMessage *message)
 
 		default:
 			PowerStatusView::MessageReceived(message);
+			break;
 	}
 }
 
@@ -870,7 +886,8 @@ PowerStatusReplicant::_OpenExtendedWindow()
 
 
 extern "C" _EXPORT BView*
-instantiate_deskbar_item(void)
+instantiate_deskbar_item(float maxWidth, float maxHeight)
 {
-	return new PowerStatusReplicant(BRect(0, 0, 15, 15), B_FOLLOW_NONE, true);
+	return new PowerStatusReplicant(BRect(0, 0, maxHeight - 1, maxHeight - 1),
+		B_FOLLOW_NONE, true);
 }

@@ -4,14 +4,14 @@ Pink	ChartWindow		Rosa
 Comet	ChartWindow		Cometa
 DirectWindow	ChartWindow		FinestraDirecta
 Orange	ChartWindow		Taronja
-Refresh rate	ChartWindow		Freqüència de refresc
+Refresh rate	ChartWindow		Freqüència d'actualització
 Blue	ChartWindow		Blau
 Colors	ChartWindow		Colors
 Novas	ChartWindow		Noves
 LineArray	ChartWindow		MatriuDeLinies
  0.6 f/s  (logarythmic scale)	ChartWindow		 0.6 f/s  (escala logarítmica)
 Free motion	ChartWindow		Gir lliure
-(high) 100% 	ChartWindow		(alt) 100% 
+(high) 100% 	ChartWindow		(alt) 100 % 
 Green	ChartWindow		Verd
 Amas	ChartWindow		Amas
 2 threads	ChartWindow		2 fils
@@ -35,7 +35,7 @@ Animation:	ChartWindow		Animació:
 Frames/s	ChartWindow		Marc/s
 Auto demo	ChartWindow		Demostració automàtica
 CPU load	ChartWindow		Càrrega de la CPU
-DrawBitmap	ChartWindow		DrawBitmap
+DrawBitmap	ChartWindow		Dibuix de mapa de bits
 Red	ChartWindow		Vermell
 None	ChartWindow		Cap
 Battle	ChartWindow		Batalla

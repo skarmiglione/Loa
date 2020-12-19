@@ -9,6 +9,7 @@
 
 #include <package/RefreshRepositoryRequest.h>
 
+#include <Catalog.h>
 #include <Directory.h>
 #include <Path.h>
 
@@ -17,10 +18,14 @@
 #include <package/ActivateRepositoryCacheJob.h>
 #include <package/ChecksumAccessors.h>
 #include <package/ValidateChecksumJob.h>
-#include <package/FetchFileJob.h>
 #include <package/RepositoryCache.h>
 #include <package/RepositoryConfig.h>
 #include <package/PackageRoster.h>
+
+#include "FetchFileJob.h"
+
+#undef B_TRANSLATION_CONTEXT
+#define B_TRANSLATION_CONTEXT "RefreshRepositoryRequest"
 
 
 namespace BPackageKit {
@@ -60,10 +65,10 @@ BRefreshRepositoryRequest::CreateInitialJobs()
 		return result;
 	BString repoChecksumURL
 		= BString(fRepoConfig.BaseURL()) << "/" << "repo.sha256";
+	BString title = B_TRANSLATE("Fetching repository checksum from %url");
+	title.ReplaceAll("%url", fRepoConfig.BaseURL());
 	FetchFileJob* fetchChecksumJob = new (std::nothrow) FetchFileJob(
-		fContext,
-		BString("Fetching repository checksum from ") << fRepoConfig.BaseURL(),
-		repoChecksumURL, fFetchedChecksumFile);
+		fContext, title, repoChecksumURL, fFetchedChecksumFile);
 	if (fetchChecksumJob == NULL)
 		return B_NO_MEMORY;
 	if ((result = QueueJob(fetchChecksumJob)) != B_OK) {
@@ -73,11 +78,17 @@ BRefreshRepositoryRequest::CreateInitialJobs()
 
 	BRepositoryCache repoCache;
 	BPackageRoster roster;
+	// We purposely don't check this error, because this may be for a new repo,
+	// which doesn't have a cache file yet. The true passed to
+	// GeneralFileChecksumAccessor below will handle this case, and cause the
+	// repo data to be fetched and cached for the future in JobSucceeded below.
 	roster.GetRepositoryCache(fRepoConfig.Name(), &repoCache);
 
+	title = B_TRANSLATE("Validating checksum for %repositoryName");
+	title.ReplaceAll("%repositoryName", fRepoConfig.Name());
 	ValidateChecksumJob* validateChecksumJob
 		= new (std::nothrow) ValidateChecksumJob(fContext,
-			BString("Validating checksum for ") << fRepoConfig.Name(),
+			title,
 			new (std::nothrow) ChecksumFileChecksumAccessor(
 				fFetchedChecksumFile),
 			new (std::nothrow) GeneralFileChecksumAccessor(repoCache.Entry(),
@@ -121,9 +132,10 @@ BRefreshRepositoryRequest::_FetchRepositoryCache()
 	if (result != B_OK)
 		return result;
 	BString repoCacheURL = BString(fRepoConfig.BaseURL()) << "/" << "repo";
+	BString title = B_TRANSLATE("Fetching repository-cache from %url");
+	title.ReplaceAll("%url", fRepoConfig.BaseURL());
 	FetchFileJob* fetchCacheJob = new (std::nothrow) FetchFileJob(fContext,
-		BString("Fetching repository-cache from ") << fRepoConfig.BaseURL(),
-		repoCacheURL, tempRepoCache);
+		title, repoCacheURL, tempRepoCache);
 	if (fetchCacheJob == NULL)
 		return B_NO_MEMORY;
 	if ((result = QueueJob(fetchCacheJob)) != B_OK) {
@@ -132,9 +144,11 @@ BRefreshRepositoryRequest::_FetchRepositoryCache()
 	}
 
 	// job validating the cache's checksum
+	title = B_TRANSLATE("Validating checksum for %repositoryName");
+	title.ReplaceAll("%repositoryName", fRepoConfig.Name());
 	ValidateChecksumJob* validateChecksumJob
 		= new (std::nothrow) ValidateChecksumJob(fContext,
-			BString("Validating checksum for ") << fRepoConfig.Name(),
+			title,
 			new (std::nothrow) ChecksumFileChecksumAccessor(
 				fFetchedChecksumFile),
 			new (std::nothrow) GeneralFileChecksumAccessor(tempRepoCache));

@@ -10,6 +10,7 @@
 #include <string.h>
 #include <KernelExport.h>
 #include <SupportDefs.h>
+#include <util/AutoLock.h>
 #include <util/kernel_cpp.h>
 
 #include "PhysicalMemoryAllocator.h"
@@ -97,7 +98,7 @@ PhysicalMemoryAllocator::PhysicalMemoryAllocator(const char *name,
 
 PhysicalMemoryAllocator::~PhysicalMemoryAllocator()
 {
-	_Lock();
+	mutex_lock(&fLock);
 
 	for (int32 i = 0; i < fArrayCount; i++)
 		free(fArray[i]);
@@ -110,20 +111,6 @@ PhysicalMemoryAllocator::~PhysicalMemoryAllocator()
 
 	delete_area(fArea);
 	mutex_destroy(&fLock);
-}
-
-
-bool
-PhysicalMemoryAllocator::_Lock()
-{
-	return (mutex_lock(&fLock) == B_OK);
-}
-
-
-void
-PhysicalMemoryAllocator::_Unlock()
-{
-	mutex_unlock(&fLock);
 }
 
 
@@ -169,10 +156,12 @@ PhysicalMemoryAllocator::Allocate(size_t size, void **logicalAddress,
 		}
 	}
 
-	if (!_Lock())
+	MutexLocker locker(&fLock);
+	if (!locker.IsLocked())
 		return B_ERROR;
 
-	while (true) {
+	const bigtime_t limit = system_time() + 2 * 1000 * 1000;
+	do {
 		TRACE(("PMA: will use array %ld (blocksize: %ld) to allocate %ld bytes\n", arrayToUse, fBlockSize[arrayToUse], size));
 		uint8 *targetArray = fArray[arrayToUse];
 		uint32 arrayOffset = fArrayOffset[arrayToUse] % arrayLength;
@@ -203,7 +192,6 @@ PhysicalMemoryAllocator::Allocate(size_t size, void **logicalAddress,
 					arrayIndex >>= 1;
 				}
 
-				_Unlock();
 				size_t offset = fBlockSize[arrayToUse] * i;
 				*logicalAddress = (void *)((uint8 *)fLogicalBase + offset);
 				*physicalAddress = (phys_addr_t)(fPhysicalBase + offset);
@@ -217,19 +205,21 @@ PhysicalMemoryAllocator::Allocate(size_t size, void **logicalAddress,
 		fNoMemoryCondition.Add(&entry);
 		fMemoryWaitersCount++;
 
-		_Unlock();
+		locker.Unlock();
 
 		TRACE_ERROR(("PMA: found no free slot to store %ld bytes, waiting\n",
 			size));
 
-		entry.Wait();
+		if (entry.Wait(B_RELATIVE_TIMEOUT, 1 * 1000 * 1000) == B_TIMED_OUT)
+			break;
 
-		if (!_Lock())
+		if (!locker.Lock())
 			return B_ERROR;
 
 		fMemoryWaitersCount--;
-	}
+	} while (system_time() < limit);
 
+	TRACE_ERROR(("PMA: timed out waiting for a free slot, giving up\n"));
 	return B_NO_MEMORY;
 }
 
@@ -280,7 +270,8 @@ PhysicalMemoryAllocator::Deallocate(size_t size, void *logicalAddress,
 		return B_BAD_VALUE;
 	}
 
-	if (!_Lock())
+	MutexLocker _(&fLock);
+	if (!_.IsLocked())
 		return B_ERROR;
 
 	// clear upwards to the smallest block
@@ -305,7 +296,6 @@ PhysicalMemoryAllocator::Deallocate(size_t size, void *logicalAddress,
 	if (fMemoryWaitersCount > 0)
 		fNoMemoryCondition.NotifyAll();
 
-	_Unlock();
 	return B_OK;
 }
 

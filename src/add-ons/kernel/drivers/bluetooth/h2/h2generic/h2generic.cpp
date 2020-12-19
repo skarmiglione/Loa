@@ -2,7 +2,6 @@
  * Copyright 2007 Oliver Ruiz Dorantes, oliver.ruiz.dorantes_at_gmail.com
  * Copyright 2008 Mika Lindqvist, monni1995_at_gmail.com
  * All rights reserved. Distributed under the terms of the MIT License.
- *
  */
 
 
@@ -52,13 +51,33 @@ status_t submit_nbuffer(hci_id hid, net_buffer* nbuf);
 usb_support_descriptor supported_devices[] = {
 	// Generic Bluetooth USB device
 	// Class, SubClass, and Protocol codes that describe a Bluetooth device
-	{ UDCLASS_WIRELESS, UDSUBCLASS_RF, UDPROTO_BLUETOOTH , 0 , 0 },
+	{ UDCLASS_WIRELESS, UDSUBCLASS_RF, UDPROTO_BLUETOOTH, 0, 0 },
 
 	// Broadcom BCM2035
 	{ 0, 0, 0, 0x0a5c, 0x200a },
 	{ 0, 0, 0, 0x0a5c, 0x2009 },
 
 	// Devices taken from the linux Driver
+	// MediaTek MT76x0E
+	{ 0, 0, 0, 0x0e8d, 0x763f },
+	// Broadcom SoftSailing reporting vendor specific
+	{ 0, 0, 0, 0x0a5c, 0x21e1 },
+
+	// Apple MacBookPro 7,1
+	{ 0, 0, 0, 0x05ac, 0x8213 },
+	// Apple iMac11,1
+	{ 0, 0, 0, 0x05ac, 0x8215 },
+	// Apple MacBookPro6,2
+	{ 0, 0, 0, 0x05ac, 0x8218 },
+	// Apple MacBookAir3,1, MacBookAir3,2
+	{ 0, 0, 0, 0x05ac, 0x821b },
+	// Apple MacBookAir4,1
+	{ 0, 0, 0, 0x05ac, 0x821f },
+	// Apple MacBookPro8,2
+	{ 0, 0, 0, 0x05ac, 0x821a },
+	// Apple MacMini5,1
+	{ 0, 0, 0, 0x05ac, 0x8281 },
+
 	// AVM BlueFRITZ! USB v2.0
 	{ 0, 0, 0, 0x057c, 0x3800 },
 	// Bluetooth Ultraport Module from IBM
@@ -67,7 +86,14 @@ usb_support_descriptor supported_devices[] = {
 	{ 0, 0, 0, 0x044e, 0x3001 },
 	{ 0, 0, 0, 0x044e, 0x3002 },
 	// Ericsson with non-standard id
-	{ 0, 0, 0, 0x0bdb, 0x1002 }
+	{ 0, 0, 0, 0x0bdb, 0x1002 },
+
+	// Canyon CN-BTU1 with HID interfaces
+	{ 0, 0, 0, 0x0c10, 0x0000 },
+
+	// Broadcom BCM20702A0
+	{ 0, 0, 0, 0x413c, 0x8197 },
+
 };
 
 /* add a device to the list of connected devices */
@@ -124,8 +150,8 @@ spawn_device(usb_device usb_dev)
 	}
 	release_sem_etc(dev_table_sem, 1, B_DO_NOT_RESCHEDULE);
 
-	// In the case we cannot us
-	if (bt_usb_devices[i] != new_bt_dev) {
+	// In the case we cannot find a free slot
+	if (i >= MAX_BT_GENERIC_USB_DEVICES) {
 		ERROR("%s: Device could not be added\n", __func__);
 		goto bail2;
 	}
@@ -609,7 +635,7 @@ device_control(void* cookie, uint32 msg, void* params, size_t size)
 		return B_BAD_VALUE;
 	}
 
-	if (params == NULL) {
+	if (params == NULL || !IS_USER_ADDRESS(params)) {
 		TRACE("%s: Invalid pointer control\n", __func__);
 		return B_BAD_VALUE;
 	}
@@ -617,29 +643,28 @@ device_control(void* cookie, uint32 msg, void* params, size_t size)
 	acquire_sem(bdev->lock);
 
 	switch (msg) {
-		case ISSUE_BT_COMMAND:
-#ifdef BT_IOCTLS_PASS_SIZE
+		case ISSUE_BT_COMMAND: {
 			if (size == 0) {
 				TRACE("%s: Invalid size control\n", __func__);
 				err = B_BAD_VALUE;
 				break;
 			}
-#else
-			size = (*((size_t*)params));
-			(*(size_t**)&params)++;
-#endif
+
+			void* _params = alloca(size);
+			if (user_memcpy(_params, params, size) != B_OK)
+				return B_BAD_ADDRESS;
 
 			// TODO: Reuse from some TXcompleted queue
 			// snbuf = snb_create(size);
 			snbuf = snb_fetch(&bdev->snetBufferRecycleTrash, size);
-			snb_put(snbuf, params, size);
+			snb_put(snbuf, _params, size);
 
 			err = submit_tx_command(bdev, snbuf);
 			TRACE("%s: command launched\n", __func__);
-		break;
+			break;
+		}
 
 		case BT_UP:
-
 			//  EVENTS
 			err = submit_rx_event(bdev);
 			if (err != B_OK) {
@@ -671,13 +696,11 @@ device_control(void* cookie, uint32 msg, void* params, size_t size)
 		break;
 
 		case GET_STATS:
-			memcpy(params, &bdev->stat, sizeof(bt_hci_statistics));
-			err = B_OK;
+			err = user_memcpy(params, &bdev->stat, sizeof(bt_hci_statistics));
 		break;
 
 		case GET_HCI_ID:
-			*(hci_id*)params = bdev->hdev;
-			err = B_OK;
+			err = user_memcpy(params, &bdev->hdev, sizeof(hci_id));
 		break;
 
 

@@ -101,11 +101,19 @@ Pipe::IsEnabled()
 void
 Pipe::Configure(display_mode* mode)
 {
+#if 0
+	// FIXME the previous values are never masked out from the
+	// register, so we just OR things together and hope to fall on a working
+	// mode. Better do nothing at all for now.
 	uint32 pipeControl = read32(INTEL_DISPLAY_A_PIPE_CONTROL + fPipeOffset);
 
 	// TODO: Haswell+ dithering changes.
 	if (gInfo->shared_info->device_type.Generation() >= 4) {
 		pipeControl |= (INTEL_PIPE_DITHER_EN | INTEL_PIPE_DITHER_TYPE_SP);
+		// FIXME this makes no sense, if only because B_CMAP8, B_RGB24 and
+		// B_RGB32 have the same color precision (8bit per component).
+		// Also because the color mode is a property of the hardware
+		// (depends on which LVDS panel is used, typically), not the video mode.
 		switch (mode->space) {
 			case B_CMAP8:
 			case B_RGB15_LITTLE:
@@ -129,6 +137,14 @@ Pipe::Configure(display_mode* mode)
 
 	write32(INTEL_DISPLAY_A_PIPE_CONTROL + fPipeOffset, pipeControl);
 	read32(INTEL_DISPLAY_A_PIPE_CONTROL + fPipeOffset);
+#endif
+
+	if (gInfo->shared_info->device_type.Generation() >= 6) {
+		// According to SandyBridge modesetting sequence, pipe must be enabled
+		// before PLL are configured.
+		addr_t pipeReg = INTEL_DISPLAY_A_PIPE_CONTROL + fPipeOffset;
+		write32(pipeReg, read32(pipeReg) | INTEL_PIPE_ENABLED);
+	}
 }
 
 
@@ -171,21 +187,22 @@ Pipe::_ConfigureTranscoder(display_mode* target)
 
 
 void
-Pipe::ConfigureTimings(display_mode* target)
+Pipe::ConfigureTimings(display_mode* target, bool hardware)
 {
 	CALLED();
 
-	TRACE("%s: fPipeOffset: 0x%" B_PRIx32"\n", __func__, fPipeOffset);
+	TRACE("%s(%d): fPipeOffset: 0x%" B_PRIx32"\n", __func__, hardware,
+		fPipeOffset);
 
 	if (target == NULL) {
 		ERROR("%s: Invalid display mode!\n", __func__);
 		return;
 	}
 
-	/* If there is a transcoder, leave the display at its native resolution,
+	/* If using the transcoder, leave the display at its native resolution,
 	 * and configure only the transcoder (panel fitting will match them
 	 * together). */
-	if (!fHasTranscoder)
+	if (!fHasTranscoder || hardware)
 	{
 		// update timing (fPipeOffset bumps the DISPLAY_A to B when needed)
 		write32(INTEL_DISPLAY_A_HTOTAL + fPipeOffset,
@@ -209,29 +226,36 @@ Pipe::ConfigureTimings(display_mode* target)
 			| ((uint32)target->timing.v_sync_start - 1));
 	}
 
-	// XXX: Is it ok to do these on non-digital?
+	if (gInfo->shared_info->device_type.Generation() < 6) {
+		// FIXME check on which generations this register exists
+		// (it appears it would be available only for cursor planes, not
+		// display planes)
+		// Since we set the plane to be the same size as the display, we can
+		// just show it starting at top-left.
+		write32(INTEL_DISPLAY_A_POS + fPipeOffset, 0);
+	}
 
-	write32(INTEL_DISPLAY_A_POS + fPipeOffset, 0);
-
-	// Set the image size for both pipes, just in case.
-	write32(INTEL_DISPLAY_A_IMAGE_SIZE,
-		((uint32)(target->virtual_width - 1) << 16)
-			| ((uint32)target->virtual_height - 1));
-	write32(INTEL_DISPLAY_B_IMAGE_SIZE,
-		((uint32)(target->virtual_width - 1) << 16)
-			| ((uint32)target->virtual_height - 1));
-
+	// The only thing that really matters: set the image size and let the
+	// panel fitter or the transcoder worry about the rest
 	write32(INTEL_DISPLAY_A_PIPE_SIZE + fPipeOffset,
-		((uint32)(target->timing.v_display - 1) << 16)
-			| ((uint32)target->timing.h_display - 1));
+		((uint32)(target->virtual_width - 1) << 16)
+			| ((uint32)target->virtual_height - 1));
 
-	// This is useful for debugging: it sets the border to red, so you
-	// can see what is border and what is porch (black area around the
-	// sync)
-	//write32(INTEL_DISPLAY_A_RED + fPipeOffset, 0x00FF0000);
+	// Set the plane size as well while we're at it (this is independant, we
+	// could have a larger plane and scroll through it).
+	if (gInfo->shared_info->device_type.Generation() <= 4) {
+		// This is "reserved" on G35 and GMA965, but needed on 945 (for which
+		// there is no public documentation), and I assume earlier devices as
+		// well. Note that the height and width are swapped when compared to
+		// the other registers.
+		write32(INTEL_DISPLAY_A_IMAGE_SIZE + fPipeOffset,
+			((uint32)(target->virtual_height - 1) << 16)
+			| ((uint32)target->virtual_width - 1));
+	}
 
-	if (fHasTranscoder)
+	if (fHasTranscoder && hardware) {
 		_ConfigureTranscoder(target);
+	}
 }
 
 
@@ -303,6 +327,13 @@ Pipe::ConfigureClocks(const pll_divisors& divisors, uint32 pixelClock,
 		//		& DISPLAY_PLL_9xx_POST1_DIVISOR_MASK;
 		}
 
+		// Also configure the FP0 divisor on SandyBridge
+		if (gInfo->shared_info->device_type.Generation() == 6) {
+			pll |= ((1 << (divisors.p1 - 1))
+					<< DISPLAY_PLL_SNB_FP0_POST1_DIVISOR_SHIFT)
+				& DISPLAY_PLL_SNB_FP0_POST1_DIVISOR_MASK;
+		}
+
 		if (divisors.p2 == 5 || divisors.p2 == 7)
 			pll |= DISPLAY_PLL_DIVIDE_HIGH;
 
@@ -322,13 +353,52 @@ Pipe::ConfigureClocks(const pll_divisors& divisors, uint32 pixelClock,
 			pll |= DISPLAY_PLL_POST1_DIVIDE_2;
 	}
 
-	// Allow the PLL to warm up by masking its bit.
 	write32(pllControl, pll & ~DISPLAY_PLL_NO_VGA_CONTROL);
+		// FIXME what is this doing? Why put the PLL back under VGA_CONTROL
+		// here?
 	read32(pllControl);
 	spin(150);
+
+	// Configure and enable the PLL
 	write32(pllControl, pll);
 	read32(pllControl);
+
+	// Allow the PLL to warm up.
 	spin(150);
+
+	if (gInfo->shared_info->device_type.Generation() >= 6) {
+		// SandyBridge has 3 transcoders, but only 2 PLLs. So there is a new
+		// register which routes the PLL output to the transcoder that we need
+		// to configure
+		uint32 pllSel = read32(SNB_DPLL_SEL);
+		TRACE("Old PLL selection: %x\n", pllSel);
+		uint32 shift = 0;
+		uint32 pllIndex = 0;
+
+		// FIXME we assume that pipe A is used with transcoder A, and pipe B
+		// with transcoder B, that may not always be the case
+		if (fPipeIndex == INTEL_PIPE_A) {
+			shift = 0;
+			pllIndex = 0;
+			TRACE("Route PLL A to transcoder A\n");
+		} else if (fPipeIndex == INTEL_PIPE_B) {
+			shift = 4;
+			pllIndex = 1;
+			TRACE("Route PLL B to transcoder B\n");
+		} else {
+			ERROR("Attempting to configure PLL for unhandled pipe");
+			return;
+		}
+
+		// Mask out the previous PLL configuration for this transcoder
+		pllSel &= ~(0xF << shift);
+
+		// Set up the new configuration for this transcoder and enable it
+		pllSel |= (8 | pllIndex) << shift;
+
+		TRACE("New PLL selection: %x\n", pllSel);
+		write32(SNB_DPLL_SEL, pllSel);
+	}
 }
 
 

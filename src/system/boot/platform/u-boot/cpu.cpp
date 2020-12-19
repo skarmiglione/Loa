@@ -1,9 +1,6 @@
 /*
  * Copyright 2004-2005, Axel Dörfler, axeld@pinc-software.de. All rights reserved.
  * Distributed under the terms of the MIT License.
- *
- * calculate_cpu_conversion_factor() was written by Travis Geiselbrecht and
- * licensed under the NewOS license.
  */
 
 
@@ -30,17 +27,6 @@
 
 
 extern "C" void
-spin(bigtime_t microseconds)
-{
-	#warning U-Boot:TODO!!
-	// TODO: use API if available
-
-	// fallback to arch-specific code
-	arch_spin(microseconds);
-}
-
-
-extern "C" void
 cpu_init()
 {
 	gKernelArgs.num_cpus = 1;
@@ -50,3 +36,8 @@ cpu_init()
 		panic("You need a 6502 or higher in order to boot!\n");
 }
 
+
+extern "C" void
+platform_load_ucode(BootVolume& volume)
+{
+}

@@ -357,7 +357,7 @@ KeyboardLayout::_AddKey(const Key& key)
 	if (fKeyCount + 1 > fKeyCapacity) {
 		// enlarge array
 		int32 newCapacity = fKeyCapacity + 32;
-		Key* newKeys = (Key*)realloc(fKeys, newCapacity * sizeof(Key));
+		Key* newKeys = (Key*)realloc((void*)fKeys, newCapacity * sizeof(Key));
 		if (newKeys == NULL)
 			return false;
 
@@ -842,7 +842,7 @@ KeyboardLayout::_InitFrom(const char* data)
 						state.mode = kKeyShape;
 						break;
 					case kKeyShape:
-						memset(&key, 0, sizeof(Key));
+						memset((void*)&key, 0, sizeof(Key));
 						if (!_GetShape(state, term.String(), key))
 							return B_BAD_VALUE;
 

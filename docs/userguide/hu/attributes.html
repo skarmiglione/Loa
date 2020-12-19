@@ -23,34 +23,37 @@
 <body>
 
 <div id="banner">
-<div><span>User guide</span></div>
+<div><span>Használati útmutató</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/hu.png" alt="" /> Magyar</li>
-<li><a href="../ca/attributes.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/attributes.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/attributes.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/attributes.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../fr/attributes.html"><img src="../images/flags/fr.png" alt="" />Français</a></li>
-<li><a href="../it/attributes.html"><img src="../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../pl/attributes.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/attributes.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/attributes.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/attributes.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/attributes.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/attributes.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/attributes.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/attributes.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/attributes.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/attributes.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/attributes.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Magyar&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/attributes.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/attributes.html">Català</a></li>
+<li><a href="../de/attributes.html">Deutsch</a></li>
+<li><a href="../en/attributes.html">English</a></li>
+<li><a href="../es/attributes.html">Español</a></li>
+<li><a href="../fr/attributes.html">Français</a></li>
+<li><a href="../fur/attributes.html">Furlan</a></li>
+<li><a href="../it/attributes.html">Italiano</a></li>
+<li><a href="../pl/attributes.html">Polski</a></li>
+<li><a href="../pt_PT/attributes.html">Português</a></li>
+<li><a href="../pt_BR/attributes.html">Português (Brazil)</a></li>
+<li><a href="../ro/attributes.html">Română</a></li>
+<li><a href="../sk/attributes.html">Slovenčina</a></li>
+<li><a href="../fi/attributes.html">Suomi</a></li>
+<li><a href="../sv_SE/attributes.html">Svenska</a></li>
+<li><a href="../tr/attributes.html">Türkçe</a></li>
+<li><a href="../zh_CN/attributes.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/attributes.html">Русский</a></li>
+<li><a href="../uk/attributes.html">Українська</a></li>
+<li><a href="../jp/attributes.html">日本語</a></li>
 </ul>
 <span>
  «  <a href="filetypes.html">Fájltípusok</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
+::  <a href="contents.html" class="uplink">Tartalom</a> 
 ::  <a href="index.html">Index</a>  »
 </span></div>
 </div>
@@ -87,7 +90,7 @@
 <p>A <span class="cli">listattr</span> megjeleníti a fájl összes jellemzőjét a hozzájuk tartozó adatok nélkül.</p>
 <pre>használat: listattr 'fájl' ['fájl' ...]</pre>
 <p>Például:</p>
-<pre class="terminal"> ~/people -&gt;listattr Ecet\ Tibor
+<pre class="terminal"> ~/people -&gt;listattr Ecet\\ Tibor
 File: Ecet Tibor
         Type       Size  Name                                
 ----------------------------------------------------------
@@ -114,7 +117,7 @@ File: Ecet Tibor
 <ul>
 <li><p>A <tt>BEOS:TYPE</tt> tartalmazza a fájl típusát, mint <acronym title="Multipurpose Internet Mail Extensions">MIME</acronym> szöveget, esetünkben "<tt>application/x-person</tt>". Ez alapján megkapjuk az alapértelmezett ikont és a programot, mely kezeli a fájlt.</p></li>
 <li><p>A "<tt>_trk/pinfo_le</tt>" jellemző tartalmazza a Tracker-ben az ikon pozícióját.</p></li></ul>
-<div class="box-info">Magyarázatra szorul a vissza-perjel a névben. A Terminálban a speciális karaktereket, mint például <tt>'"*\$?!</tt> kilépő karakterrel kell "jelölni". A szóköz a névben épp ilyen. Tehát, a vissza-perjel (kilépő karakter) az a szóköz előtt van, nem pedig a név után.</div>
+<div class="box-info">Magyarázatra szorul a vissza-perjel a névben. A Terminálban a speciális karaktereket, mint például <tt>'"*\\$?!</tt> kilépő karakterrel kell "jelölni". A szóköz a névben épp ilyen. Tehát, a vissza-perjel (kilépő karakter) az a szóköz előtt van, nem pedig a név után.</div>
 
 <h3>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -122,7 +125,7 @@ File: Ecet Tibor
 <p>A <span class="cli">catattr</span> megjeleníti a megadott jellemzőhöz tartozó adatot.</p>
 <pre>használat: catattr [--raw|-r] jellenző_neve fájl1 [fájl2...]</pre>
 <p>Például:</p>
-<pre class="terminal"> ~/people -&gt;catattr META:city Ecet\ Tibor
+<pre class="terminal"> ~/people -&gt;catattr META:city Ecet\\ Tibor
 Ecet Tibor : string : Hatvan</pre>
 
 <h3>
@@ -137,7 +140,7 @@ Ecet Tibor : string : Hatvan</pre>
                  vagy szám-érték (például 0x1234, 42, 'ABCD', ...)
          Az alapértelmezett a "string"</pre>
 <p>Nos, tegyük fel, hogy Tibor elválal egy állást a Cukor Kft-nél, így most feltöltünk egy eddig üres jellemzőt adattal (aminek a típusa "string" (szöveg)):</p>
-<pre class="terminal"> ~/people -&gt;addattr -t string META:company Cukor\ Kft Ecet\ Tibor
+<pre class="terminal"> ~/people -&gt;addattr -t string META:company Cukor\\ Kft Ecet\\ Tibor
 </pre>
 
 <h3>
@@ -149,7 +152,7 @@ Ecet Tibor : string : Hatvan</pre>
          'jellemző' a fájl egyik jellemzőjének a neve
          Ha a '-p' meg van adva, akkor a 'jellemző' mintaként szolgál.</pre>
 <p>Például a "Fax" jellemzőt üresen is hagyhatjuk, de teljesen ki is törölhetjük azt:</p>
-<pre class="terminal"> ~/people -&gt;rmattr META:fax Ecet\ Tibor</pre>
+<pre class="terminal"> ~/people -&gt;rmattr META:fax Ecet\\ Tibor</pre>
 
 <h3>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -168,7 +171,7 @@ Ecet Tibor : string : Hatvan</pre>
 <div class="nav">
 <div class="inner"><span>
  «  <a href="filetypes.html">Fájltípusok</a> 
-::  <a href="contents.html" class="uplink">Contents</a> 
+::  <a href="contents.html" class="uplink">Tartalom</a> 
 ::  <a href="index.html">Index</a>  »
 </span></div>
 </div>

@@ -3,18 +3,15 @@ SubDir HAIKU_TOP src kits network libnetapi ;
 UsePrivateHeaders app net shared storage support ;
 UsePrivateHeaders locale shared ;
 
-UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd11_network ] : true ;
-UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd11_wlan ] : true ;
+UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_network ] : true ;
+UseHeaders [ FDirName $(HAIKU_TOP) src libs compat freebsd_wlan ] : true ;
 UseHeaders [ FDirName $(HAIKU_TOP) headers os add-ons network_settings ]
 	: true ;
-
-SubDirC++Flags [ FDefines _BSD_SOURCE=1 ] ;
 
 local architectureObject ;
 for architectureObject in [ MultiArchSubDirSetup ] {
 	on $(architectureObject) {
 		local sslSources ;
-		local md5Sources ;
 
 		UsePrivateSystemHeaders ;
 
@@ -22,7 +19,6 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			SubDirC++Flags -DOPENSSL_ENABLED ;
 			UseBuildFeatureHeaders openssl ;
 			sslSources = SSL.cpp ;
-			md5Sources = ;
 			Includes [ FGristFiles $(sslSources) SecureSocket.cpp
 					HttpAuthentication.cpp Certificate.cpp ]
 				: [ BuildFeatureAttribute openssl : headers ] ;
@@ -30,13 +26,10 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 				# before compiling the files.
 			SetupFeatureObjectsDir ssl ;
 		} else {
-			# As we don't have md5 from ssl, use our own
-			md5Sources = md5.c ;
 			SetupFeatureObjectsDir no-ssl ;
 		}
 
 		SharedLibrary [ MultiArchDefaultGristFiles libbnetapi.so ] :
-			init.cpp
 			DynamicBuffer.cpp
 			NetEndpoint.cpp
 			NetAddress.cpp
@@ -81,8 +74,6 @@ for architectureObject in [ MultiArchSubDirSetup ] {
 			HttpTime.cpp
 
 			notifications.cpp
-
-			$(md5Sources)
 
 			NetworkRequest.cpp
 			UrlContext.cpp

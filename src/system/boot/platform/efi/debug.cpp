@@ -14,6 +14,20 @@
 #include "serial.h"
 
 
+static char sBuffer[16384];
+static uint32 sBufferPosition;
+
+
+static void
+syslog_write(const char* buffer, size_t length)
+{
+	if (sBufferPosition + length > sizeof(sBuffer))
+		return;
+	memcpy(sBuffer + sBufferPosition, buffer, length);
+	sBufferPosition += length;
+}
+
+
 static void
 dprintf_args(const char *format, va_list args)
 {
@@ -22,6 +36,7 @@ dprintf_args(const char *format, va_list args)
 	if (length == 0)
 		return;
 
+	syslog_write(buffer, length);
 	serial_puts(buffer, length);
 }
 
@@ -58,5 +73,8 @@ panic(const char *format, ...)
 char*
 platform_debug_get_log_buffer(size_t *_size)
 {
-	return NULL;
+	if (_size != NULL)
+		*_size = sizeof(sBuffer);
+
+	return sBuffer;
 }

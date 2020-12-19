@@ -4,15 +4,15 @@
 <head>
 <!-- 
  *
- * Copyright 2008-2017, Haiku. All rights reserved.
+ * Copyright 2008-2019, Haiku. All rights reserved.
  * Distributed under the terms of the MIT License.
  *
  * Authors:
  *		Humdinger <humdingerb@gmail.com>
  * Translators:
  *		Loïc
- *		Vincent Duvert
  *		roptat
+ *		Vincent Duvert
  *
 -->
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -25,41 +25,44 @@
 <body>
 
 <div id="banner">
-<div><span>Guide de l’utilisateur</span></div>
+<div><span>User guide</span></div>
 </div>
 
 <div class="nav">
 <div class="inner">
 <ul class="lang-menu">
-<li class="now"><img src="../images/flags/fr.png" alt="" /> Français</li>
-<li><a href="../ca/tracker.html"><img src="../images/flags/ca.png" alt="" />Català</a></li>
-<li><a href="../de/tracker.html"><img src="../images/flags/de.png" alt="" />Deutsch</a></li>
-<li><a href="../en/tracker.html"><img src="../images/flags/gb.png" alt="" />English</a></li>
-<li><a href="../es/tracker.html"><img src="../images/flags/es.png" alt="" />Español</a></li>
-<li><a href="../it/tracker.html"><img src="../images/flags/it.png" alt="" />Italiano</a></li>
-<li><a href="../hu/tracker.html"><img src="../images/flags/hu.png" alt="" />Magyar</a></li>
-<li><a href="../pl/tracker.html"><img src="../images/flags/pl.png" alt="" />Polski</a></li>
-<li><a href="../pt_PT/tracker.html"><img src="../images/flags/pt_PT.png" alt="" />Português</a></li>
-<li><a href="../pt_BR/tracker.html"><img src="../images/flags/pt_BR.png" alt="" />Português (Brazil)</a></li>
-<li><a href="../ro/tracker.html"><img src="../images/flags/ro.png" alt="" />Română</a></li>
-<li><a href="../sk/tracker.html"><img src="../images/flags/sk.png" alt="" />Slovenčina</a></li>
-<li><a href="../fi/tracker.html"><img src="../images/flags/fi.png" alt="" />Suomi</a></li>
-<li><a href="../sv_SE/tracker.html"><img src="../images/flags/sv_SE.png" alt="" />Svenska</a></li>
-<li><a href="../zh_CN/tracker.html"><img src="../images/flags/zh_CN.png" alt="" /> 中文 ［中文］</a></li>
-<li><a href="../ru/tracker.html"><img src="../images/flags/ru.png" alt="" />Русский</a></li>
-<li><a href="../uk/tracker.html"><img src="../images/flags/uk.png" alt="" />Українська</a></li>
-<li><a href="../jp/tracker.html"><img src="../images/flags/jp.png" alt="" />日本語</a></li>
+<li class="now">Français&nbsp;<span class="dropdown-caret">&#9660;</span></li>
+<li><a href="../id/tracker.html">Bahasa Indonesia</a></li>
+<li><a href="../ca/tracker.html">Català</a></li>
+<li><a href="../de/tracker.html">Deutsch</a></li>
+<li><a href="../en/tracker.html">English</a></li>
+<li><a href="../es/tracker.html">Español</a></li>
+<li><a href="../fur/tracker.html">Furlan</a></li>
+<li><a href="../it/tracker.html">Italiano</a></li>
+<li><a href="../hu/tracker.html">Magyar</a></li>
+<li><a href="../pl/tracker.html">Polski</a></li>
+<li><a href="../pt_PT/tracker.html">Português</a></li>
+<li><a href="../pt_BR/tracker.html">Português (Brazil)</a></li>
+<li><a href="../ro/tracker.html">Română</a></li>
+<li><a href="../sk/tracker.html">Slovenčina</a></li>
+<li><a href="../fi/tracker.html">Suomi</a></li>
+<li><a href="../sv_SE/tracker.html">Svenska</a></li>
+<li><a href="../tr/tracker.html">Türkçe</a></li>
+<li><a href="../zh_CN/tracker.html"> 中文 ［中文］</a></li>
+<li><a href="../ru/tracker.html">Русский</a></li>
+<li><a href="../uk/tracker.html">Українська</a></li>
+<li><a href="../jp/tracker.html">日本語</a></li>
 </ul>
 <span>
  «  <a href="teammonitor.html">Team Monitor</a> 
-::  <a href="contents.html" class="uplink">Sommaire</a> 
-::  <a href="tracker-add-ons.html">Extensions du Tracker</a>  »
+::  <a href="contents.html" class="uplink">Contents</a> 
+::  <a href="tracker-add-ons.html">Tracker Add-Ons</a>  »
 </span></div>
 </div>
 
 <div id="content">
 <div>
-<div class="box-info">Cette page n'est pas encore entièrement traduite. Les parties non encore traduites seront en anglais.</div>
+<div class="box-info">The translation of this page isn't yet complete. Until it is, unfinished parts use the English original.</div>
 
 
 <table class="index" id="index" summary="index">
@@ -87,8 +90,8 @@ de les trouver, ainsi que de copier, renommer ou supprimer ceux qui existent.</p
 <img src="images/tracker-images/mount-settings.png" alt="drill-down.png" />
 <p>Il existe aussi des réglages (<span class="menu">Settings</span>) qui vous permettent de ne pas avoir à monter tous les disques manuellement à chaque démarrage.<br />
 Les réglages indiqués ci-dessus provoqueront le montage automatique de tous les disques que vous connecterez ou insérerez dans l’ordinateur, ainsi que le montage automatique au démarrage de tous les volumes qui étaient montés précédemment.</p>
-<div class="box-warning">Before you disconnect e.g. a harddrive or USB stick, make sure you have successfully unmounted the volume and its icon has disappeared. This guarantees that all data transfer has finished. Otherwise you may lose data or corrupt the disk!</div>
-<div class="box-warning">Haiku is able to mount non-BFS formatted volumes. Be warned, however, that these non-BFS filesystems haven't been rigorously tested. Writing to those volumes may cause corruption in some cases. If you want to be on the safe side, always choose <span class="button">Mount read-only</span> when mounting!</div>
+<div class="box-warning">Avant de déconnecter un périphérique comme un disque dur externe ou une clé USB, assurez-vous d'avoir démonté le volume correctement et que son icône ait disparue. Ceci garantit que le transfert de toutes les données est terminé. Sinon, vous pourriez perdre des données ou corrompre le disque !</div>
+<div class="box-warning">Haiku est capable de monter des volumes non formatés en BFS. Soyez toutefois avertis que les systèmes de fichiers non-BFS n'ont pas été rigoureusement testés. L'écriture sur ces volumes peut, dans certains cas, corrompre les données. Si vous souhaitez garantir la fiabilité, choisissez toujours <span class="button">Monter en lecture seule</span> lorsque vous montez le volume !</div>
 
 <h2>
 <a href="#"><img src="../images/up.png" style="border:none;float:right" alt="index" /></a>
@@ -133,7 +136,7 @@ Ce filtrage lors de la frappe est défini dans les <a href="#tracker-preferences
 <ul>
 <li><p><span class="menu">Icon View</span> (Vue par icônes, <span class="key">Alt</span> <span class="key">1</span>) - Grandes icônes, vous pouvez modifier la taille à partir du sous-menu ou bien agrandir/réduire leur taille avec <span class="key">Alt</span> <span class="key">+</span>/<span class="key">Alt</span> <span class="key">-</span>.</p></li>
 <li><p><span class="menu">Mini Icon View</span> (Vue miniature, <span class="key">Alt</span> <span class="key">2</span>) - Petites icônes.</p></li>
-<li><p><span class="menu">List View</span> (Vue par liste, <span class="key">Alt</span> <span class="key">3</span>) - Une vue détaillée de vos fichiers vous permettant d’afficher ou masquer les différents <i>attributs</i> (Voyez le sujet sur les <a href="attributes.html">Attributs</a>).</p></li>
+<li><p><span class="menu">List view</span> (<span class="key">ALT</span> <span class="key">3</span>) - A detailed list of your files enabling you to show/hide file attributes (see topic <a href="attributes.html">Attributes</a>.)</p></li>
 </ul>
 <p>Le menu <span class="menu">Window</span> offre de nombreuses autres fonctions :</p>
 <ul>
@@ -163,7 +166,6 @@ Si vous maintenez la touche <span class="key">Maj</span> enfoncée, le menu devi
 <img src="images/tracker-images/tracker-preferences-navigator.png" alt="tracker-preferences-navigator.png" />
 <p>Avant de passer le Tracker en mode navigation dans une fenêtre unique, parce que cette méthode vous semble plus familière, nous vous recommandons d’essayer la navigation par menu, qui peut être bien plus rapide après que vous vous y soyez habitué. Néanmoins, la navigation dans une fenêtre unique offre un <i>Navigateur</i> où vous pouvez entrer ou copier-coller un chemin de fichier et utiliser des boutons «Précédent», «Suivant» et «Niveau supérieur».</p>
 <p>En activant le filtrage en cours de frappe (<span class="menu">Type-ahead filtering</span>) vous pouvez réduire le contenu de la fenêtre du Tracker au fur et à mesure de votre frappe pour ne laisser apparaître que les fichiers dont le nom ou le contenu d'un attribut visible correspond à la chaîne que vous avez saisie. Voir <a href="#type-ahead-filter">ci-dessus</a>.</p></li>
-<li><p><span class="menu">Trash</span> (Corbeille) - Définit le comportement lors d’une suppression de fichier.</p></li>
 <li><p><span class="menu">Volume Icons</span> (Icônes des volumes) - Réglez la couleur d’un éventuel indicateur d’espace libre qui peut être affiché sur chaque icône de disque.</p></li>
 <li><p><span class="menu">Disk mount</span> (Montage des disques) - Définit quand et quels disques sont montés automatiquement, comme décrit ci-dessus dans <a href="#mounting-volumes">« Montage des volumes »</a>.</p></li>
 </ul>
@@ -189,9 +191,15 @@ En ajoutant un fichier dans ce dossier, vous rajouterez une option dans le menu 
 <img src="images/tracker-images/open-with-preferred.png" alt="open-with-preferred" />
 <p>Vous y trouvez à nouveau les programmes listés dans le sous-menu. En en sélectionnant un et en choisissant le bouton <span class="button">Open and Make Preferred</span> vous changerez l’application utilisée pour tous les fichiers du même type, ici <tt>text/plain</tt>.</p></li>
 <li><span class="menu">Get info</span>
-<br /><br />
+<p>This opens a panel that shows the meta data of a file and lets you edit its permissions. You can rename it by clicking on the file name at the top.</p>
 <img src="images/tracker-images/get-info.png" alt="get-info" />
-<p>Ce panneau affiche des informations sur le fichier sélectionné et vous permet de définir l’application par défaut, et si vous développer les <i>Permissions</i>, les droits d'accès et le propriétaire du fichier. Un clic sur le chemin d’accès (<i>Location</i>) l’ouvrira dans une nouvelle fenêtre Tracker.</p></li>
+<p>The panel consists of three tabs:</p>
+<ul>
+<li><span class="menu">Information</span>: Shows standard data like size, date of creation/modification, file type and location. Click on the location path to open the files parent folder. The <span class="menu">Open with</span> menu sets the preferred application to open this particular file.</li>
+<li><span class="menu">Permissions</span>: Lets you change owner, group and file permissions.</li>
+<li><span class="menu">Attibutes</span>: Lists all extra file attributes with their value and type.</li>
+</ul>
+</li>
 <li><p><span class="menu">Edit Name</span> (Renommer), <span class="menu">Duplicate</span> (Dupliquer) et <span class="menu">Move to Trash</span> (Déplacer vers la corbeille) - permettent respectivement de renommer, dupliquer ou supprimer le(s) fichier(s) sélectionné(s).</p></li>
 <li><p><span class="menu">Move to</span> (Déplacer), <span class="menu">Copy to</span> (Copier vers) et <span class="menu">Create Link</span> (Créer un lien) - vous permettent de déplacer, copier ou créer un lien vers le(s) fichier(s) sélectionné(s) en utilisant la méthode de navigation par sous-menus. EN maintenant <span class="key">Maj</span> enfoncée lors de l’ouverture du menu, vous obtiendrez une option pour créer un lien relatif.</p></li>
 <li><p><span class="menu">Cut</span> (Couper), <span class="menu">Copy</span> (Copier) et <span class="menu">Paste</span> (Coller) - vous permettent de manipuler des fichiers en utilisant le presse-papiers. En maintenant la touche <span class="key">Maj</span> enfoncée lors de l’ouverture du menu, vous pourrez <span>Copy/Cut more</span> (copier/coller plus de) fichiers, par exemple d’un autre dossier, que vous pourrez coller ailleurs plus tard. De plus, maintenir <span class="key">Maj</span> vous permettra de coller les fichiers copiés en tant que liens.</p></li>
@@ -213,8 +221,8 @@ Si vous démarrez plusieurs tâches, un indicateur apparaît pour chacune d’en
 <div class="nav">
 <div class="inner"><span>
  «  <a href="teammonitor.html">Team Monitor</a> 
-::  <a href="contents.html" class="uplink">Sommaire</a> 
-::  <a href="tracker-add-ons.html">Extensions du Tracker</a>  »
+::  <a href="contents.html" class="uplink">Contents</a> 
+::  <a href="tracker-add-ons.html">Tracker Add-Ons</a>  »
 </span></div>
 </div>
 

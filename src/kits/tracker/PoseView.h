@@ -53,39 +53,16 @@ All rights reserved.
 
 #include <Directory.h>
 #include <FilePanel.h>
+#include <HashSet.h>
 #include <MessageRunner.h>
 #include <String.h>
 #include <ScrollBar.h>
 #include <View.h>
-#include <hash_set>
 #include <set>
 
 
 class BRefFilter;
 class BList;
-
-#if __GNUC__ > 2
-namespace __gnu_cxx {
-template<>
-struct hash<node_ref>
-#else
-template<>
-struct std::hash<node_ref>
-#endif
-{
-	size_t
-	operator()(node_ref ref) const
-	{
-		return ref.node;
-	}
-};
-#if __GNUC__ > 2
-} // namespace __gnu_cxx
-typedef __gnu_cxx::hash_set<node_ref, __gnu_cxx::hash<node_ref> > NodeSet;
-#else
-typedef std::hash_set<node_ref, std::hash<node_ref> > NodeSet;
-#endif
-
 
 namespace BPrivate {
 
@@ -224,7 +201,6 @@ public:
 		// returns height, descent, etc.
 	float FontHeight() const;
 	float ListElemHeight() const;
-	void SetListElemHeight();
 
 	void SetIconPoseHeight();
 	float IconPoseHeight() const;
@@ -698,6 +674,36 @@ private:
 	void DrawOpenAnimation(BRect);
 
 	void MoveSelectionOrEntryToTrash(const entry_ref* ref, bool selectNext);
+	void _ResetStartOffset();
+
+protected:
+	struct node_ref_key {
+		node_ref_key() {}
+		node_ref_key(const node_ref& value) : value(value) {}
+
+		uint32 GetHashCode() const
+		{
+			return (uint32)value.device ^ (uint32)value.node;
+		}
+
+		node_ref_key operator=(const node_ref_key& other)
+		{
+			value = other.value;
+			return *this;
+		}
+
+		bool operator==(const node_ref_key& other) const
+		{
+			return (value == other.value);
+		}
+
+		bool operator!=(const node_ref_key& other) const
+		{
+			return (value != other.value);
+		}
+
+		node_ref	value;
+	};
 
 protected:
 	TScrollBar* fHScrollBar;
@@ -710,7 +716,7 @@ protected:
 	PoseList* fFilteredPoseList;
 	PoseList* fVSPoseList;
 	PoseList* fSelectionList;
-	NodeSet fInsertedNodes;
+	HashSet<node_ref_key> fInsertedNodes;
 	BObjectList<BString> fMimeTypesInSelectionCache;
 		// used for mime string based icon highliting during a drag
 	BObjectList<Model>* fZombieList;
@@ -745,6 +751,7 @@ protected:
 	const BPose* fRealPivotPose;
 	BMessageRunner* fKeyRunner;
 	bool fTrackRightMouseUp;
+	bool fTrackMouseUp;
 
 	struct SelectionRectInfo {
 		SelectionRectInfo()
@@ -791,7 +798,6 @@ protected:
 
 	static float sFontHeight;
 	static font_height sFontInfo;
-	static BFont sCurrentFont;
 	static BString sMatchString;
 		// used for typeahead - should be replaced by a typeahead state
 
@@ -862,18 +868,6 @@ inline float
 BPoseView::ListElemHeight() const
 {
 	return fListElemHeight;
-}
-
-
-inline void
-BPoseView::SetListElemHeight()
-{
-	float extra = 0;
-	if (IconSize() > B_MINI_ICON)
-		extra = kLargeIconSeparator;
-
-	fListElemHeight = std::max((float)IconSize() + extra,
-		ceilf(sFontHeight) < 20 ? 20 : ceilf(sFontHeight * 1.1f));
 }
 
 
@@ -1076,7 +1070,7 @@ BPoseView::CountColumns() const
 inline float
 BPoseView::StartOffset() const
 {
-	return kListOffset + IconSizeInt() + kMiniIconSeparator + 1;
+	return kListOffset + ListIconSize() + kMiniIconSeparator + 1;
 }
 
 

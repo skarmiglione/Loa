@@ -38,10 +38,6 @@ using BPrivate::gDefaultTokens;
 using BPrivate::gLooperList;
 using BPrivate::BLooperList;
 
-enum {
-	NOT_IMPLEMENTED	= B_ERROR,
-};
-
 
 BMessenger::BMessenger()
 	:
@@ -392,7 +388,7 @@ void
 BMessenger::_InitData(const BHandler* handler, const BLooper* looper,
 	status_t* _result)
 {
-	status_t result = handler || looper != NULL ? B_OK : B_BAD_VALUE;
+	status_t result = (handler != NULL || looper != NULL) ? B_OK : B_BAD_VALUE;
 	if (result == B_OK) {
 		if (handler != NULL) {
 			// BHandler is given, check/retrieve the looper.

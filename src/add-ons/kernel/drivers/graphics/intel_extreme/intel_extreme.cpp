@@ -11,12 +11,12 @@
 
 #include "intel_extreme.h"
 
-#include "AreaKeeper.h"
 #include <unistd.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
 
+#include <AreaKeeper.h>
 #include <boot_item.h>
 #include <driver_settings.h>
 #include <util/kernel_cpp.h>
@@ -102,9 +102,12 @@ intel_get_interrupt_mask(intel_info& info, int pipes, bool enable)
 
 	// Intel changed the PCH register mapping between Sandy Bridge and the
 	// later generations (Ivy Bridge and up).
+	// The PCH register itself does not exist in pre-PCH platforms, and the
+	// previous interrupt register of course also had a different mapping.
 
 	if ((pipes & INTEL_PIPE_A) != 0) {
-		if (info.device_type.InGroup(INTEL_GROUP_SNB))
+		if (info.device_type.InGroup(INTEL_GROUP_SNB)
+				|| info.device_type.InGroup(INTEL_GROUP_ILK))
 			mask |= PCH_INTERRUPT_VBLANK_PIPEA_SNB;
 		else if (hasPCH)
 			mask |= PCH_INTERRUPT_VBLANK_PIPEA;
@@ -113,7 +116,8 @@ intel_get_interrupt_mask(intel_info& info, int pipes, bool enable)
 	}
 
 	if ((pipes & INTEL_PIPE_B) != 0) {
-		if (info.device_type.InGroup(INTEL_GROUP_SNB))
+		if (info.device_type.InGroup(INTEL_GROUP_SNB)
+				|| info.device_type.InGroup(INTEL_GROUP_ILK))
 			mask |= PCH_INTERRUPT_VBLANK_PIPEB_SNB;
 		else if (hasPCH)
 			mask |= PCH_INTERRUPT_VBLANK_PIPEB;
@@ -121,9 +125,17 @@ intel_get_interrupt_mask(intel_info& info, int pipes, bool enable)
 			mask |= INTERRUPT_VBLANK_PIPEB;
 	}
 
+#if 0 // FIXME enable when we support the 3rd pipe
+	if ((pipes & INTEL_PIPE_C) != 0) {
+		// Older generations only had two pipes
+		if (hasPCH && info.device_type.Generation() > 6)
+			mask |= PCH_INTERRUPT_VBLANK_PIPEC;
+	}
+#endif
+
 	// On SandyBridge, there is an extra "global enable" flag, which must also
 	// be set when enabling the interrupts (but not when testing for them).
-	if (enable && info.device_type.InGroup(INTEL_GROUP_SNB))
+	if (enable && info.device_type.InFamily(INTEL_FAMILY_SER5))
 		mask |= PCH_INTERRUPT_GLOBAL_SNB;
 
 	return mask;
@@ -135,13 +147,9 @@ intel_interrupt_handler(void* data)
 {
 	intel_info &info = *(intel_info*)data;
 	uint32 reg = find_reg(info, INTEL_INTERRUPT_IDENTITY);
-	bool hasPCH = (info.pch_info != INTEL_PCH_NONE);
 	uint32 identity;
 
-	if (hasPCH)
-		identity = read32(info, reg);
-	else
-		identity = read16(info, reg);
+	identity = read32(info, reg);
 
 	if (identity == 0)
 		return B_UNHANDLED_INTERRUPT;
@@ -170,7 +178,7 @@ intel_interrupt_handler(void* data)
 		}
 
 #if 0
-		// FIXME we don't have supprot for the 3rd pipe yet
+		// FIXME we don't have support for the 3rd pipe yet
 		mask = hasPCH ? PCH_INTERRUPT_VBLANK_PIPEC
 			: 0;
 		if ((identity & mask) != 0) {
@@ -183,13 +191,9 @@ intel_interrupt_handler(void* data)
 #endif
 
 		// setting the bit clears it!
-		if (hasPCH) {
-			write32(info, reg, identity);
-			identity = read32(info, reg);
-		} else {
-			write16(info, reg, identity);
-			identity = read16(info, reg);
-		}
+		write32(info, reg, identity);
+		// update our identity register with the remaining interupts
+		identity = read32(info, reg);
 	}
 
 	return handled;
@@ -227,7 +231,7 @@ init_interrupt_handler(intel_info &info)
 				info.pci->function, 1, &msiVector) == B_OK
 			&& gPCIx86Module->enable_msi(info.pci->bus, info.pci->device,
 				info.pci->function) == B_OK) {
-			ERROR("using message signaled interrupts\n");
+			TRACE("using message signaled interrupts\n");
 			info.irq = msiVector;
 			info.use_msi = true;
 		}
@@ -246,27 +250,15 @@ init_interrupt_handler(intel_info &info)
 			write32(info, INTEL_DISPLAY_B_PIPE_STATUS,
 				DISPLAY_PIPE_VBLANK_STATUS | DISPLAY_PIPE_VBLANK_ENABLED);
 
-			bool hasPCH = (info.pch_info != INTEL_PCH_NONE);
-
 			uint32 enable = intel_get_interrupt_mask(info,
 				INTEL_PIPE_A | INTEL_PIPE_B, true);
 
-			if (hasPCH) {
-				// Clear all the interrupts
-				write32(info, find_reg(info, INTEL_INTERRUPT_IDENTITY), ~0);
+			// Clear all the interrupts
+			write32(info, find_reg(info, INTEL_INTERRUPT_IDENTITY), ~0);
 
-				// enable interrupts - we only want VBLANK interrupts
-				write32(info, find_reg(info, INTEL_INTERRUPT_ENABLED), enable);
-				write32(info, find_reg(info, INTEL_INTERRUPT_MASK), ~enable);
-			} else {
-				// Clear all the interrupts
-				write16(info, find_reg(info, INTEL_INTERRUPT_IDENTITY), ~0);
-
-				// enable interrupts - we only want VBLANK interrupts
-				write16(info, find_reg(info, INTEL_INTERRUPT_ENABLED), enable);
-				write16(info, find_reg(info, INTEL_INTERRUPT_MASK), ~enable);
-			}
-
+			// enable interrupts - we only want VBLANK interrupts
+			write32(info, find_reg(info, INTEL_INTERRUPT_ENABLED), enable);
+			write32(info, find_reg(info, INTEL_INTERRUPT_MASK), ~enable);
 		}
 	}
 	if (status < B_OK) {
@@ -276,7 +268,7 @@ init_interrupt_handler(intel_info &info)
 		info.fake_interrupts = true;
 
 		// TODO: fake interrupts!
-		TRACE("Fake interrupt mode (no PCI interrupt line assigned\n");
+		ERROR("Fake interrupt mode (no PCI interrupt line assigned\n");
 		status = B_ERROR;
 	}
 
@@ -323,7 +315,7 @@ intel_extreme_init(intel_info &info)
 		(void**)&info.shared_info, B_ANY_KERNEL_ADDRESS,
 		ROUND_TO_PAGE_SIZE(sizeof(intel_shared_info)) + 3 * B_PAGE_SIZE,
 		B_FULL_LOCK,
-		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_USER_CLONEABLE_AREA);
+		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_CLONEABLE_AREA);
 	if (info.shared_area < B_OK) {
 		ERROR("error: could not create shared area!\n");
 		gGART->unmap_aperture(info.aperture);
@@ -332,13 +324,11 @@ intel_extreme_init(intel_info &info)
 
 	memset((void*)info.shared_info, 0, sizeof(intel_shared_info));
 
-	int fbIndex = 0;
 	int mmioIndex = 1;
 	if (info.device_type.Generation() >= 3) {
 		// For some reason Intel saw the need to change the order of the
 		// mappings with the introduction of the i9xx family
 		mmioIndex = 0;
-		fbIndex = 2;
 	}
 
 	// evaluate driver settings, if any
@@ -356,7 +346,7 @@ intel_extreme_init(intel_info &info)
 		info.pci->u.h0.base_registers[mmioIndex],
 		info.pci->u.h0.base_register_sizes[mmioIndex],
 		B_ANY_KERNEL_ADDRESS,
-		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_USER_CLONEABLE_AREA,
+		B_KERNEL_READ_AREA | B_KERNEL_WRITE_AREA | B_CLONEABLE_AREA,
 		(void**)&info.registers);
 	if (mmioMapper.InitCheck() < B_OK) {
 		ERROR("error: could not map memory I/O!\n");
@@ -501,6 +491,10 @@ intel_extreme_init(intel_info &info)
 	if (status == B_OK) {
 		info.shared_info->overlay_offset = (addr_t)info.overlay_registers
 			- info.aperture_base;
+		TRACE("Overlay registers mapped at 0x%" B_PRIx32 " = %p - %"
+			B_PRIxADDR " (%" B_PRIxPHYSADDR ")\n",
+			info.shared_info->overlay_offset, info.overlay_registers,
+			info.aperture_base, info.shared_info->physical_overlay_registers);
 		init_overlay_registers(info.overlay_registers);
 	} else {
 		ERROR("error: could not allocate overlay memory! %s\n",
@@ -508,6 +502,7 @@ intel_extreme_init(intel_info &info)
 	}
 
 	// Allocate hardware status page and the cursor memory
+	TRACE("Allocating hardware status page");
 
 	if (intel_allocate_memory(info, B_PAGE_SIZE, 0, B_APERTURE_NEED_PHYSICAL,
 			(addr_t*)info.shared_info->status_page,
@@ -552,16 +547,9 @@ intel_extreme_uninit(intel_info &info)
 	CALLED();
 
 	if (!info.fake_interrupts && info.shared_info->vblank_sem > 0) {
-		bool hasPCH = (info.pch_info != INTEL_PCH_NONE);
-
 		// disable interrupt generation
-		if (hasPCH) {
-			write32(info, find_reg(info, INTEL_INTERRUPT_ENABLED), 0);
-			write32(info, find_reg(info, INTEL_INTERRUPT_MASK), ~0);
-		} else {
-			write16(info, find_reg(info, INTEL_INTERRUPT_ENABLED), 0);
-			write16(info, find_reg(info, INTEL_INTERRUPT_MASK), ~0);
-		}
+		write32(info, find_reg(info, INTEL_INTERRUPT_ENABLED), 0);
+		write32(info, find_reg(info, INTEL_INTERRUPT_MASK), ~0);
 
 		remove_io_interrupt_handler(info.irq, intel_interrupt_handler, &info);
 

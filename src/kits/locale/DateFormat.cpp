@@ -27,6 +27,9 @@
 #include <vector>
 
 
+U_NAMESPACE_USE
+
+
 static const DateFormatSymbols::DtWidthType kDateFormatStyleToWidth[] = {
 	DateFormatSymbols::WIDE,
 	DateFormatSymbols::ABBREVIATED,
@@ -265,8 +268,8 @@ BDateFormat::GetStartOfWeek(BWeekday* startOfWeek) const
 		return B_BAD_VALUE;
 
 	UErrorCode err = U_ZERO_ERROR;
-	ObjectDeleter<Calendar> calendar = Calendar::createInstance(
-		*BFormattingConventions::Private(&fConventions).ICULocale(), err);
+	ObjectDeleter<Calendar> calendar(Calendar::createInstance(
+		*BFormattingConventions::Private(&fConventions).ICULocale(), err));
 
 	if (U_FAILURE(err))
 		return B_ERROR;

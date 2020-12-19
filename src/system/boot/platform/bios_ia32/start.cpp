@@ -8,7 +8,9 @@
 
 #include <KernelExport.h>
 
-#include <arch/cpu.h>
+#include <arch/x86/arch_cpu.h>
+
+#include <boot/arch/x86/arch_cpu.h>
 #include <boot/platform.h>
 #include <boot/heap.h>
 #include <boot/stage2.h>

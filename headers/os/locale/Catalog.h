@@ -24,6 +24,9 @@ public:
 								BCatalog(const entry_ref& catalogOwner,
 									const char* language = NULL,
 									uint32 fingerprint = 0);
+								BCatalog(const char* signature,
+									const char* language = NULL);
+
 	virtual						~BCatalog();
 
 			const char*			GetString(const char* string,
@@ -41,6 +44,8 @@ public:
 			status_t			SetTo(const entry_ref& catalogOwner,
 									const char* language = NULL,
 									uint32 fingerprint = 0);
+			status_t			SetTo(const char* signature,
+									const char* language = NULL);
 
 			status_t			InitCheck() const;
 			int32				CountItems() const;
@@ -119,10 +124,10 @@ private:
 
 #undef B_TRANSLATE_SYSTEM_NAME
 #define B_TRANSLATE_SYSTEM_NAME(string) \
-	BLocaleRoster::Default()->IsFilesystemTranslationPreferred() \
+	(BLocaleRoster::Default()->IsFilesystemTranslationPreferred() \
 		? BLocaleRoster::Default()->GetCatalog()->GetString((string), \
 			B_TRANSLATION_SYSTEM_NAME_CONTEXT) \
-		: (string)
+		: (string))
 
 // Translation markers which can be used to mark static strings/IDs which
 // are used as key for translation requests (at other places in the code).

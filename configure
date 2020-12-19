@@ -25,27 +25,28 @@ options:
                               out HaikuPorts cross-compilation repository.
                               <HaikuPorts repo> is the path to a checked out
                               HaikuPorts repository.
-  --build-cross-tools <arch> [ <build tools dir> ]
-                              Assume cross compilation. <build tools dir>
-                              defines the location of the build tools sources.
-                              They will be compiled and placed in the output
-                              directory under "cross-tools". The HAIKU_* tools
-                              variables will be set accordingly.
+  --build-cross-tools <arch>
+                              Assume cross compilation.
+                              Toolchain will be compiled and placed in the
+                              output directory under "cross-tools". The
+                              HAIKU_* tools variables will be set accordingly.
                               <arch> specifies the target architecture, either
-                              "x86_gcc2", "x86", "x86_64", "ppc", "m68k", "arm", "arm64"
+                              "x86_gcc2", "x86", "x86_64", "ppc", "m68k",
+                              "arm", "arm64", "riscv64", "sparc"
                               This option and --cross-tools-prefix can be
                               specified multiple times. The first cross tools
                               specify the primary tools, the subsequent ones the
                               secondary tools (for "hybrid" images).
-                              For the first --build-cross-tools the
-                              <build tools dir> argument must be specified and
-                              for the subsequent ones it must be omitted.
   --cross-tools-prefix <prefix>
                               Assume cross compilation. <prefix> should be a
                               path to the directory where the cross
                               compilation tools are located, plus the platform
                               prefix, e.g. "/path/to/tools/i586-pc-haiku-".
                               This overrides the HAIKU_* tool variables.
+  --cross-tools-source <buildtools dir>
+                              Toolchain sources for cross compilation.
+                              <buildtools dir> defines the location of the
+                              buildtools sources.
   --distro-compatibility <level>
                               The distribution's level of compatibility with
                               the official Haiku distribution. The generated
@@ -208,6 +209,16 @@ real_path()
 	perl -MCwd=realpath -e'print realpath($ARGV[0]), "\n"' "$1"
 }
 
+# relative_to
+#
+# returns $1 relative to $2
+#
+relative_to()
+{
+	perl -e 'use File::Spec; print File::Spec->abs2rel(@ARGV) . "\n"' \
+		"$1" "$2"
+}
+
 # valid_toolchain
 #
 # check if a toolchain is valid
@@ -226,6 +237,19 @@ valid_toolchain()
 		return $?
 	fi
 	return 1
+}
+
+# is_legacy_gcc
+#
+# Determines if the specified GCC version is a "legacy" (i.e. GCC < 4) one.
+#
+is_legacy_gcc()
+{
+	if [ `echo $1 | cut -d'.' -f1` -lt 4 ]; then
+		echo 1
+	else
+		echo 0
+	fi
 }
 
 # standard_gcc_settings
@@ -256,10 +280,12 @@ standard_gcc_settings()
 	# determine architecture from machine triple
 	case $gccMachine in
 		arm-*)		targetCpu=arm;;
-		arm64-*)	targetCpu=arm64;;
+		aarch64-*)	targetCpu=arm64;;
 		i?86-*)		targetCpu=x86;;
 		m68k-*)		targetCpu=m68k;;
 		powerpc-*)	targetCpu=ppc;;
+		riscv64-*)	targetCpu=riscv64;;
+		sparc64-*)	targetCpu=sparc;;
 		x86_64-*)	targetCpu=x86_64;;
 		*)
 			echo "Unsupported gcc target machine: $gccMachine" >&2
@@ -318,6 +344,8 @@ standard_gcc_settings()
 	set_variable HAIKU_CPU_$targetArch $targetCpu
 
 	get_build_tool_path CC_$targetArch "$gcc"
+	set_variable HAIKU_CC_IS_LEGACY_GCC_$targetArch \
+		`is_legacy_gcc $gccRawVersion`
 	set_variable HAIKU_CC_IS_CLANG_$targetArch $useClang
 	set_variable HAIKU_GCC_RAW_VERSION_$targetArch $gccRawVersion
 	set_variable HAIKU_GCC_MACHINE_$targetArch $gccMachine
@@ -421,7 +449,7 @@ check_native_xattrs()
 			xattr_set="setextattr"; xattr_set_args="user \$NAME \"\$VALUE\""
 			xattr_get="getextattr"; xattr_get_args="user \$NAME"
 			;;
-		linux)
+		linux|msys)
 			xattr_set="setfattr"; xattr_set_args="-n user.\$NAME -v \"\$VALUE\""
 			xattr_get="getfattr"; xattr_get_args="-n user.\$NAME"
 			;;
@@ -512,7 +540,7 @@ if [ "$1" = "--update" ]; then
 			"encoded into '$buildConfigFile' - updating not possible."
 		exit 1
 	fi
-	cd $lastPwd
+	cd "$lastPwd"
 	if [ -n "$lastEnv" ]; then
 		export $lastEnv
 	fi
@@ -528,15 +556,18 @@ configurePath=$0
 configureEnvirons=
 for var in `env`; do
 	case "$var" in
-		CC\=*|HAIKU*\=*)
+		CC\=*|HAIKU*\=*|JAMSHELL\=*)
 			configureEnvirons="$configureEnvirons $var"
 			;;
 	esac
 done
 
 # ensure umask is not too restrictive
-if [ $(umask) -gt 22 ]; then
-	echo "Your umask is too restrictive (should be: <= 0022; is actually:" $(umask)")"
+if [ `umask` -gt 22 ]; then
+	echo Your umask is too restrictive "(should be <= 0022;" is actually `umask`")"
+	echo
+	echo Additionally, if the source tree was cloned with a too-restrictive umask,
+	echo you will need to run \"git checkout\" again to fix this.
 	exit 1
 fi
 
@@ -558,9 +589,41 @@ if [ -z "$CC" ]; then
 	CC=gcc
 fi
 
+# detect the build platform
+case "${platform}" in
+	Darwin)  HOST_PLATFORM=darwin ;;
+	FreeBSD) HOST_PLATFORM=freebsd
+	         if [ "$HAIKU_HOST_USE_32BIT" = 1 ] ; then
+	         	echo Unsupported platform: FreeBSD ${platformMachine}
+	         	exit 1
+	         fi ;;
+	Haiku)   HOST_PLATFORM=haiku_host ;;
+	Linux)   HOST_PLATFORM=linux ;;
+	OpenBSD) HOST_PLATFORM=openbsd ;;
+	MSYS*)   HOST_PLATFORM=msys ;;
+	*)       echo Unsupported platform: ${platform}
+	         exit 1 ;;
+esac
+
+case $HOST_PLATFORM in
+	darwin|freebsd|openbsd) statCmd='stat -f' ;;
+	*)                      statCmd='stat -c' ;;
+esac
+
+# ensure git checkout was not done with a restrictive umask
+if [ `$statCmd '%a' "$sourceDir/data/system/boot/SetupEnvironment"` -lt 644 ]; then
+	echo "The source tree was cloned with a umask > 0022. It seems you"
+	echo have already corrected your umask, but not re-checked-out the
+	echo source tree. Try running:
+	echo "	git checkout --force"
+	echo to fix this problem.
+	exit 1
+fi
+
 # exported (BuildSetup) default parameter values
 #
 HOST_GCC_RAW_VERSION=`$CC -dumpversion`
+HOST_CC_IS_LEGACY_GCC=`is_legacy_gcc $HOST_GCC_RAW_VERSION`
 HOST_GCC_MACHINE=`$CC -dumpmachine`
 HAIKU_INCLUDE_SOURCES=0
 HAIKU_INCLUDE_3RDPARTY=0
@@ -604,6 +667,8 @@ supportedTargetArchs="
 	arm64
 	m68k
 	ppc
+	riscv64
+	sparc
 	x86
 	x86_64
 	x86_gcc2
@@ -634,17 +699,15 @@ while [ $# -gt 0 ] ; do
 			)
 			shift 4
 			;;
+		--cross-tools-source)
+			assertparam "$1" $#
+			buildCrossTools=$2
+			shift 2
+			;;
 		--build-cross-tools)
-			if [ -z "$buildCrossTools" ]; then
-				assertparams "$1" 2 $#
-				targetArch=$2
-				buildCrossTools=$3
-				shift 3
-			else
-				assertparam "$1" $#
-				targetArch=$2
-				shift 2
-			fi
+			assertparam "$1" $#
+			targetArch=$2
+			shift 2
 			case "$targetArch" in
 				x86_gcc2)	targetMachine=i586-pc-haiku;;
 				x86)		targetMachine=i586-pc-haiku;;
@@ -652,6 +715,9 @@ while [ $# -gt 0 ] ; do
 				ppc)		targetMachine=powerpc-apple-haiku;;
 				m68k)		targetMachine=m68k-unknown-haiku;;
 				arm)		targetMachine=arm-unknown-haiku;;
+				arm64)		targetMachine=aarch64-unknown-haiku;;
+				riscv64)	targetMachine=riscv64-unknown-haiku;;
+				sparc)		targetMachine=sparc64-unknown-haiku;;
 				*)
 					echo "Unsupported target architecture: $targetArch" >&2
 					exit 1
@@ -709,7 +775,9 @@ while [ $# -gt 0 ] ; do
 				x86_64)		targetMachine=x86_64-unknown-haiku;;
 				ppc)		targetMachine=powerpc-apple-haiku;;
 				arm)		targetMachine=arm-unknown-haiku;;
-				arm64)		targetMachine=arm64-unknown-haiku;;
+				arm64)		targetMachine=aarch64-unknown-haiku;;
+				riscv64)	targetMachine=riscv64-unknown-haiku;;
+				sparc)		targetMachine=sparc64-unknown-haiku;;
 				*)
 					echo "Unsupported target architecture: $2" >&2
 					exit 1
@@ -721,7 +789,7 @@ while [ $# -gt 0 ] ; do
 				set_variable crossToolsPrefix_$targetArch llvm-
 			fi
 			clangVersion=`$HAIKU_clang -v 2>&1 | head -1 | cut -d " " -f3`
-			if [ `echo $clangVersion | head -c 1` -lt 7 ]; then
+			if [ `echo $clangVersion | cut -d'.' -f1` -lt 7 ]; then
 				echo "Haiku requires Clang 7 or better to build, but you have $clangVersion."
 				echo "Please install a newer version."
 				exit 1
@@ -738,23 +806,6 @@ while [ $# -gt 0 ] ; do
 		*)				echo Invalid argument: \`$1\'; exit 1;;
 	esac
 done
-
-# detect the build platform
-case "${platform}" in
-	Darwin)	HOST_PLATFORM=darwin ;;
-	FreeBSD)	HOST_PLATFORM=freebsd
-				if [ "$HAIKU_HOST_USE_32BIT" = 1 ] ; then
-					echo Unsupported platform: FreeBSD ${platformMachine}
-					exit 1
-				fi	;;
-	Haiku)	HOST_PLATFORM=haiku_host ;;
-	Linux)	HOST_PLATFORM=linux ;;
-	OpenBSD) HOST_PLATFORM=openbsd ;;
-	SunOS)	HOST_PLATFORM=sunos ;;
-	CYGWIN_NT-*) HOST_PLATFORM=cygwin ;;
-	*)		echo Unsupported platform: ${platform}
-			exit 1 ;;
-esac
 
 # check for case-sensitive filesystem
 mkdir haikuCaseTest 2>/dev/null
@@ -785,6 +836,29 @@ if [ -z $HAIKU_HOST_USE_XATTR_REF ]; then HAIKU_HOST_USE_XATTR_REF=0; fi
 # determine how to invoke sed with extended regexp support for non-GNU sed
 if [ $HOST_PLATFORM = "darwin" ]; then
 	HOST_EXTENDED_REGEX_SED="sed -E"
+fi
+
+# pick a JAMSHELL
+if [ "$JAMSHELL" = "" ]; then
+	if check_file_exists /bin/dash; then
+		JAMSHELL=/bin/dash
+	else
+		JAMSHELL=/bin/sh
+	fi
+fi
+if ! $JAMSHELL -c true; then
+	echo "$JAMSHELL does not work! Please specify a working JAMSHELL."
+	exit 1
+fi
+
+# locate python
+if python3 --version < /dev/null > /dev/null 2>&1; then
+	HOST_PYTHON="python3"
+elif python --version < /dev/null > /dev/null 2>&1; then
+	HOST_PYTHON="python"
+else
+	echo "a python interpreter is required"
+	exit 1
 fi
 
 # check if nasm can actually output ELF files
@@ -866,6 +940,12 @@ else
 			done
 			targetArchs="$haikuTargetArchs"
 		fi
+	fi
+
+	if [ "$targetArchs" = " x86_gcc2" ]; then
+		echo "Building a GCC2-only Haiku is no longer supported."
+		echo "Please configure the secondary architecture."
+		exit 1
 	fi
 
 	isPrimaryArch=1
@@ -1015,16 +1095,19 @@ HAIKU_HOST_USE_XATTR		?= "${HAIKU_HOST_USE_XATTR}" ;
 HAIKU_HOST_USE_XATTR_REF	?= "${HAIKU_HOST_USE_XATTR_REF}" ;
 HAIKU_HOST_BUILD_ONLY		?= "${HAIKU_HOST_BUILD_ONLY}" ;
 
+JAMSHELL					?= ${JAMSHELL} -c ;
+
 HOST_CC						?= ${CC} ;
-HOST_GCC_RAW_VERSION		?= ${HOST_GCC_RAW_VERSION} ;
+HOST_CC_IS_LEGACY_GCC		?= ${HOST_CC_IS_LEGACY_GCC} ;
 HOST_GCC_MACHINE			?= ${HOST_GCC_MACHINE} ;
 HOST_LD						?= ${HOST_GCC_LD} ;
 HOST_OBJCOPY				?= ${HOST_GCC_OBJCOPY} ;
 HOST_EXTENDED_REGEX_SED		?= ${HOST_EXTENDED_REGEX_SED} ;
 HOST_SHA256					?= ${HOST_SHA256} ;
+HOST_PYTHON					?= ${HOST_PYTHON} ;
 HAIKU_NASM					?= ${HAIKU_NASM} ;
 
-HAIKU_BUILD_ATTRIBUTES_DIR	?= ${HAIKU_BUILD_ATTRIBUTES_DIR} ;
+HAIKU_BUILD_ATTRIBUTES_DIR	?= "${HAIKU_BUILD_ATTRIBUTES_DIR}" ;
 
 HOST_HAIKU_PORTER			?= ${HOST_HAIKU_PORTER} ;
 HAIKU_PORTS					?= ${HAIKU_PORTS} ;
@@ -1036,11 +1119,11 @@ EOF
 for targetArch in $HAIKU_PACKAGING_ARCHS; do
 	variables="
 		HAIKU_CC					HAIKU_CC
+		HAIKU_CC_IS_LEGACY_GCC		HAIKU_CC_IS_LEGACY_GCC
 		HAIKU_CC_IS_CLANG			HAIKU_CC_IS_CLANG
 		HAIKU_USE_GCC_GRAPHITE		HAIKU_USE_GCC_GRAPHITE
 		HAIKU_CPU					HAIKU_CPU
 		HAIKU_GCC_MACHINE			HAIKU_GCC_MACHINE
-		HAIKU_GCC_RAW_VERSION		HAIKU_GCC_RAW_VERSION
 		HAIKU_GCC_LIB_DIR			HAIKU_GCC_LIB_DIR
 		HAIKU_BOOT_LIBGCC			HAIKU_BOOT_LIBGCC
 		HAIKU_BOOT_LIBSUPC++		HAIKU_BOOT_LIBSUPCXX
@@ -1081,13 +1164,15 @@ for targetArch in $HAIKU_PACKAGING_ARCHS; do
 done
 
 
-# Generate a boot strap Jamfile in the output directory.
+# Generate a Jamfile in the output directory.
 
 cat << EOF > $outputDir/Jamfile
-# automatically generated Jamfile
+# -- WARNING --
+# This file was AUTOMATICALLY GENERATED by configure, and will be completely
+# overwritten the next time configure is run.
 
-HAIKU_TOP			= ${sourceDir} ;
-HAIKU_OUTPUT_DIR	= ${outputDir} ;
+HAIKU_TOP			= $(relative_to "${sourceDir}" "${outputDir}") ;
+HAIKU_OUTPUT_DIR	= . ;
 
 include [ FDirName \$(HAIKU_TOP) Jamfile ] ;
 
